@@ -7,7 +7,14 @@ string(TOUPPER hpg EXPORT_NAME)
 option(BUILD_${EXPORT_NAME}_PLUGIN "Option to build hpg" ON)
 
 if(BUILD_${EXPORT_NAME}_PLUGIN)
-  project(hpg)
+  if(NOT ENABLE_CUDA)
+    message(FATAL_ERROR "The HPG plugin requires CUDA. Please enable it setting the option ENABLE_CUDA.")
+  endif()
+
+  project(hpg LANGUAGES CXX CUDA)
+
+  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
+  include(configure_optix)
 
   # Check option dependencies: First list item is always the current build option,
   # afterwards list the dependencies.

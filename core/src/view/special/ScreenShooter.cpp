@@ -7,9 +7,12 @@
 
 #include "stdafx.h"
 #include "mmcore/view/special/ScreenShooter.h"
+
 #include <climits>
+#include <limits>
 #include <map>
 #include <sstream>
+
 #include "mmcore/AbstractNamedObject.h"
 #include "mmcore/AbstractNamedObjectContainer.h"
 #include "mmcore/CoreInstance.h"
@@ -22,6 +25,7 @@
 #include "mmcore/param/StringParam.h"
 #include "mmcore/view/CallRenderView.h"
 #include "png.h"
+#include "mmcore/versioninfo.h"
 #include "vislib/Trace.h"
 #include "vislib/assert.h"
 #include "vislib/graphics/gl/FramebufferObject.h"
@@ -32,7 +36,8 @@
 #include "vislib/sys/File.h"
 #include "mmcore/utility/log/Log.h"
 #include "mmcore/utility/sys/Thread.h"
-
+#include "mmcore/utility/DateTime.h"
+#include "mmcore/utility/graphics/ScreenShotComments.h"
 
 namespace megamol {
 namespace core {
@@ -242,7 +247,7 @@ view::special::ScreenShooter::ScreenShooter(const bool reducedParameters) : job:
     this->backgroundSlot << bkgnd;
     this->MakeSlotAvailable(&this->backgroundSlot);
 
-    this->triggerButtonSlot << new param::ButtonParam(core::view::Key::KEY_S, core::view::Modifier::CTRL);
+    this->triggerButtonSlot << new param::ButtonParam(core::view::Key::KEY_S, core::view::Modifier::ALT);
     this->triggerButtonSlot.SetUpdateCallback(&ScreenShooter::triggerButtonClicked);
     if (!reducedParameters) this->MakeSlotAvailable(&this->triggerButtonSlot);
 
@@ -436,9 +441,6 @@ void view::special::ScreenShooter::BeforeRender(view::AbstractView* view) {
             throw vislib::Exception("Cannot create png info", __FILE__, __LINE__);
         }
         png_set_write_fn(data.pngPtr, static_cast<void*>(&file), &myPngWrite, &myPngFlush);
-        png_set_IHDR(data.pngPtr, data.pngInfoPtr, data.imgWidth, data.imgHeight, 8,
-            (bkgndMode == 1) ? PNG_COLOR_TYPE_RGB_ALPHA : PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
-            PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
         if (this->disableCompressionSlot.Param<param::BoolParam>()->Value()) {
             png_set_compression_level(data.pngPtr, 0);
@@ -448,16 +450,13 @@ void view::special::ScreenShooter::BeforeRender(view::AbstractView* view) {
         // to have a legal exif structure (lol)
 
         // todo: camera settings are not stored without magic knowledge about the view
+        megamol::core::utility::graphics::ScreenShotComments ssc(this->GetCoreInstance());
 
-        std::string serInstances, serModules, serCalls, serParams;
-        this->GetCoreInstance()->SerializeGraph(serInstances, serModules, serCalls, serParams);
-        auto confstr = serInstances + "\n" + serModules + "\n" + serCalls + "\n" + serParams;
-        std::vector<png_byte> tempvec(confstr.begin(), confstr.end());
-        tempvec.push_back('\0');
-        // auto info = new png_byte[confstr.size()];
-        // memcpy(info, confstr.c_str(), confstr.size());
-        // png_set_eXIf_1(data.pngPtr, data.pngInfoPtr, sizeof(info), info);
-        png_set_eXIf_1(data.pngPtr, data.pngInfoPtr, tempvec.size(), tempvec.data());
+        png_set_text(data.pngPtr, data.pngInfoPtr, ssc.GetComments().data(), ssc.GetComments().size());
+
+        png_set_IHDR(data.pngPtr, data.pngInfoPtr, data.imgWidth, data.imgHeight, 8,
+            (bkgndMode == 1) ? PNG_COLOR_TYPE_RGB_ALPHA : PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+            PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
         // check how complex the upcoming action is
         if ((data.imgWidth <= data.tileWidth) && (data.imgHeight <= data.tileHeight)) {
@@ -939,11 +938,12 @@ bool view::special::ScreenShooter::triggerButtonClicked(param::ParamSlot& slot) 
             if (this->makeAnimSlot.Param<param::BoolParam>()->Value()) {
                 param::ParamSlot* timeSlot = this->findTimeParam(vi->View());
                 if (timeSlot != nullptr) {
-                    timeSlot->Param<param::FloatParam>()->SetValue(
-                        static_cast<float>(this->animFromSlot.Param<param::IntParam>()->Value()));
-                    this->animLastFrameTime = (float)UINT_MAX;
+                    auto startTime = static_cast<float>(this->animFromSlot.Param<param::IntParam>()->Value());
+                    Log::DefaultLog.WriteInfo("Starting animation of screen shots at %f.", time);
+                    timeSlot->Param<param::FloatParam>()->SetValue(startTime);
+                    this->animLastFrameTime = std::numeric_limits<decltype(animLastFrameTime)>::lowest();
                 } else {
-                    Log::DefaultLog.WriteError("Unable to make animation screen shots");
+                    Log::DefaultLog.WriteError("Unable to make animation screen shots.");
                     this->makeAnimSlot.Param<param::BoolParam>()->SetValue(false);
                 }
                 // this is not a good idea because the animation module interferes with the "anim::time" parameter in

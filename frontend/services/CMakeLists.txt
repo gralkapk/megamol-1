@@ -33,6 +33,7 @@ if(BUILD_FRONTEND_SERVICES)
     "remote_service/*.hpp"
     "profiling_service/*.hpp"
     "vr_service/*.hpp"
+    "video_service/*.hpp"
 #   "service_template/*.hpp"
     )
 
@@ -49,6 +50,7 @@ if(BUILD_FRONTEND_SERVICES)
     "remote_service/*.cpp"
     "profiling_service/*.cpp"
     "vr_service/*.cpp"
+    "video_service/*.cpp"
     # "service_template/*.cpp"
   )
 
@@ -109,6 +111,7 @@ if(BUILD_FRONTEND_SERVICES)
     "profiling_service"
     "gui/src"
     "vr_service"
+    "video_service"
    # "service_template"
   )
 

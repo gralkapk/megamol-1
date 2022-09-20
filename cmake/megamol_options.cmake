@@ -60,6 +60,18 @@ if (WIN32)
   endif()
 endif()
 
+# VPL
+option(ENABLE_VPL "Enable VPL for video capturing" OFF)
+if (ENABLE_VPL)
+  add_compile_definitions(VPL_ENABLED)
+endif()
+
+# FFMPEG
+option(ENABLE_FFMPEG "Enable FFMPEG for video capturing" OFF)
+if (ENABLE_FFMPEG)
+  add_compile_definitions(FFMPEG_ENABLED)
+endif()
+
 # GLFW
 option(USE_GLFW "Use GLFW" ON)
 

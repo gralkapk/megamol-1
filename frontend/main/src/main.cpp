@@ -22,6 +22,7 @@
 #include "ProjectLoader_Service.hpp"
 #include "Remote_Service.hpp"
 #include "Screenshot_Service.hpp"
+#include "Video_Service.hpp"
 
 
 static void log(std::string const& text) {
@@ -111,6 +112,10 @@ int main(const int argc, const char** argv) {
     screenshotConfig.show_privacy_note = config.screenshot_show_privacy_note;
     screenshot_service.setPriority(30);
 
+    megamol::frontend::Video_Service video_service;
+    megamol::frontend::Video_Service video_config;
+    video_service.setPriority(40);
+
     megamol::frontend::FrameStatistics_Service framestatistics_service;
     megamol::frontend::FrameStatistics_Service::Config framestatisticsConfig;
     // needs to execute before gl_service at frame start, after gl service at frame end
@@ -186,6 +191,7 @@ int main(const int argc, const char** argv) {
     services.add(gui_service, &guiConfig);
     services.add(lua_service_wrapper, &luaConfig);
     services.add(screenshot_service, &screenshotConfig);
+    services.add(video_service, &video_config);
     services.add(framestatistics_service, &framestatisticsConfig);
     services.add(projectloader_service, &projectloaderConfig);
     services.add(imagepresentation_service, &imagepresentationConfig);

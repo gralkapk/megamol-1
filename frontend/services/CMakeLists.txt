@@ -31,6 +31,7 @@ if(BUILD_FRONTEND_SERVICES)
     "image_presentation/*.hpp"
     "remote_service/*.hpp"
     "profiling_service/*.hpp"
+    "video_service/*.hpp"
 #   "service_template/*.hpp"
     )
 
@@ -46,6 +47,7 @@ if(BUILD_FRONTEND_SERVICES)
     "image_presentation/*.cpp"
     "remote_service/*.cpp"
     "profiling_service/*.cpp"
+    "video_service/*.cpp"
     # "service_template/*.cpp"
   )
 
@@ -105,6 +107,7 @@ if(BUILD_FRONTEND_SERVICES)
     "remote_service"
     "profiling_service"
     "gui/src"
+    "video_service"
    # "service_template"
   )
 
@@ -119,6 +122,29 @@ if(BUILD_FRONTEND_SERVICES)
     find_package(CUDAToolkit)
     target_compile_definitions(${PROJECT_NAME} PUBLIC MM_CUDA_ENABLED)
     target_link_libraries(${PROJECT_NAME} PRIVATE CUDA::cuda_driver)
+  endif()
+
+  if(ENABLE_VPL)
+    find_package(VPL REQUIRED)
+    target_link_libraries(${PROJECT_NAME} PRIVATE VPL::dispatcher)
+  endif()
+
+  if(ENABLE_FFMPEG)
+    
+    find_path(AVCODEC_INCLUDE_DIR libavcodec/avcodec.h)
+    find_library(AVCODEC_LIBRARY avcodec)
+    find_path(AVFORMAT_INCLUDE_DIR libavformat/avformat.h)
+    find_library(AVFORMAT_LIBRARY avformat)
+    find_path(AVUTIL_INCLUDE_DIR libavutil/avutil.h)
+    find_library(AVUTIL_LIBRARY avutil)
+    find_path(AVDEVICE_INCLUDE_DIR libavdevice/avdevice.h)
+    find_library(AVDEVICE_LIBRARY avdevice)
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+      ${AVCODEC_LIBRARY} ${AVFORMAT_LIBRARY} ${AVUTIL_LIBRARY} ${AVDEVICE_LIBRARY}
+    )
+    target_include_directories(${PROJECT_NAME} PRIVATE
+      ${AVCODEC_INCLUDE_DIR} ${AVFORMAT_INCLUDE_DIR} ${AVUTIL_INCLUDE_DIR} ${AVDEVICE_INCLUDE_DIR}
+    )
   endif()
 
   if(MPI_C_FOUND)

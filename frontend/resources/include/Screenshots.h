@@ -15,6 +15,8 @@
 namespace megamol {
 namespace frontend_resources {
 
+struct ScreenshotImageData_YUV;
+
 struct ScreenshotImageData {
     struct Pixel {
         std::uint8_t r = 255;
@@ -22,6 +24,10 @@ struct ScreenshotImageData {
         std::uint8_t b = 0;
         std::uint8_t a = 255;
     };
+
+    ScreenshotImageData() = default;
+
+    ScreenshotImageData(ScreenshotImageData_YUV const& yuv);
 
     size_t width = 0;
     size_t height = 0;
@@ -47,6 +53,72 @@ struct ScreenshotImageData {
             rows[i] = row_address;
             flipped_rows[height - (1 + i)] = row_address;
         }
+    }
+};
+
+struct ScreenshotImageData_YUV {
+    struct Pixel {
+        std::uint8_t y = 255;
+        std::uint8_t u = 0;
+        std::uint8_t v = 0;
+    };
+
+    ScreenshotImageData_YUV() = default;
+
+    ScreenshotImageData_YUV(ScreenshotImageData const& rgb);
+
+    size_t width = 0;
+    size_t height = 0;
+
+    // row-major image starting at bottom-left pixel
+    // as in https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glReadPixels.xhtml
+    std::vector<Pixel> image;
+
+    // to write PNGs we need to provide rows
+    std::vector<Pixel*> rows;
+    std::vector<Pixel*> flipped_rows;
+
+    void resize(const size_t width, const size_t height) {
+        this->width = width;
+        this->height = height;
+
+        image.resize(width * height);
+        rows.resize(height);
+        flipped_rows.resize(height);
+
+        for (size_t i = 0; i < height; i++) {
+            const auto row_address = image.data() + i * width;
+            rows[i] = row_address;
+            flipped_rows[height - (1 + i)] = row_address;
+        }
+    }
+};
+
+struct ScreenshotImageData_I420 {
+    struct Pixel {
+        std::uint8_t y = 255;
+        std::uint8_t u = 0;
+        std::uint8_t v = 0;
+    };
+
+    ScreenshotImageData_I420() = default;
+
+    ScreenshotImageData_I420(ScreenshotImageData_YUV const& yuv);
+
+    size_t width = 0;
+    size_t height = 0;
+
+    std::vector<uint8_t> Y;
+    std::vector<uint8_t> U;
+    std::vector<uint8_t> V;
+
+    void resize(const size_t width, const size_t height) {
+        this->width = width;
+        this->height = height;
+
+        Y.resize(width * height);
+        U.resize((width / 2) * (height / 2));
+        V.resize((width / 2) * (height / 2));
     }
 };
 

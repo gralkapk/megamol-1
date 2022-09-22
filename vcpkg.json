@@ -19,6 +19,19 @@
     "delaunator-cpp",
     "eigen3",
     "expat",
+    {
+      "name": "ffmpeg",
+      "features" : [
+        "avcodec",
+        "avdevice",
+        "avfilter",
+        "avformat",
+        "postproc",
+        "swresample",
+        "swscale",
+        "nvcodec"
+      ]
+    },
     "glfw3",
     "glm",
     {

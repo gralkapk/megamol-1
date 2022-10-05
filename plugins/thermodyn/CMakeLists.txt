@@ -7,4 +7,5 @@ megamol_plugin(thermodyn
   BUILD_DEFAULT ON
   DEPENDS_PLUGINS
     mmstd
-    geometry_calls)
+    geometry_calls
+    datatools)

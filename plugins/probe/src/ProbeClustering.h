@@ -59,7 +59,7 @@ private:
 
     bool is_dirty() {
         return _eps_slot.IsDirty() || _minpts_slot.IsDirty() || _threshold_slot.IsDirty() ||
-               _handwaving_slot.IsDirty() || _angle_threshold_slot.IsDirty();
+               /*_handwaving_slot.IsDirty() ||*/ _angle_threshold_slot.IsDirty();
     }
 
     bool is_debug_dirty() {
@@ -70,7 +70,7 @@ private:
         _eps_slot.ResetDirty();
         _minpts_slot.ResetDirty();
         _threshold_slot.ResetDirty();
-        _handwaving_slot.ResetDirty();
+        //_handwaving_slot.ResetDirty();
         _angle_threshold_slot.ResetDirty();
     }
 
@@ -126,7 +126,7 @@ private:
 
     core::param::ParamSlot _threshold_slot;
 
-    core::param::ParamSlot _handwaving_slot;
+    //core::param::ParamSlot _handwaving_slot;
 
     core::param::ParamSlot _lhs_idx_slot;
 

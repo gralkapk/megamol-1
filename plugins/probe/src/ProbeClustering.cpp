@@ -15,7 +15,7 @@ megamol::probe::ProbeClustering::ProbeClustering()
         , _eps_slot("eps", "")
         , _minpts_slot("minpts", "")
         , _threshold_slot("threshold", "")
-        , _handwaving_slot("handwaving", "")
+        //, _handwaving_slot("handwaving", "")
         , _lhs_idx_slot("debug::lhs_idx", "")
         , _rhs_idx_slot("debug::rhs_idx", "")
         , _print_debug_info_slot("debug::print", "")
@@ -40,8 +40,8 @@ megamol::probe::ProbeClustering::ProbeClustering()
     _threshold_slot << new core::param::FloatParam(0.1f, 0.0f);
     MakeSlotAvailable(&_threshold_slot);
 
-    _handwaving_slot << new core::param::FloatParam(0.05f, 0.0f);
-    MakeSlotAvailable(&_handwaving_slot);
+    /*_handwaving_slot << new core::param::FloatParam(0.05f, 0.0f);
+    MakeSlotAvailable(&_handwaving_slot);*/
 
     _lhs_idx_slot << new core::param::IntParam(0, 0);
     MakeSlotAvailable(&_lhs_idx_slot);
@@ -134,7 +134,7 @@ bool megamol::probe::ProbeClustering::get_data_cb(core::Call& c) {
             auto const eps = _eps_slot.Param<core::param::FloatParam>()->Value();
             auto const minpts = _minpts_slot.Param<core::param::IntParam>()->Value();
             auto const threshold = _threshold_slot.Param<core::param::FloatParam>()->Value();
-            auto const handwaving = _handwaving_slot.Param<core::param::FloatParam>()->Value();
+           // auto const handwaving = _handwaving_slot.Param<core::param::FloatParam>()->Value();
             auto const angle_threshold = glm::radians(_angle_threshold_slot.Param<core::param::FloatParam>()->Value());
 
             bool vec_probe = false;
@@ -217,7 +217,7 @@ bool megamol::probe::ProbeClustering::get_data_cb(core::Call& c) {
 
                         return crit_a && crit_b;
                     },
-                    [this, handwaving](datatools::clustering::index_t pivot,
+                    [this](datatools::clustering::index_t pivot,
                         std::vector<datatools::clustering::index_t> const& cluster) -> datatools::clustering::index_t {
                         if (cluster.empty())
                             return pivot;

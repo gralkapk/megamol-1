@@ -10,6 +10,8 @@
 
 #include "datatools/PointcloudHelpers.h"
 
+#include <glm/glm.hpp>
+
 namespace megamol::thermodyn {
 class ContactSurface : public core::Module {
 public:
@@ -46,6 +48,10 @@ private:
 
     core::param::ParamSlot distance_threshold_slot_;
 
+    core::param::ParamSlot min_threshold_slot_;
+
+    core::param::ParamSlot max_threshold_slot_;
+
     bool get_data_cb(core::Call& c);
 
     bool get_extent_cb(core::Call& c);
@@ -74,6 +80,7 @@ private:
     std::shared_ptr<my_kd_tree_t> particleTree;
     std::shared_ptr<pointcloud_t> myPts;
 
-    std::vector<float> out_data_vec_;
+    std::vector<glm::vec3> out_data_vec_;
+    std::vector<glm::vec3> out_normal_vec_;
 };
 } // namespace megamol::thermodyn

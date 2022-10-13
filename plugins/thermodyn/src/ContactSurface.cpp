@@ -12,7 +12,9 @@ megamol::thermodyn::ContactSurface::ContactSurface()
         : out_data_slot_("dataOut", "")
         , in_data_slot_("dataIn", "")
         , knn_slot_("#neighbors", "")
-        , distance_threshold_slot_("distance threshold", "") {
+        , distance_threshold_slot_("distance threshold", "")
+        , min_threshold_slot_("threshold::min", "")
+        , max_threshold_slot_("threshold::max", "") {
     out_data_slot_.SetCallback(geocalls::MultiParticleDataCall::ClassName(),
         geocalls::MultiParticleDataCall::FunctionName(0), &ContactSurface::get_data_cb);
     out_data_slot_.SetCallback(geocalls::MultiParticleDataCall::ClassName(),
@@ -27,6 +29,11 @@ megamol::thermodyn::ContactSurface::ContactSurface()
 
     distance_threshold_slot_ << new core::param::FloatParam(3.0f, std::numeric_limits<float>::min());
     MakeSlotAvailable(&distance_threshold_slot_);
+
+    min_threshold_slot_ << new core::param::FloatParam(0.1f, std::numeric_limits<float>::min(), 1.0f);
+    MakeSlotAvailable(&min_threshold_slot_);
+    max_threshold_slot_ << new core::param::FloatParam(0.5f, std::numeric_limits<float>::min(), 1.0f);
+    MakeSlotAvailable(&max_threshold_slot_);
 }
 
 
@@ -103,6 +110,8 @@ bool megamol::thermodyn::ContactSurface::get_data_cb(core::Call& c) {
 
         auto const num_neighbors = knn_slot_.Param<core::param::IntParam>()->Value();
         auto const distance_threshold = distance_threshold_slot_.Param<core::param::FloatParam>()->Value();
+        auto const min_threshold = min_threshold_slot_.Param<core::param::FloatParam>()->Value();
+        auto const max_threshold = max_threshold_slot_.Param<core::param::FloatParam>()->Value();
 
         float query_v[3];
         auto const& p0_x_acc = phase_0.GetParticleStore().GetXAcc();
@@ -123,17 +132,61 @@ bool megamol::thermodyn::ContactSurface::get_data_cb(core::Call& c) {
         }
 
         out_data_vec_.clear();
-        out_data_vec_.reserve(edges.size() * 3);
+        out_data_vec_.reserve(edges.size());
+        out_normal_vec_.clear();
+        out_normal_vec_.reserve(edges.size());
         for (auto const& e : edges) {
             auto const s_idx = std::get<0>(e);
             auto const e_idx = std::get<1>(e);
             auto const s_point = glm::vec3(p0_x_acc->Get_f(s_idx), p0_y_acc->Get_f(s_idx), p0_z_acc->Get_f(s_idx));
             auto const e_point = glm::vec3(p1_x_acc->Get_f(e_idx), p1_y_acc->Get_f(e_idx), p1_z_acc->Get_f(e_idx));
             auto const f_point = s_point + 0.5f * (e_point - s_point);
-            out_data_vec_.push_back(f_point.x);
-            out_data_vec_.push_back(f_point.y);
-            out_data_vec_.push_back(f_point.z);
+            auto const normal = glm::normalize(e_point - s_point);
+            out_data_vec_.emplace_back(f_point.x, f_point.y, f_point.z);
+            /*out_data_vec_.push_back(f_point.y);
+            out_data_vec_.push_back(f_point.z);*/
+            out_normal_vec_.emplace_back(normal.x, normal.y, normal.z);
+            /*out_normal_vec_.push_back(normal.y);
+            out_normal_vec_.push_back(normal.z);*/
         }
+
+        // clean up data
+        // remove high density points
+        // remove low density points
+        std::vector<size_t> densities(edges.size());
+        auto params = nanoflann::SearchParams();
+        params.sorted = false;
+        for (uint64_t idx = 0; idx < edges.size(); ++idx) {
+            query_v[0] = out_data_vec_[idx].x;
+            query_v[1] = out_data_vec_[idx].y;
+            query_v[2] = out_data_vec_[idx].z;
+            std::vector<std::pair<size_t, float>> temp_dis;
+            auto const N = particleTree->radiusSearch(query_v, 2.5f, temp_dis, params);
+            densities[idx] = N;
+        }
+
+        auto minmax_el = std::minmax_element(densities.begin(), densities.end());
+        core::utility::log::Log::DefaultLog.WriteInfo(
+            "[ContactSurface] Min %d, Max %d", *minmax_el.first, *minmax_el.second);
+
+        auto const range = *minmax_el.second - *minmax_el.first;
+        auto const min_thres = *minmax_el.first + min_threshold * range;
+        auto const max_thres = *minmax_el.second - max_threshold * range;
+
+        decltype(out_data_vec_) temp_out_data;
+        temp_out_data.reserve(out_data_vec_.size());
+        decltype(out_normal_vec_) temp_out_normals;
+        temp_out_normals.reserve(out_normal_vec_.size());
+
+        for (uint64_t idx = 0; idx < edges.size(); ++idx) {
+            if (min_thres < densities[idx] && densities[idx] < max_thres) {
+                temp_out_data.emplace_back(out_data_vec_[idx]);
+                temp_out_normals.emplace_back(out_normal_vec_[idx]);
+            }
+        }
+
+        out_data_vec_ = temp_out_data;
+        out_normal_vec_ = temp_out_normals;
 
         in_data_hash_ = in_call->DataHash();
         frame_id_ = in_call->FrameID();
@@ -144,10 +197,11 @@ bool megamol::thermodyn::ContactSurface::get_data_cb(core::Call& c) {
     out_call->SetParticleListCount(1);
     out_call->AccessBoundingBoxes() = in_call->AccessBoundingBoxes();
     auto& out_part = out_call->AccessParticles(0);
-    out_part.SetCount(out_data_vec_.size() / 3);
+    out_part.SetCount(out_data_vec_.size());
     out_part.SetGlobalColour(255, 0, 0);
     out_part.SetGlobalRadius(0.5f);
     out_part.SetVertexData(geocalls::SimpleSphericalParticles::VERTDATA_FLOAT_XYZ, out_data_vec_.data());
+    out_part.SetDirData(geocalls::SimpleSphericalParticles::DIRDATA_FLOAT_XYZ, out_normal_vec_.data());
     out_call->SetDataHash(out_data_hash_);
     out_call->SetFrameID(frame_id_);
 

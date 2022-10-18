@@ -10,6 +10,7 @@
 #include "PhaseAnimator.h"
 #include "PhaseSeparator.h"
 #include "ContactSurface.h"
+#include "PCLSurface.h"
 
 #include "thermodyn/BoxDataCall.h"
 
@@ -30,6 +31,7 @@ public:
         this->module_descriptions.RegisterAutoDescription<megamol::thermodyn::PhaseSeparator>();
         this->module_descriptions.RegisterAutoDescription<megamol::thermodyn::PhaseAnimator>();
         this->module_descriptions.RegisterAutoDescription<megamol::thermodyn::ContactSurface>();
+        this->module_descriptions.RegisterAutoDescription<megamol::thermodyn::PCLSurface>();
 
         // register calls
         this->call_descriptions.RegisterAutoDescription<megamol::thermodyn::BoxDataCall>();

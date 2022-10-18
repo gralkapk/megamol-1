@@ -8,4 +8,10 @@ megamol_plugin(thermodyn
   DEPENDS_PLUGINS
     mmstd
     geometry_calls
-    datatools)
+    datatools
+    mesh)
+
+if (thermodyn_PLUGIN_ENABLED)
+  find_package(PCL CONFIG REQUIRED)
+  target_link_libraries(thermodyn PRIVATE ${PCL_LIBRARIES})
+endif()

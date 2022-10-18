@@ -35,6 +35,7 @@
     "nanoflann",
     "nlohmann-json",
     "obj-io",
+    "pcl",
     "qhull",
     "quickhull",
     "simultaneous-sort",

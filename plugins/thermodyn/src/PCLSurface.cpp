@@ -9,6 +9,9 @@
 #include <pcl/search/kdtree.h>
 #include <pcl/surface/gp3.h>
 #include <pcl/io/obj_io.h>
+#include <pcl/surface/mls.h>
+#include <pcl/surface/marching_cubes_rbf.h>
+#include <pcl/surface/marching_cubes_hoppe.h>
 
 
 megamol::thermodyn::PCLSurface::PCLSurface() : out_data_slot_("outData", ""), in_data_slot_("inData", "") {
@@ -83,25 +86,48 @@ bool megamol::thermodyn::PCLSurface::get_data_cb(core::Call& c) {
             pcl::search::KdTree<pcl::PointNormal>::Ptr tree2(new pcl::search::KdTree<pcl::PointNormal>);
             tree2->setInputCloud(cloud_with_normals);
 
-            pcl::GreedyProjectionTriangulation<pcl::PointNormal> gp3;
             pcl::PolygonMesh triangles;
 
-            //gp3.setSearchRadius(0.025);
-            gp3.setSearchRadius(6);
+            pcl::MarchingCubesHoppe<pcl::PointNormal> mc_rbf;
+            mc_rbf.setInputCloud(cloud_with_normals);
+            mc_rbf.setSearchMethod(tree2);
+            //mc_rbf.setIsoLevel(0.5);
+            mc_rbf.setGridResolution(128, 128, 128);
+            mc_rbf.reconstruct(triangles);
 
-            gp3.setMu(2.5);
-            gp3.setMaximumNearestNeighbors(10);
-            gp3.setMaximumSurfaceAngle(M_PI / 2); // 45 degrees
-            gp3.setMinimumAngle(M_PI / 18);       // 10 degrees
-            gp3.setMaximumAngle(2 * M_PI / 3);    // 120 degrees
-            gp3.setNormalConsistency(false);
 
-            gp3.setInputCloud(cloud_with_normals);
-            gp3.setSearchMethod(tree2);
-            gp3.reconstruct(triangles);
+            //pcl::PointCloud<pcl::PointNormal>::Ptr cloud_mls(new pcl::PointCloud<pcl::PointNormal>);
+            //pcl::MovingLeastSquares<pcl::PointNormal, pcl::PointNormal> mls;
+            ////mls.setComputeNormals(true);
+            //// Set parameters
+            //mls.setInputCloud(cloud_with_normals);
+            //mls.setPolynomialOrder(2);
+            //mls.setSearchMethod(tree2);
+            //mls.setSearchRadius(6);
+            //mls.process(*cloud_mls);
 
-            std::vector<int> parts = gp3.getPartIDs();
-            std::vector<int> states = gp3.getPointStates();
+            //pcl::search::KdTree<pcl::PointNormal>::Ptr tree3(new pcl::search::KdTree<pcl::PointNormal>);
+            //tree2->setInputCloud(cloud_mls);
+
+
+            //pcl::GreedyProjectionTriangulation<pcl::PointNormal> gp3;
+
+            ////gp3.setSearchRadius(0.025);
+            //gp3.setSearchRadius(15);
+
+            //gp3.setMu(2.5);
+            //gp3.setMaximumNearestNeighbors(512);
+            //gp3.setMaximumSurfaceAngle(M_PI / 2); // 45 degrees
+            //gp3.setMinimumAngle(M_PI / 18);       // 10 degrees
+            //gp3.setMaximumAngle(2 * M_PI / 3);    // 120 degrees
+            //gp3.setNormalConsistency(false);
+
+            //gp3.setInputCloud(cloud_mls);
+            //gp3.setSearchMethod(tree3);
+            //gp3.reconstruct(triangles);          
+
+            //std::vector<int> parts = gp3.getPartIDs();
+            //std::vector<int> states = gp3.getPointStates();
 
             pcl::io::saveOBJFile("test.obj", triangles);
         }

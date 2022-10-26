@@ -5,6 +5,10 @@
 #include "mmcore/CallerSlot.h"
 #include "mmcore/Module.h"
 
+#include "mesh/MeshCalls.h"
+
+#include <glm/glm.hpp>
+
 namespace megamol::thermodyn {
 class PCLSurface : public core::Module {
 public:
@@ -46,5 +50,12 @@ private:
     uint64_t out_data_hash_ = 0;
 
     unsigned int frame_id_ = 0;
+
+    std::vector<glm::vec3> vertices_;
+    std::vector<glm::vec3> normals_;
+
+    std::vector<glm::uvec3> indices_;
+
+    std::shared_ptr<mesh::MeshDataAccessCollection> mesh_;
 };
 } // namespace megamol::thermodyn

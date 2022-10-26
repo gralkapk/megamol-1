@@ -57,12 +57,15 @@ private:
     bool get_extent_cb(core::Call& c);
 
     bool check_dirty() const {
-        return knn_slot_.IsDirty() || distance_threshold_slot_.IsDirty();
+        return knn_slot_.IsDirty() || distance_threshold_slot_.IsDirty() || min_threshold_slot_.IsDirty() ||
+               max_threshold_slot_.IsDirty();
     }
 
     void reset_dirty() {
         knn_slot_.ResetDirty();
         distance_threshold_slot_.ResetDirty();
+        min_threshold_slot_.ResetDirty();
+        max_threshold_slot_.ResetDirty();
     }
 
     uint64_t in_data_hash_ = std::numeric_limits<uint64_t>::max();

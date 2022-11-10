@@ -18,6 +18,7 @@ if (datatools_PLUGIN_ENABLED)
   find_package(Eigen3 CONFIG REQUIRED)
   find_package(nanoflann CONFIG REQUIRED)
   find_package(simultaneous_sort CONFIG REQUIRED)
+  find_package(VORO CONFIG REQUIRED)
 
   find_path(MMPLD_IO_INCLUDE_DIRS "file_header.h")
 
@@ -28,7 +29,8 @@ if (datatools_PLUGIN_ENABLED)
       imgui::imgui
       Eigen3::Eigen
       nanoflann::nanoflann
-      simultaneous_sort)
+      simultaneous_sort
+      VORO::voro++)
 
   # Additional sources
   file(GLOB_RECURSE extra_source_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "3rd/min_sphere_of_spheres/*.cpp")

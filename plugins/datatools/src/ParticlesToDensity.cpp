@@ -34,6 +34,8 @@
 #include <utility>
 #include <vector>
 
+#include <voro++.hh>
+
 using namespace megamol;
 
 /*
@@ -61,6 +63,7 @@ void datatools::ParticlesToDensity::release(void) {
  */
 datatools::ParticlesToDensity::ParticlesToDensity(void)
         : aggregatorSlot("aggregator", "algorithm for the aggregation")
+        , interpolatorSlot("interpolator", "algorithm to compute weights")
         , xResSlot("sizex", "The size of the volume in numbers of voxels")
         , yResSlot("sizey", "The size of the volume in numbers of voxels")
         , zResSlot("sizez", "The size of the volume in numbers of voxels")
@@ -84,6 +87,12 @@ datatools::ParticlesToDensity::ParticlesToDensity(void)
     ep->SetTypePair(2, "IVecToSingleCell_Volume");
     this->aggregatorSlot << ep;
     this->MakeSlotAvailable(&this->aggregatorSlot);
+
+    ep = new core::param::EnumParam(0);
+    ep->SetTypePair(0, "Generic");
+    ep->SetTypePair(1, "NNI");
+    interpolatorSlot << ep;
+    MakeSlotAvailable(&interpolatorSlot);
 
 
     /*this->outDataSlot.SetCallback(geocalls::VolumeDataCall::ClassName(),
@@ -490,6 +499,18 @@ bool datatools::ParticlesToDensity::createVolumeCPU(class geocalls::MultiParticl
 
         auto const sigma = this->sigmaSlot.Param<core::param::FloatParam>()->Value();
 
+        auto const interpolator = interpolatorSlot.Param<core::param::EnumParam>()->Value();
+        auto voro_con = voro::container(c2->AccessBoundingBoxes().ObjectSpaceBBox().Left(),
+            c2->AccessBoundingBoxes().ObjectSpaceBBox().Right(), c2->AccessBoundingBoxes().ObjectSpaceBBox().Bottom(),
+            c2->AccessBoundingBoxes().ObjectSpaceBBox().Top(), c2->AccessBoundingBoxes().ObjectSpaceBBox().Back(),
+            c2->AccessBoundingBoxes().ObjectSpaceBBox().Front(), 8, 8, 8, cycl_x, cycl_y, cycl_z, 8);
+
+        if (interpolator == 1) {
+            for (size_t p_idx = 0; p_idx < parts.GetCount(); ++p_idx) {
+                voro_con.put(p_idx, xAcc->Get_f(p_idx), yAcc->Get_f(p_idx), zAcc->Get_f(p_idx));
+            }
+        }
+
         std::function<void(int, int, int, int, float, float)> volOp;
         switch (this->aggregatorSlot.Param<core::param::EnumParam>()->Value()) {
         case 2: {
@@ -561,62 +582,107 @@ bool datatools::ParticlesToDensity::createVolumeCPU(class geocalls::MultiParticl
         }
 #endif
 
+        if (interpolator == 0) {
 #pragma omp parallel for
-        for (int64_t j = 0; j < parts.GetCount(); ++j) {
-            auto const x_base = xAcc->Get_f(j);
-            auto x = static_cast<int>((x_base - minOSx) / sliceDistX);
-            auto const y_base = yAcc->Get_f(j);
-            auto y = static_cast<int>((y_base - minOSy) / sliceDistY);
-            auto const z_base = zAcc->Get_f(j);
-            auto z = static_cast<int>((z_base - minOSz) / sliceDistZ);
-            auto rad = globRad;
-            if (!useGlobRad)
-                rad = rAcc->Get_f(j);
+            for (int64_t j = 0; j < parts.GetCount(); ++j) {
+                auto const x_base = xAcc->Get_f(j);
+                auto x = static_cast<int>((x_base - minOSx) / sliceDistX);
+                auto const y_base = yAcc->Get_f(j);
+                auto y = static_cast<int>((y_base - minOSy) / sliceDistY);
+                auto const z_base = zAcc->Get_f(j);
+                auto z = static_cast<int>((z_base - minOSz) / sliceDistZ);
+                auto rad = globRad;
+                if (!useGlobRad)
+                    rad = rAcc->Get_f(j);
 
-            int const filterSizeX = static_cast<int>(std::ceil(rad / sliceDistX));
-            int const filterSizeY = static_cast<int>(std::ceil(rad / sliceDistY));
-            int const filterSizeZ = static_cast<int>(std::ceil(rad / sliceDistZ));
+                int const filterSizeX = static_cast<int>(std::ceil(rad / sliceDistX));
+                int const filterSizeY = static_cast<int>(std::ceil(rad / sliceDistY));
+                int const filterSizeZ = static_cast<int>(std::ceil(rad / sliceDistZ));
 
-            for (int hz = z - filterSizeZ; hz <= z + filterSizeZ; ++hz) {
-                for (int hy = y - filterSizeY; hy <= y + filterSizeY; ++hy) {
-                    for (int hx = x - filterSizeX; hx <= x + filterSizeX; ++hx) {
-                        auto tmp_hx = hx;
-                        auto tmp_hy = hy;
-                        auto tmp_hz = hz;
-                        if (cycl_x) {
-                            tmp_hx = (hx + 2 * sx) % sx;
-                        } else {
-                            if (hx < 0 || hx > sx - 1) {
-                                continue;
+                for (int hz = z - filterSizeZ; hz <= z + filterSizeZ; ++hz) {
+                    for (int hy = y - filterSizeY; hy <= y + filterSizeY; ++hy) {
+                        for (int hx = x - filterSizeX; hx <= x + filterSizeX; ++hx) {
+                            auto tmp_hx = hx;
+                            auto tmp_hy = hy;
+                            auto tmp_hz = hz;
+                            if (cycl_x) {
+                                tmp_hx = (hx + 2 * sx) % sx;
+                            } else {
+                                if (hx < 0 || hx > sx - 1) {
+                                    continue;
+                                }
+                            }
+                            if (cycl_y) {
+                                tmp_hy = (hy + 2 * sy) % sy;
+                            } else {
+                                if (hy < 0 || hy > sy - 1) {
+                                    continue;
+                                }
+                            }
+                            if (cycl_z) {
+                                tmp_hz = (hz + 2 * sz) % sz;
+                            } else {
+                                if (hz < 0 || hz > sz - 1) {
+                                    continue;
+                                }
+                            }
+
+                            float x_diff = static_cast<float>(hx) * sliceDistX + minOSx;
+                            x_diff = std::fabs(x_diff - x_base);
+                            // if (x_diff > halfRangeOSx) x_diff -= rangeOSx;
+                            float y_diff = static_cast<float>(hy) * sliceDistY + minOSy;
+                            y_diff = std::fabs(y_diff - y_base);
+                            // if (y_diff > halfRangeOSy) y_diff -= rangeOSy;
+                            float z_diff = static_cast<float>(hz) * sliceDistZ + minOSz;
+                            z_diff = std::fabs(z_diff - z_base);
+                            // if (z_diff > halfRangeOSz) z_diff -= rangeOSz;
+                            float const dis = std::sqrt(x_diff * x_diff + y_diff * y_diff + z_diff * z_diff);
+
+                            volOp(j, tmp_hx, tmp_hy, tmp_hz, dis, rad);
+                        }
+                    }
+                }
+            }
+        } else if (interpolator == 1) {
+            for (int z = 0; z < sz; ++z) {
+                for (int y = 0; y < sy; ++y) {
+                    for (int x = 0; x < sx; ++x) {
+                        auto const x_grid_pos = static_cast<float>(x) * sliceDistX + minOSx;
+                        auto const y_grid_pos = static_cast<float>(y) * sliceDistY + minOSy;
+                        auto const z_grid_pos = static_cast<float>(z) * sliceDistZ + minOSz;
+                        double value = 0.0;
+                        double weightSum = 1.0;
+                        voro::voronoicell_neighbor cell(voro_con);
+                        if (voro_con.compute_ghost_cell(cell, x_grid_pos, y_grid_pos, z_grid_pos)) {
+                            weightSum = 0.0;
+
+                            std::vector<double> local_weights;
+                            cell.face_areas(local_weights);
+                            std::vector<int> neighbors;
+                            cell.neighbors(neighbors);
+
+                            for (size_t i = 0; i < neighbors.size(); ++i) {
+                                auto neighborId = neighbors[i];
+                                // Skip negative neighbors, e.g. if the neighbor is the boundary
+                                if (neighborId < 0)
+                                    continue;
+
+                                auto const xNeighbor = xAcc->Get_f(neighborId);
+                                auto const yNeighbor = yAcc->Get_f(neighborId);
+                                auto const zNeighbor = zAcc->Get_f(neighborId);
+                                auto const dx = xNeighbor - x_grid_pos;
+                                auto const dy = yNeighbor - y_grid_pos;
+                                auto const dz = zNeighbor - z_grid_pos;
+                                auto const dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+                                local_weights[i] /= dist;
+                                weightSum += local_weights[i];
+
+                                value += local_weights[i] * iAcc->Get_f(neighborId);
                             }
                         }
-                        if (cycl_y) {
-                            tmp_hy = (hy + 2 * sy) % sy;
-                        } else {
-                            if (hy < 0 || hy > sy - 1) {
-                                continue;
-                            }
-                        }
-                        if (cycl_z) {
-                            tmp_hz = (hz + 2 * sz) % sz;
-                        } else {
-                            if (hz < 0 || hz > sz - 1) {
-                                continue;
-                            }
-                        }
-
-                        float x_diff = static_cast<float>(hx) * sliceDistX + minOSx;
-                        x_diff = std::fabs(x_diff - x_base);
-                        // if (x_diff > halfRangeOSx) x_diff -= rangeOSx;
-                        float y_diff = static_cast<float>(hy) * sliceDistY + minOSy;
-                        y_diff = std::fabs(y_diff - y_base);
-                        // if (y_diff > halfRangeOSy) y_diff -= rangeOSy;
-                        float z_diff = static_cast<float>(hz) * sliceDistZ + minOSz;
-                        z_diff = std::fabs(z_diff - z_base);
-                        // if (z_diff > halfRangeOSz) z_diff -= rangeOSz;
-                        float const dis = std::sqrt(x_diff * x_diff + y_diff * y_diff + z_diff * z_diff);
-
-                        volOp(j, tmp_hx, tmp_hy, tmp_hz, dis, rad);
+                        vol[0][x + (y + z * sy) * sx] = value / weightSum;
+                        weights[0][x + (y + z * sy) * sx] = 1.0f;
                     }
                 }
             }

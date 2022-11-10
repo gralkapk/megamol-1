@@ -105,6 +105,8 @@ private:
 
     core::param::ParamSlot aggregatorSlot;
 
+    core::param::ParamSlot interpolatorSlot;
+
     core::param::ParamSlot xResSlot;
     core::param::ParamSlot yResSlot;
     core::param::ParamSlot zResSlot;

@@ -47,6 +47,7 @@
     "tinygltf",
     "tinyobjloader",
     "tinyply",
+    "voro",
     "zeromq",
     "zfp",
     "zlib"

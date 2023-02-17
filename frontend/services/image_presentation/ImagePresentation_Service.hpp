@@ -124,6 +124,8 @@ private:
     void add_glfw_sink();
     void present_images_to_glfw_window(std::vector<ImageWrapper> const& images);
 
+    void add_endpoint_window(frontend_resources::ImagePresentationSink& sink);
+
     std::tuple<bool,                                            // success
         std::vector<FrontendResource>,                          // resources
         std::unique_ptr<frontend_resources::RenderInputsUpdate> // unique_data for entry point

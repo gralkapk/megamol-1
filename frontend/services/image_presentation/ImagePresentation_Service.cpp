@@ -10,6 +10,7 @@
 #include "GUIState.h"
 #include "WindowManipulation.h"
 
+#include "GUIRegisterWindow.h"
 #include "ImagePresentation_Sinks.hpp"
 #include "ImageWrapper_to_GLTexture.hpp"
 #include "OpenGL_Context.h"
@@ -109,15 +110,11 @@ bool ImagePresentation_Service::init(const Config& config) {
         {"FramebufferEvents", m_global_framebuffer_events},
     };
 
-    this->m_requestedResourcesNames = {
-        "FrontendResources", // std::vector<FrontendResource>
-        "optional<WindowManipulation>",
-        "FramebufferEvents",
+    this->m_requestedResourcesNames = {"FrontendResources", // std::vector<FrontendResource>
+        "optional<WindowManipulation>", "FramebufferEvents",
         "optional<GUIState>", // TODO: unused?
-        "RegisterLuaCallbacks",
-        "optional<OpenGL_Context>",
-        "ImageWrapperToPNG_ScreenshotTrigger",
-    };
+        "RegisterLuaCallbacks", "optional<OpenGL_Context>", "ImageWrapperToPNG_ScreenshotTrigger",
+        "optional<GUIRegisterWindow>"};
 
     m_framebuffer_size_handler = [&]() -> UintPair {
         return {m_window_framebuffer_size.first, m_window_framebuffer_size.second};
@@ -186,6 +183,41 @@ void ImagePresentation_Service::setRequestedResources(std::vector<FrontendResour
     add_glfw_sink();
 
     fill_lua_callbacks();
+}
+
+struct iw_functor {
+    void init(std::vector<frontend_resources::ImageWrapper> const& images) {
+        images_ = images;
+    }
+    std::vector<frontend_resources::ImageWrapper> images_;
+};
+
+void ImagePresentation_Service::add_endpoint_window(frontend_resources::ImagePresentationSink& sink) {
+    auto maybe_gui_window_request_resource =
+        m_requestedResourceReferences[7].getOptionalResource<megamol::frontend_resources::GUIRegisterWindow>();
+
+    if (!maybe_gui_window_request_resource.has_value()) {
+        return;
+    }
+
+    auto& gui_window_request_resource = maybe_gui_window_request_resource.value().get();
+
+    auto iw = std::make_shared<iw_functor>();
+
+    sink.present_images = std::bind(&iw_functor::init, iw.get(), std::placeholders::_1);
+
+    auto win_func = std::bind(
+        [](std::shared_ptr<iw_functor> iw, megamol::gui::AbstractWindow::BasicConfig& window_config) {
+            window_config.flags = ImGuiWindowFlags_AlwaysAutoResize;
+
+            for (auto& image : iw->images_) {
+                ImGui::Image(image.referenced_image_handle, ImVec2{(float)image.size.width, (float)image.size.height},
+                    ImVec2(0, 1), ImVec2(1, 0));
+            }
+        },
+        iw, std::placeholders::_1);
+
+    gui_window_request_resource.register_window(sink.name + "_Endpoint", win_func);
 }
 
 void ImagePresentation_Service::updateProvidedResources() {}
@@ -351,6 +383,12 @@ bool ImagePresentation_Service::add_entry_point(std::string const& name, EntryPo
     set_entry_point_priority(name, 0);
 
     bind_sink_to_ep(frontend_resources::ImagePresentationEntryPoints::GLFW_Sink_Name, name);
+
+    frontend_resources::ImagePresentationSink sink;
+    sink.name = name;
+    add_endpoint_window(sink);
+    add_sink(sink);
+    bind_sink_to_ep(sink.name, name);
 
     return true;
 }

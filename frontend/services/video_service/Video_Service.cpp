@@ -9,6 +9,19 @@
 // you should also delete the FAQ comments in these template files after you read and understood them
 #include "Video_Service.hpp"
 
+#include "av.h"
+#include "ffmpeg.h"
+#include "codec.h"
+#include "packet.h"
+#include "videorescaler.h"
+#include "audioresampler.h"
+#include "avutils.h"
+
+#include "format.h"
+#include "formatcontext.h"
+#include "codec.h"
+#include "codeccontext.h"
+
 
 // local logging wrapper for your convenience until central MegaMol logger established
 #include "mmcore/utility/log/Log.h"
@@ -60,6 +73,24 @@ bool Video_Service::init(const Config& config) {
     }
 
     log("initialized successfully");*/
+
+    av::init();
+    av::set_logging_level("debug");
+
+    av::OutputFormat ofmt;
+    ofmt.setFormat(std::string(), "test.mp4");
+
+    av::FormatContext ofctx;
+    ofctx.setFormat(ofmt);
+
+    av::Codec ocodec = av::findEncodingCodec(ofmt);
+    av::Stream ost = ofctx.addStream(ocodec);
+    av::VideoEncoderContext encoder{ost};
+
+    av::Codec sbtCodec = av::findEncodingCodec("srt");
+    av::Stream sbtst = ofctx.addStream(sbtCodec);
+    av::VideoEncoderContext sbtencoder{sbtst};
+
     return true;
 }
 

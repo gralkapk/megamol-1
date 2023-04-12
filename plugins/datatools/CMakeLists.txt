@@ -22,12 +22,13 @@ if (datatools_PLUGIN_ENABLED)
   find_path(MMPLD_IO_INCLUDE_DIRS "file_header.h")
 
   target_link_libraries(datatools
+    PUBLIC
+      nanoflann::nanoflann
     PRIVATE
       libzmq
       cppzmq
       imgui::imgui
       Eigen3::Eigen
-      nanoflann::nanoflann
       simultaneous_sort)
 
   # Additional sources

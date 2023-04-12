@@ -7,4 +7,5 @@ megamol_plugin(moldyn
   BUILD_DEFAULT ON 
   DEPENDS_PLUGINS
     mmstd
+    datatools
     geometry_calls)

@@ -8,6 +8,10 @@
 
 #include "geometry_calls/MultiParticleDataCall.h"
 
+#include <tuple>
+
+#include "glm/glm.hpp"
+
 namespace megamol::moldyn {
 class Accumulator : public core::Module {
 public:
@@ -32,14 +36,17 @@ private:
     bool get_extent_cb(core::Call& c);
 
     bool isDirty() {
-        return window_size_slot_.IsDirty();
+        return window_size_slot_.IsDirty() || direction_slot_.IsDirty();
     }
 
     void resetDirty() {
         window_size_slot_.ResetDirty();
+        direction_slot_.ResetDirty();
     }
 
-    void collect_backward(geocalls::MultiParticleDataCall* data, int window_size);
+    std::tuple<std::vector<std::vector<uint64_t>>, std::vector<std::vector<glm::vec3>>,
+        std::vector<std::vector<glm::vec3>>, std::vector<std::vector<glm::vec4>>>
+    collect_backward(geocalls::MultiParticleDataCall* data, int window_size);
 
     void collect_central(geocalls::MultiParticleDataCall* data, int window_size);
 

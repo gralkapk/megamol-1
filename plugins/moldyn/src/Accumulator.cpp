@@ -69,9 +69,19 @@ bool megamol::moldyn::Accumulator::get_data_cb(core::Call& c) {
 
         auto const pl_count = in_data->GetParticleListCount();
         global_radii_.resize(pl_count);
+        base_pos_.resize(pl_count);
         for (std::decay_t<decltype(pl_count)> pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
             auto const& particles = in_data->AccessParticles(pl_idx);
             global_radii_[pl_idx] = particles.GetGlobalRadius();
+            auto const p_count = particles.GetCount();
+            auto& s_pos = base_pos_[pl_idx];
+            s_pos.resize(particles.GetCount());
+            auto const x_acc = particles.GetParticleStore().GetXAcc();
+            auto const y_acc = particles.GetParticleStore().GetYAcc();
+            auto const z_acc = particles.GetParticleStore().GetZAcc();
+            for (std::decay_t<decltype(p_count)> p_idx = 0; p_idx < p_count; ++p_idx) {
+                s_pos[p_idx] = glm::vec3(x_acc->Get_f(p_idx), y_acc->Get_f(p_idx), z_acc->Get_f(p_idx));
+            }
         }
 
         std::vector<std::vector<glm::vec3>> avg_pos;
@@ -84,10 +94,10 @@ bool megamol::moldyn::Accumulator::get_data_cb(core::Call& c) {
             std::tie(base_id, avg_pos, avg_dir, avg_col) = collect_backward(in_data, window_size);
             break;
         case dir_t::CENTRAL:
-            collect_central(in_data, window_size);
+            std::tie(base_id, avg_pos, avg_dir, avg_col) = collect_central(in_data, window_size);
             break;
         case dir_t::FORWARD:
-            collect_forward(in_data, window_size);
+            std::tie(base_id, avg_pos, avg_dir, avg_col) = collect_forward(in_data, window_size);
             break;
         }
 
@@ -105,7 +115,7 @@ bool megamol::moldyn::Accumulator::get_data_cb(core::Call& c) {
     out_data->SetParticleListCount(avg_pos_.size());
     for (unsigned int pl_idx = 0; pl_idx < avg_pos_.size(); ++pl_idx) {
         auto& particles = out_data->AccessParticles(pl_idx);
-        auto const& s_pos = avg_pos_[pl_idx];
+        auto const& s_pos = base_pos_[pl_idx];
         auto const& s_dir = avg_dir_[pl_idx];
         auto const& s_col = avg_col_[pl_idx];
         auto const& s_base_id = base_id_[pl_idx];
@@ -147,12 +157,9 @@ bool megamol::moldyn::Accumulator::get_extent_cb(core::Call& c) {
 
 std::tuple<std::vector<std::vector<uint64_t>>, std::vector<std::vector<glm::vec3>>, std::vector<std::vector<glm::vec3>>,
     std::vector<std::vector<glm::vec4>>>
-megamol::moldyn::Accumulator::collect_backward(geocalls::MultiParticleDataCall* data, int window_size) {
-    auto const frame_count = data->FrameCount();
-    auto const base_frame_id = static_cast<int>(data->FrameID());
-
-    auto const a_f_id = base_frame_id - window_size < 0 ? 0 : base_frame_id - window_size;
-    auto const b_f_id = base_frame_id;
+megamol::moldyn::Accumulator::compute_collection(
+    geocalls::MultiParticleDataCall* data, int base_frame_id, int a_f_id, int b_f_id) {
+    auto const ws = b_f_id - a_f_id;
 
     auto const pl_count = data->GetParticleListCount();
     std::vector<std::unordered_map<uint64_t /*id*/, uint64_t /*idx*/>> id_map;
@@ -165,35 +172,34 @@ megamol::moldyn::Accumulator::collect_backward(geocalls::MultiParticleDataCall* 
     avg_col.resize(pl_count);
     std::vector<std::vector<uint64_t>> base_id;
     base_id.resize(pl_count);
+    std::vector<std::vector<float>> div;
+    div.resize(pl_count);
+
+    for (std::decay_t<decltype(pl_count)> pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
+        auto const& particles = data->AccessParticles(pl_idx);
+        auto const p_count = particles.GetCount();
+        auto& s_id_map = id_map[pl_idx];
+        s_id_map.clear();
+        s_id_map.reserve(p_count);
+        avg_pos[pl_idx].resize(p_count, glm::vec3(0));
+        avg_dir[pl_idx].resize(p_count, glm::vec3(0));
+        avg_col[pl_idx].resize(p_count, glm::vec4(0));
+        base_id[pl_idx].resize(p_count);
+        div[pl_idx].resize(p_count, 0);
+        auto& s_base_id = base_id[pl_idx];
+        auto const id_acc = particles.GetParticleStore().GetIDAcc();
+        for (std::decay_t<decltype(p_count)> p_idx = 0; p_idx < p_count; ++p_idx) {
+            auto const id = id_acc->Get_u64(p_idx);
+            s_id_map[id] = p_idx;
+            s_base_id[p_idx] = id;
+        }
+    }
 
     for (int f_id = b_f_id; f_id >= a_f_id; --f_id) {
         do {
             data->SetFrameID(f_id);
             (*data)(0);
         } while (data->FrameID() != f_id);
-
-        auto const pl_count = data->GetParticleListCount();
-
-        if (f_id == base_frame_id) {
-            //id_map.resize(pl_count);
-            for (std::decay_t<decltype(pl_count)> pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
-                auto const& particles = data->AccessParticles(pl_idx);
-                auto const p_count = particles.GetCount();
-                auto& s_id_map = id_map[pl_idx];
-                s_id_map.reserve(p_count);
-                avg_pos[pl_idx].resize(p_count, glm::vec3(0));
-                avg_dir[pl_idx].resize(p_count, glm::vec3(0));
-                avg_col[pl_idx].resize(p_count, glm::vec4(0));
-                base_id[pl_idx].resize(p_count);
-                auto& s_base_id = base_id[pl_idx];
-                auto const id_acc = particles.GetParticleStore().GetIDAcc();
-                for (std::decay_t<decltype(p_count)> p_idx = 0; p_idx < p_count; ++p_idx) {
-                    auto const id = id_acc->Get_u64(p_idx);
-                    s_id_map[id] = p_idx;
-                    s_base_id[p_idx] = id;
-                }
-            }
-        }
 
         for (std::decay_t<decltype(pl_count)> pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
             auto const& particles = data->AccessParticles(pl_idx);
@@ -202,6 +208,7 @@ megamol::moldyn::Accumulator::collect_backward(geocalls::MultiParticleDataCall* 
             auto& s_avg_pos = avg_pos[pl_idx];
             auto& s_avg_dir = avg_dir[pl_idx];
             auto& s_avg_col = avg_col[pl_idx];
+            auto& s_div = div[pl_idx];
 
             auto const id_acc = particles.GetParticleStore().GetIDAcc();
 
@@ -229,25 +236,62 @@ megamol::moldyn::Accumulator::collect_backward(geocalls::MultiParticleDataCall* 
                     s_avg_dir[idx] += glm::vec3(dx_acc->Get_f(p_idx), dy_acc->Get_f(p_idx), dz_acc->Get_f(p_idx));
                     s_avg_col[idx] += glm::vec4(
                         cr_acc->Get_f(p_idx), cg_acc->Get_f(p_idx), cb_acc->Get_f(p_idx), ca_acc->Get_f(p_idx));
+                    s_div[idx] += 1.f;
                 }
             }
         }
     }
 
     for (std::decay_t<decltype(pl_count)> pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
-        std::transform(avg_pos[pl_idx].begin(), avg_pos[pl_idx].end(), avg_pos[pl_idx].begin(),
-            [&window_size](auto const& val) { return val / static_cast<float>(window_size + 1); });
-        std::transform(avg_dir[pl_idx].begin(), avg_dir[pl_idx].end(), avg_dir[pl_idx].begin(),
-            [&window_size](auto const& val) { return val / static_cast<float>(window_size + 1); });
-        std::transform(avg_col[pl_idx].begin(), avg_col[pl_idx].end(), avg_col[pl_idx].begin(),
-            [&window_size](auto const& val) { return val / static_cast<float>(window_size + 1); });
+        std::transform(avg_pos[pl_idx].begin(), avg_pos[pl_idx].end(), div[pl_idx].begin(), avg_pos[pl_idx].begin(),
+            [&ws](auto const& val, auto const& d) { return val / d; });
+        std::transform(avg_dir[pl_idx].begin(), avg_dir[pl_idx].end(), div[pl_idx].begin(), avg_dir[pl_idx].begin(),
+            [&ws](auto const& val, auto const& d) { return val / d; });
+        std::transform(avg_col[pl_idx].begin(), avg_col[pl_idx].end(), div[pl_idx].begin(), avg_col[pl_idx].begin(),
+            [&ws](auto const& val, auto const& d) { return val / d; });
     }
 
     return std::make_tuple(base_id, avg_pos, avg_dir, avg_col);
 }
 
 
-void megamol::moldyn::Accumulator::collect_central(geocalls::MultiParticleDataCall* data, int window_size) {}
+std::tuple<std::vector<std::vector<uint64_t>>, std::vector<std::vector<glm::vec3>>, std::vector<std::vector<glm::vec3>>,
+    std::vector<std::vector<glm::vec4>>>
+megamol::moldyn::Accumulator::collect_backward(geocalls::MultiParticleDataCall* data, int window_size) {
+    auto const frame_count = data->FrameCount();
+    auto const base_frame_id = static_cast<int>(data->FrameID());
+
+    auto const a_f_id = base_frame_id - window_size < 0 ? 0 : base_frame_id - window_size;
+    auto const b_f_id = base_frame_id;
+
+    return compute_collection(data, base_frame_id, a_f_id, b_f_id);
+}
 
 
-void megamol::moldyn::Accumulator::collect_forward(geocalls::MultiParticleDataCall* data, int window_size) {}
+std::tuple<std::vector<std::vector<uint64_t>>, std::vector<std::vector<glm::vec3>>, std::vector<std::vector<glm::vec3>>,
+    std::vector<std::vector<glm::vec4>>>
+megamol::moldyn::Accumulator::collect_central(geocalls::MultiParticleDataCall* data, int window_size) {
+    auto const frame_count = data->FrameCount();
+    auto const base_frame_id = static_cast<int>(data->FrameID());
+
+    auto const low = static_cast<int>(std::floorf(static_cast<float>(window_size) * 0.5f));
+    auto const high = window_size - low;
+
+    auto const a_f_id = base_frame_id - low < 0 ? 0 : base_frame_id - low;
+    auto const b_f_id = base_frame_id + high >= frame_count ? frame_count - 1 : base_frame_id + high;
+
+    return compute_collection(data, base_frame_id, a_f_id, b_f_id);
+}
+
+
+std::tuple<std::vector<std::vector<uint64_t>>, std::vector<std::vector<glm::vec3>>, std::vector<std::vector<glm::vec3>>,
+    std::vector<std::vector<glm::vec4>>>
+megamol::moldyn::Accumulator::collect_forward(geocalls::MultiParticleDataCall* data, int window_size) {
+    auto const frame_count = data->FrameCount();
+    auto const base_frame_id = static_cast<int>(data->FrameID());
+
+    auto const a_f_id = base_frame_id;
+    auto const b_f_id = base_frame_id + window_size >= frame_count ? frame_count - 1 : base_frame_id + window_size;
+
+    return compute_collection(data, base_frame_id, a_f_id, b_f_id);
+}

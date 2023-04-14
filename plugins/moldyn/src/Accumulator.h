@@ -52,11 +52,7 @@ protected:
     void release() override;
 
 private:
-    enum class dir_t {
-        BACKWARD,
-        CENTRAL,
-        FORWARD
-    };
+    enum class dir_t { BACKWARD, CENTRAL, FORWARD };
 
     bool get_data_cb(core::Call& c);
 
@@ -73,11 +69,19 @@ private:
 
     std::tuple<std::vector<std::vector<uint64_t>>, std::vector<std::vector<glm::vec3>>,
         std::vector<std::vector<glm::vec3>>, std::vector<std::vector<glm::vec4>>>
+    compute_collection(geocalls::MultiParticleDataCall* data, int base_frame_id, int a_f_id, int b_f_id);
+
+    std::tuple<std::vector<std::vector<uint64_t>>, std::vector<std::vector<glm::vec3>>,
+        std::vector<std::vector<glm::vec3>>, std::vector<std::vector<glm::vec4>>>
     collect_backward(geocalls::MultiParticleDataCall* data, int window_size);
 
-    void collect_central(geocalls::MultiParticleDataCall* data, int window_size);
+    std::tuple<std::vector<std::vector<uint64_t>>, std::vector<std::vector<glm::vec3>>,
+        std::vector<std::vector<glm::vec3>>, std::vector<std::vector<glm::vec4>>>
+    collect_central(geocalls::MultiParticleDataCall* data, int window_size);
 
-    void collect_forward(geocalls::MultiParticleDataCall* data, int window_size);
+    std::tuple<std::vector<std::vector<uint64_t>>, std::vector<std::vector<glm::vec3>>,
+        std::vector<std::vector<glm::vec3>>, std::vector<std::vector<glm::vec4>>>
+    collect_forward(geocalls::MultiParticleDataCall* data, int window_size);
 
     core::CalleeSlot data_out_slot_;
 
@@ -93,6 +97,7 @@ private:
 
     uint64_t out_data_hash_ = 0;
 
+    std::vector<std::vector<glm::vec3>> base_pos_;
     std::vector<std::vector<glm::vec3>> avg_pos_;
     std::vector<std::vector<glm::vec3>> avg_dir_;
     std::vector<std::vector<glm::vec4>> avg_col_;

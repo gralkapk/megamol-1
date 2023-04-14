@@ -15,6 +15,33 @@
 namespace megamol::moldyn {
 class Accumulator : public core::Module {
 public:
+    /**
+     * Answer the name of this module.
+     *
+     * @return The name of this module.
+     */
+    static const char* ClassName() {
+        return "Accumulator";
+    }
+
+    /**
+     * Answer a human readable description of this module.
+     *
+     * @return A human readable description of this module.
+     */
+    static const char* Description() {
+        return "Accumulator";
+    }
+
+    /**
+     * Answers whether this module is available on the current system.
+     *
+     * @return 'true' if the module is available, 'false' otherwise.
+     */
+    static bool IsAvailable() {
+        return true;
+    }
+
     Accumulator();
 
     virtual ~Accumulator();
@@ -65,5 +92,11 @@ private:
     uint64_t in_data_hash_ = std::numeric_limits<uint64_t>::max();
 
     uint64_t out_data_hash_ = 0;
+
+    std::vector<std::vector<glm::vec3>> avg_pos_;
+    std::vector<std::vector<glm::vec3>> avg_dir_;
+    std::vector<std::vector<glm::vec4>> avg_col_;
+    std::vector<std::vector<uint64_t>> base_id_;
+    std::vector<float> global_radii_;
 };
 } // namespace megamol::moldyn

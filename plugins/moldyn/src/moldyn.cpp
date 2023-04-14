@@ -30,6 +30,7 @@
 #include "moldyn/ParticleGridDataCall.h"
 
 #include "ProjPlane.h"
+#include "Accumulator.h"
 
 namespace megamol::moldyn {
 class MoldynPluginInstance : public megamol::core::factories::AbstractPluginInstance {
@@ -64,6 +65,7 @@ public:
         this->module_descriptions.RegisterAutoDescription<megamol::moldyn::io::MMPLDWriter>();
         this->module_descriptions.RegisterAutoDescription<megamol::moldyn::io::TestSpheresDataSource>();
         this->module_descriptions.RegisterAutoDescription<megamol::moldyn::ProjPlane>();
+        this->module_descriptions.RegisterAutoDescription<megamol::moldyn::Accumulator>();
 
         // register calls
         this->call_descriptions.RegisterAutoDescription<megamol::moldyn::BrickStatsCall>();

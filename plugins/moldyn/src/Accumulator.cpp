@@ -1,7 +1,7 @@
 #include "Accumulator.h"
 
-#include "mmcore/param/IntParam.h"
 #include "mmcore/param/EnumParam.h"
+#include "mmcore/param/IntParam.h"
 
 #include "geometry_calls/MultiParticleDataCall.h"
 
@@ -12,7 +12,7 @@ megamol::moldyn::Accumulator::Accumulator()
         : data_in_slot_("dataIn", "")
         , data_out_slot_("dataOut", "")
         , window_size_slot_("windowSize", "")
-		, direction_slot_("direction", "") {
+        , direction_slot_("direction", "") {
     data_in_slot_.SetCompatibleCall<geocalls::MultiParticleDataCallDescription>();
     MakeSlotAvailable(&data_in_slot_);
 
@@ -22,10 +22,10 @@ megamol::moldyn::Accumulator::Accumulator()
         geocalls::MultiParticleDataCall::FunctionName(1), &Accumulator::get_extent_cb);
     MakeSlotAvailable(&data_out_slot_);
 
-	window_size_slot_ << new core::param::IntParam(1, 1);
+    window_size_slot_ << new core::param::IntParam(1, 1);
     MakeSlotAvailable(&window_size_slot_);
 
-	auto ep = new core::param::EnumParam(static_cast<int>(dir_t::BACKWARD));
+    auto ep = new core::param::EnumParam(static_cast<int>(dir_t::BACKWARD));
     ep->SetTypePair(static_cast<int>(dir_t::BACKWARD), "Backward");
     ep->SetTypePair(static_cast<int>(dir_t::CENTRAL), "Central");
     ep->SetTypePair(static_cast<int>(dir_t::FORWARD), "Forward");
@@ -48,7 +48,7 @@ void megamol::moldyn::Accumulator::release() {}
 
 
 bool megamol::moldyn::Accumulator::get_data_cb(core::Call& c) {
-	auto out_data = dynamic_cast<geocalls::MultiParticleDataCall*>(&c);
+    auto out_data = dynamic_cast<geocalls::MultiParticleDataCall*>(&c);
     if (out_data == nullptr)
         return false;
 
@@ -56,13 +56,23 @@ bool megamol::moldyn::Accumulator::get_data_cb(core::Call& c) {
     if (in_data == nullptr)
         return false;
 
-	in_data->SetFrameID(out_data->FrameID());
+    in_data->SetFrameID(out_data->FrameID());
     if (!(*in_data)(0))
         return false;
 
-	if (in_data->FrameID() != frame_id_ || in_data->DataHash() != in_data_hash_ || isDirty()) {
+    if (in_data->FrameID() != frame_id_ || in_data->DataHash() != in_data_hash_ || isDirty()) {
         auto const window_size = window_size_slot_.Param<core::param::IntParam>()->Value();
         auto const direction = static_cast<dir_t>(direction_slot_.Param<core::param::EnumParam>()->Value());
+
+        auto const tmp_fid = in_data->FrameID();
+        auto const tmp_dh = in_data->DataHash();
+
+        auto const pl_count = in_data->GetParticleListCount();
+        global_radii_.resize(pl_count);
+        for (std::decay_t<decltype(pl_count)> pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
+            auto const& particles = in_data->AccessParticles(pl_idx);
+            global_radii_[pl_idx] = particles.GetGlobalRadius();
+        }
 
         std::vector<std::vector<glm::vec3>> avg_pos;
         std::vector<std::vector<glm::vec3>> avg_dir;
@@ -81,17 +91,56 @@ bool megamol::moldyn::Accumulator::get_data_cb(core::Call& c) {
             break;
         }
 
-        frame_id_ = in_data->FrameID();
-        in_data_hash_ = in_data->DataHash();
-        resetDirty();
-	}
+        avg_pos_ = avg_pos;
+        avg_dir_ = avg_dir;
+        avg_col_ = avg_col;
+        base_id_ = base_id;
 
+        frame_id_ = tmp_fid;
+        in_data_hash_ = tmp_dh;
+        resetDirty();
+        ++out_data_hash_;
+    }
+
+    out_data->SetParticleListCount(avg_pos_.size());
+    for (unsigned int pl_idx = 0; pl_idx < avg_pos_.size(); ++pl_idx) {
+        auto& particles = out_data->AccessParticles(pl_idx);
+        auto const& s_pos = avg_pos_[pl_idx];
+        auto const& s_dir = avg_dir_[pl_idx];
+        auto const& s_col = avg_col_[pl_idx];
+        auto const& s_base_id = base_id_[pl_idx];
+        particles.SetCount(s_pos.size());
+        if (s_pos.size() != 0) {
+            particles.SetVertexData(geocalls::SimpleSphericalParticles::VERTDATA_FLOAT_XYZ, s_pos.data());
+            particles.SetDirData(geocalls::SimpleSphericalParticles::DIRDATA_FLOAT_XYZ, s_dir.data());
+            particles.SetColourData(geocalls::SimpleSphericalParticles::COLDATA_FLOAT_RGBA, s_col.data());
+            particles.SetIDData(geocalls::SimpleSphericalParticles::IDDATA_UINT64, s_base_id.data());
+        }
+        particles.SetGlobalRadius(global_radii_[pl_idx]);
+    }
+    out_data->SetFrameID(frame_id_);
+    out_data->SetDataHash(out_data_hash_);
 
     return true;
 }
 
 
 bool megamol::moldyn::Accumulator::get_extent_cb(core::Call& c) {
+    auto out_data = dynamic_cast<geocalls::MultiParticleDataCall*>(&c);
+    if (out_data == nullptr)
+        return false;
+
+    auto in_data = data_in_slot_.CallAs<geocalls::MultiParticleDataCall>();
+    if (in_data == nullptr)
+        return false;
+
+    in_data->SetFrameID(out_data->FrameID());
+    if (!(*in_data)(1))
+        return false;
+
+    out_data->SetFrameCount(in_data->FrameCount());
+    out_data->AccessBoundingBoxes() = in_data->AccessBoundingBoxes();
+
     return true;
 }
 
@@ -178,7 +227,8 @@ megamol::moldyn::Accumulator::collect_backward(geocalls::MultiParticleDataCall* 
 
                     s_avg_pos[idx] += glm::vec3(x_acc->Get_f(p_idx), y_acc->Get_f(p_idx), z_acc->Get_f(p_idx));
                     s_avg_dir[idx] += glm::vec3(dx_acc->Get_f(p_idx), dy_acc->Get_f(p_idx), dz_acc->Get_f(p_idx));
-                    s_avg_col[idx] += glm::vec4(cr_acc->Get_f(p_idx), cg_acc->Get_f(p_idx), cb_acc->Get_f(p_idx), ca_acc->Get_f(p_idx));
+                    s_avg_col[idx] += glm::vec4(
+                        cr_acc->Get_f(p_idx), cg_acc->Get_f(p_idx), cb_acc->Get_f(p_idx), ca_acc->Get_f(p_idx));
                 }
             }
         }
@@ -186,11 +236,11 @@ megamol::moldyn::Accumulator::collect_backward(geocalls::MultiParticleDataCall* 
 
     for (std::decay_t<decltype(pl_count)> pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
         std::transform(avg_pos[pl_idx].begin(), avg_pos[pl_idx].end(), avg_pos[pl_idx].begin(),
-            [&window_size](auto const& val) { return val / static_cast<float>(window_size); });
+            [&window_size](auto const& val) { return val / static_cast<float>(window_size + 1); });
         std::transform(avg_dir[pl_idx].begin(), avg_dir[pl_idx].end(), avg_dir[pl_idx].begin(),
-            [&window_size](auto const& val) { return val / static_cast<float>(window_size); });
+            [&window_size](auto const& val) { return val / static_cast<float>(window_size + 1); });
         std::transform(avg_col[pl_idx].begin(), avg_col[pl_idx].end(), avg_col[pl_idx].begin(),
-            [&window_size](auto const& val) { return val / static_cast<float>(window_size); });
+            [&window_size](auto const& val) { return val / static_cast<float>(window_size + 1); });
     }
 
     return std::make_tuple(base_id, avg_pos, avg_dir, avg_col);

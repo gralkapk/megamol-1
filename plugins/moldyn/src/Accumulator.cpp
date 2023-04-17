@@ -84,27 +84,27 @@ bool megamol::moldyn::Accumulator::get_data_cb(core::Call& c) {
             }
         }
 
-        std::vector<std::vector<glm::vec3>> avg_pos;
+        /*std::vector<std::vector<glm::vec3>> avg_pos;
         std::vector<std::vector<glm::vec3>> avg_dir;
         std::vector<std::vector<glm::vec4>> avg_col;
-        std::vector<std::vector<uint64_t>> base_id;
+        std::vector<std::vector<uint64_t>> base_id;*/
 
         switch (direction) {
         case dir_t::BACKWARD:
-            std::tie(base_id, avg_pos, avg_dir, avg_col) = collect_backward(in_data, window_size);
+            std::tie(base_id_, avg_pos_, avg_dir_, avg_col_) = collect_backward(in_data, window_size);
             break;
         case dir_t::CENTRAL:
-            std::tie(base_id, avg_pos, avg_dir, avg_col) = collect_central(in_data, window_size);
+            std::tie(base_id_, avg_pos_, avg_dir_, avg_col_) = collect_central(in_data, window_size);
             break;
         case dir_t::FORWARD:
-            std::tie(base_id, avg_pos, avg_dir, avg_col) = collect_forward(in_data, window_size);
+            std::tie(base_id_, avg_pos_, avg_dir_, avg_col_) = collect_forward(in_data, window_size);
             break;
         }
 
-        avg_pos_ = avg_pos;
+        /*avg_pos_ = avg_pos;
         avg_dir_ = avg_dir;
         avg_col_ = avg_col;
-        base_id_ = base_id;
+        base_id_ = base_id;*/
 
         frame_id_ = tmp_fid;
         in_data_hash_ = tmp_dh;

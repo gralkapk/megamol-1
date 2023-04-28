@@ -35,6 +35,7 @@ if(BUILD_FRONTEND_SERVICES)
     "remote_service/*.hpp"
     "profiling_service/*.hpp"
     "vr_service/*.hpp"
+    "video_service/*.hpp"
 #   "service_template/*.hpp"
     )
 
@@ -51,6 +52,7 @@ if(BUILD_FRONTEND_SERVICES)
     "remote_service/*.cpp"
     "profiling_service/*.cpp"
     "vr_service/*.cpp"
+    "video_service/*.cpp"
     # "service_template/*.cpp"
   )
 
@@ -111,6 +113,7 @@ if(BUILD_FRONTEND_SERVICES)
     "profiling_service"
     "gui/src"
     "vr_service"
+    "video_service"
    # "service_template"
   )
 
@@ -159,6 +162,11 @@ if(BUILD_FRONTEND_SERVICES)
       target_compile_definitions(${PROJECT_NAME} PRIVATE BOOST_STACKTRACE_USE_BACKTRACE)
     endif ()
   endif ()
+
+  find_package(FFMPEG REQUIRED)
+  target_include_directories(${PROJECT_NAME} PRIVATE ${FFMPEG_INCLUDE_DIRS})
+  target_link_directories(${PROJECT_NAME} PRIVATE ${FFMPEG_LIBRARY_DIRS})
+  target_link_libraries(${PROJECT_NAME} PRIVATE ${FFMPEG_LIBRARIES})
 
   target_link_libraries(${PROJECT_NAME}
     PRIVATE

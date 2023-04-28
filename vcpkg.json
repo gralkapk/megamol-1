@@ -18,6 +18,17 @@
     "cxxopts",
     "delaunator-cpp",
     "eigen3",
+    {
+      "name": "ffmpeg",
+      "features": [
+        "avcodec",
+        "avdevice",
+        "avfilter",
+        "avformat",
+        "swscale",
+        "x264"
+      ]
+    },
     "glfw3",
     "glm",
     {

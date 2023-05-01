@@ -1,8 +1,13 @@
 #pragma once
 
+#include <unordered_map>
+
 #include "AbstractFrontendService.hpp"
 
 namespace megamol::frontend {
+
+struct StreamContext;
+
 class Video_Service : public AbstractFrontendService {
 public:
     std::string serviceName() const override {
@@ -34,5 +39,14 @@ public:
 
 protected:
 private:
+    void fill_lua_callbacks();
+
+    std::vector<std::string> requestedResourcesNames_;
+
+    megamol::frontend_resources::ScreenshotImageData image_;
+
+    int counter = 0;
+
+    std::unordered_map<std::string, std::vector<StreamContext>> stream_ctx_map_;
 };
 } // namespace megamol::frontend

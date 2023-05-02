@@ -16,7 +16,10 @@ megamol::frontend::Video_Service::~Video_Service() {}
 
 bool megamol::frontend::Video_Service::init(void* configPtr) {
 
-    requestedResourcesNames_ = {"RegisterLuaCallback"};
+    requestedResourcesNames_ = {"RegisterLuaCallback", "MegaMolGraph"};
+
+    // for test purposes
+    start_video_rec("./test_out.mkv");
 
     return true;
 }
@@ -55,19 +58,22 @@ void megamol::frontend::Video_Service::preGraphRender() {
 
 void megamol::frontend::Video_Service::postGraphRender() {
     // loop over all video files
-
-    auto& vid_ctx = stream_ctx_[0];
-
     glReadBuffer(GL_FRONT);
-    glReadPixels(0, 0, vid_ctx.dim.x, vid_ctx.dim.y, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
+    glReadPixels(0, 0, 1920, 1080, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
 
-    flipRGB(vid_ctx, image_);
 
-    rgb2yuv(vid_ctx);
+    for (auto& [filename, stream_ctx] : stream_ctx_map_) {
+        //auto& vid_ctx = stream_ctx_[0];
+        auto& vid_ctx = stream_ctx[0];
 
-    vid_ctx.yuvpic->pts = counter++;
+        flipRGB(vid_ctx, image_);
 
-    //encodeFrame(vid_ctx)
+        rgb2yuv(vid_ctx);
+
+        vid_ctx.yuvpic->pts = counter++;
+
+        encodeFrame(vid_ctx);
+    }
 }
 
 
@@ -77,9 +83,7 @@ void megamol::frontend::Video_Service::fill_lua_callbacks() {
     callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, std::string>("mmStartVideoRecord",
         "(string filename)",
         {[&](std::string const& filename) -> frontend_resources::LuaCallbacksCollection::VoidResult {
-            std::vector<StreamContext> sc;
-            setup_video(filename, {1920, 1080}, sc);
-            stream_ctx_map_[filename] = sc;
+            start_video_rec(filename);
             return frontend_resources::LuaCallbacksCollection::VoidResult{};
         }});
 
@@ -90,4 +94,23 @@ void megamol::frontend::Video_Service::fill_lua_callbacks() {
             // flush encoder and clean up
             return frontend_resources::LuaCallbacksCollection::VoidResult{};
         }});
+}
+
+
+void megamol::frontend::Video_Service::start_video_rec(std::string const& filename) {
+    std::vector<StreamContext> sc;
+    setup_video(filename, {1920, 1080}, sc);
+    setup_subtitles(filename, sc);
+    stream_ctx_map_[filename] = sc;
+}
+
+
+void megamol::frontend::Video_Service::stop_video_rec(std::string const& filename) {
+    auto fit = stream_ctx_map_.find(filename);
+    if (fit != stream_ctx_map_.end()) {
+        // write subtitles
+        encode_sub(fit->second);
+        // flush encoder
+        // clean up
+    }
 }

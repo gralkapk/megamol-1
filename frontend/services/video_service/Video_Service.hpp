@@ -41,6 +41,10 @@ protected:
 private:
     void fill_lua_callbacks();
 
+    void start_video_rec(std::string const& filename);
+
+    void stop_video_rec(std::string const& filename);
+
     std::vector<std::string> requestedResourcesNames_;
 
     megamol::frontend_resources::ScreenshotImageData image_;

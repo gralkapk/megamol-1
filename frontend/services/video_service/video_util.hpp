@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <fstream>
 #include <string>
 
@@ -17,6 +18,9 @@ struct StreamContext {
     ~StreamContext() {
         if (enc_ctx != nullptr) {
             avcodec_free_context(&enc_ctx);
+        }
+        if (dec_ctx != nullptr) {
+            avcodec_free_context(&dec_ctx);
         }
         if (rgbpic != nullptr) {
             av_frame_free(&rgbpic);
@@ -36,8 +40,10 @@ struct StreamContext {
     }
 
     AVFormatContext* fmt_ctx = nullptr;
+    AVFormatContext* in_fmt_ctx = nullptr;
 
     AVCodecContext* enc_ctx = nullptr;
+    AVCodecContext* dec_ctx = nullptr;
 
     SwsContext* sws_ctx = nullptr;
 
@@ -49,8 +55,7 @@ struct StreamContext {
     glm::ivec2 dim;
 };
 
-bool setup_video(std::string const& out_filename, glm::ivec2 const& dim,
-    std::vector<StreamContext>& stream_ctx) {
+bool setup_video(std::string const& out_filename, glm::ivec2 const& dim, std::vector<StreamContext>& stream_ctx) {
     int ret = 0;
     AVFormatContext* ovid_fmtctx = nullptr;
     ret = avformat_alloc_output_context2(&ovid_fmtctx, nullptr, nullptr, out_filename.c_str());
@@ -178,6 +183,94 @@ void encodeFrame(StreamContext& config) {
         config.packet->stream_index = 0;
         enc_ret = av_interleaved_write_frame(config.fmt_ctx, config.packet);
     }
+}
 
+using fps_30 = std::chrono::duration<double, std::ratio<1, 30>>;
+
+std::string convert_to_timestamp(fps_30 const& time) {
+    auto t_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time);
+
+    auto t_s = std::chrono::duration_cast<std::chrono::seconds>(t_ms);
+    t_ms -= t_s;
+
+    auto t_m = std::chrono::duration_cast<std::chrono::minutes>(t_s);
+    t_s -= t_m;
+
+    auto t_h = std::chrono::duration_cast<std::chrono::hours>(t_m);
+    t_m -= t_h;
+
+    char buf[13];
+    sprintf_s(buf, 13, "%02d:%02d:%02d,%03d", t_h.count(), t_m.count(), t_s.count(), t_ms.count());
+
+
+    return std::string(buf);
+}
+
+bool setup_subtitles(std::string const& filename, std::vector<StreamContext>& stream_ctx) {
+    //AVFormatContext* isub_fmtctx = nullptr;
+    int ret = 0;
+    ret = avformat_open_input(&stream_ctx[1].in_fmt_ctx, filename.c_str(), nullptr, nullptr);
+    if (ret < 0)
+        return false;
+
+    ret = avformat_find_stream_info(stream_ctx[1].in_fmt_ctx, nullptr);
+    if (ret < 0)
+        return false;
+
+    if (stream_ctx[1].in_fmt_ctx->nb_streams > 1)
+        return false;
+
+    auto stream = stream_ctx[1].in_fmt_ctx->streams[0];
+    auto dec = avcodec_find_decoder(stream->codecpar->codec_id);
+    auto codec_ctx = avcodec_alloc_context3(dec);
+    ret = avcodec_parameters_to_context(codec_ctx, stream->codecpar);
+    if (ret < 0)
+        return false;
+    codec_ctx->time_base = AVRational{1, 30};
+    ret = avcodec_open2(codec_ctx, dec, nullptr);
+    if (ret < 0)
+        return false;
+    stream_ctx[1].dec_ctx = codec_ctx;
+
+    //for (int i = 0; i < stream_ctx[1].in_fmt_ctx->nb_streams; ++i) {
+    //    AVStream* stream = stream_ctx[1].in_fmt_ctx->streams[i];
+    //    AVCodec const* dec = avcodec_find_decoder(stream->codecpar->codec_id);
+    //    AVCodecContext* codec_ctx = avcodec_alloc_context3(dec);
+    //    avcodec_parameters_to_context(codec_ctx, stream->codecpar);
+    //    /*if (codec_ctx->codec_type == AVMEDIA_TYPE_VIDEO
+    //            || codec_ctx->codec_type == AVMEDIA_TYPE_AUDIO) {
+    //            if (codec_ctx->codec_type == AVMEDIA_TYPE_VIDEO)
+    //                    codec_ctx->framerate = av_guess_frame_rate(ivid_fmtctx, stream, nullptr);
+    //            FFEXEC(avcodec_open2(codec_ctx, dec, nullptr));
+    //    }*/
+    //    codec_ctx->time_base = AVRational{1, 30};
+    //    avcodec_open2(codec_ctx, dec, nullptr);
+    //    stream_sub_ctx[i].dec_ctx = codec_ctx;
+    //}
+
+    //av_dump_format(isub_fmtctx, 0, filename.c_str(), 0);
+}
+
+void encode_sub(std::vector<StreamContext>& stream_ctx) {
+    int ret = 0;
+    while (1) {
+        av_packet_unref(stream_ctx[1].packet);
+        ret = av_read_frame(stream_ctx[1].in_fmt_ctx, stream_ctx[1].packet);
+        //int got_sub = 0;
+        //AVSubtitle* sub = new AVSubtitle;
+        //avcodec_decode_subtitle2(stream_ctx[1].dec_ctx, sub, &got_sub, stream_ctx[1].packet);
+        /*if (!got_sub)
+            break;*/
+        stream_ctx[1].packet->stream_index = 1;
+        //av_packet_rescale_ts(packet, stream_sub_ctx[0].dec_ctx->time_base, stream_ctx[1].enc_ctx->time_base);
+        /*packet->time_base = AVRational{ 1,30 };
+        packet->pts = sub_counter;
+        sub_counter += 10;*/
+        ret = av_interleaved_write_frame(stream_ctx[1].fmt_ctx, stream_ctx[1].packet);
+        /*uint8_t* buf = new uint8_t[2048 * 2048];
+        ret = avcodec_encode_subtitle(stream_ctx[1].enc_ctx, buf, 2048 * 2048, sub);*/
+        if (ret < 0)
+            break;
+    }
 }
 } // namespace megamol::frontend

@@ -16,7 +16,8 @@ megamol::frontend::Video_Service::~Video_Service() {}
 
 bool megamol::frontend::Video_Service::init(void* configPtr) {
 
-    requestedResourcesNames_ = {"RegisterLuaCallback", "MegaMolGraph"};
+    //requestedResourcesNames_ = {"RegisterLuaCallback", "MegaMolGraph"};
+    requestedResourcesNames_ = {"MegaMolGraph"};
 
     // for test purposes
     start_video_rec("./test_out.mkv");
@@ -39,11 +40,13 @@ std::vector<megamol::frontend::FrontendResource>& megamol::frontend::Video_Servi
 
 
 const std::vector<std::string> megamol::frontend::Video_Service::getRequestedResourceNames() const {
-    return std::vector<std::string>();
+    return requestedResourcesNames_;
 }
 
 
-void megamol::frontend::Video_Service::setRequestedResources(std::vector<FrontendResource> resources) {}
+void megamol::frontend::Video_Service::setRequestedResources(std::vector<FrontendResource> resources) {
+    mmgraph_ptr = const_cast<megamol::core::MegaMolGraph*>(&resources[0].getResource<megamol::core::MegaMolGraph>());
+}
 
 
 void megamol::frontend::Video_Service::updateProvidedResources() {}
@@ -62,6 +65,8 @@ void megamol::frontend::Video_Service::preGraphRender() {
 
 
 void megamol::frontend::Video_Service::postGraphRender() {
+    auto text = mmgraph_ptr->Convenience().SerializeAllParameters();
+
     // loop over all video files
     glReadBuffer(GL_FRONT);
     glReadPixels(0, 0, 1920, 1080, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
@@ -87,7 +92,8 @@ void megamol::frontend::Video_Service::postGraphRender() {
         auto base_ts = convert_to_timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(last_ - start_));
         auto next_ts = convert_to_timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(current - start_));
 
-        write_srt_entry(srt_file_, counter, base_ts, next_ts, std::string("Frame ") + std::to_string(counter++));
+        //write_srt_entry(srt_file_, counter, base_ts, next_ts, std::string("Frame ") + std::to_string(counter++));
+        write_srt_entry(srt_file_, counter++, base_ts, next_ts, text);
 
         last_ = current;
 

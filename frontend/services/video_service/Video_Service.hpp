@@ -7,6 +7,7 @@
 #include "AbstractFrontendService.hpp"
 
 #include "Screenshots.h"
+#include "mmcore/MegaMolGraph.h"
 
 namespace megamol::frontend {
 
@@ -66,5 +67,7 @@ private:
     std::chrono::high_resolution_clock::time_point last_;
 
     std::ofstream srt_file_;
+
+    megamol::core::MegaMolGraph* mmgraph_ptr = nullptr;
 };
 } // namespace megamol::frontend

@@ -23,6 +23,7 @@
 #include "Remote_Service.hpp"
 #include "Screenshot_Service.hpp"
 #include "VR_Service.hpp"
+#include "Video_Service.hpp"
 
 #ifdef MEGAMOL_USE_TRACY
 #include "Tracy.hpp"
@@ -169,6 +170,10 @@ int main(const int argc, const char** argv) {
     profiling_config.log_file = config.profiling_output_file;
     profiling_config.autostart_profiling = config.autostart_profiling;
 
+    megamol::frontend::Video_Service video_service;
+    video_service.setPriority(42);
+    
+
 #ifdef MM_CUDA_ENABLED
     megamol::frontend::CUDA_Service cuda_service;
     cuda_service.setPriority(24);
@@ -205,6 +210,7 @@ int main(const int argc, const char** argv) {
     }
 
     services.add(profiling_service, &profiling_config);
+    services.add(video_service, nullptr);
 
 #ifdef MM_CUDA_ENABLED
     services.add(cuda_service, nullptr);

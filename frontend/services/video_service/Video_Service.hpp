@@ -4,6 +4,8 @@
 
 #include "AbstractFrontendService.hpp"
 
+#include "Screenshots.h"
+
 namespace megamol::frontend {
 
 struct StreamContext;
@@ -46,6 +48,8 @@ private:
     void stop_video_rec(std::string const& filename);
 
     std::vector<std::string> requestedResourcesNames_;
+
+    std::vector<megamol::frontend::FrontendResource> providedResources_;
 
     megamol::frontend_resources::ScreenshotImageData image_;
 

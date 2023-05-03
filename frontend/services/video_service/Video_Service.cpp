@@ -21,15 +21,19 @@ bool megamol::frontend::Video_Service::init(void* configPtr) {
     // for test purposes
     start_video_rec("./test_out.mkv");
 
+    image_.resize(1920, 1080);
+
     return true;
 }
 
 
-void megamol::frontend::Video_Service::close() {}
+void megamol::frontend::Video_Service::close() {
+    stop_video_rec("./test_out.mkv");
+}
 
 
 std::vector<megamol::frontend::FrontendResource>& megamol::frontend::Video_Service::getProvidedResources() {
-    // TODO: insert return statement here
+    return providedResources_;
 }
 
 
@@ -89,9 +93,10 @@ void megamol::frontend::Video_Service::fill_lua_callbacks() {
 
     callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, std::string>("mmStopVideoRecord",
         "(string filename)",
-        {[](std::string const& filename) -> frontend_resources::LuaCallbacksCollection::VoidResult {
+        {[&](std::string const& filename) -> frontend_resources::LuaCallbacksCollection::VoidResult {
             // write subtitles into file
             // flush encoder and clean up
+            stop_video_rec(filename);
             return frontend_resources::LuaCallbacksCollection::VoidResult{};
         }});
 }
@@ -101,7 +106,7 @@ void megamol::frontend::Video_Service::start_video_rec(std::string const& filena
     std::vector<StreamContext> sc;
     setup_video(filename, {1920, 1080}, sc);
     setup_subtitles(filename, sc);
-    stream_ctx_map_[filename] = sc;
+    stream_ctx_map_[filename] = std::move(sc);
 }
 
 
@@ -109,7 +114,8 @@ void megamol::frontend::Video_Service::stop_video_rec(std::string const& filenam
     auto fit = stream_ctx_map_.find(filename);
     if (fit != stream_ctx_map_.end()) {
         // write subtitles
-        encode_sub(fit->second);
+        //encode_sub(fit->second);
+        auto ret = av_write_trailer(fit->second[0].fmt_ctx);
         // flush encoder
         // clean up
     }

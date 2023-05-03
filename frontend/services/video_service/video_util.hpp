@@ -67,6 +67,10 @@ struct StreamContext {
 };
 
 bool setup_video(std::string const& out_filename, glm::ivec2 const& dim, std::vector<StreamContext>& stream_ctx) {
+#ifdef DEBUG
+    av_log_set_level(AV_LOG_DEBUG);
+#endif //  DEBUG
+
     int ret = 0;
     AVFormatContext* ovid_fmtctx = nullptr;
     ret = avformat_alloc_output_context2(&ovid_fmtctx, nullptr, nullptr, out_filename.c_str());
@@ -179,10 +183,23 @@ void write_srt_entry(
     srt << msg << std::endl;
 }
 
+void flush_encoder(StreamContext& config) {
+    //int enc_ret = 0;
+    auto enc_ret = avcodec_send_frame(config.enc_ctx, nullptr);
+    while (enc_ret >= 0) {
+        av_packet_unref(config.packet);
+        enc_ret = avcodec_receive_packet(config.enc_ctx, config.packet);
+        if (enc_ret == AVERROR(EAGAIN) || enc_ret == AVERROR_EOF)
+            break;
+        config.packet->stream_index = 0;
+        enc_ret = av_interleaved_write_frame(config.fmt_ctx, config.packet);
+    }
+}
+
 void encodeFrame(StreamContext& config) {
-    av_packet_unref(config.packet);
     auto enc_ret = avcodec_send_frame(config.enc_ctx, config.yuvpic);
     while (enc_ret >= 0) {
+        av_packet_unref(config.packet);
         enc_ret = avcodec_receive_packet(config.enc_ctx, config.packet);
         if (enc_ret == AVERROR(EAGAIN) || enc_ret == AVERROR_EOF)
             break;
@@ -195,6 +212,26 @@ using fps_30 = std::chrono::duration<double, std::ratio<1, 30>>;
 
 std::string convert_to_timestamp(fps_30 const& time) {
     auto t_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time);
+
+    auto t_s = std::chrono::duration_cast<std::chrono::seconds>(t_ms);
+    t_ms -= t_s;
+
+    auto t_m = std::chrono::duration_cast<std::chrono::minutes>(t_s);
+    t_s -= t_m;
+
+    auto t_h = std::chrono::duration_cast<std::chrono::hours>(t_m);
+    t_m -= t_h;
+
+    char buf[13];
+    sprintf_s(buf, 13, "%02d:%02d:%02d,%03d", t_h.count(), t_m.count(), t_s.count(), t_ms.count());
+
+
+    return std::string(buf);
+}
+
+std::string convert_to_timestamp(std::chrono::milliseconds const& time) {
+    //auto t_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time);
+    auto t_ms = time;
 
     auto t_s = std::chrono::duration_cast<std::chrono::seconds>(t_ms);
     t_ms -= t_s;
@@ -262,6 +299,8 @@ void encode_sub(std::vector<StreamContext>& stream_ctx) {
     while (1) {
         av_packet_unref(stream_ctx[1].packet);
         ret = av_read_frame(stream_ctx[1].in_fmt_ctx, stream_ctx[1].packet);
+        if (ret < 0)
+            break;
         //int got_sub = 0;
         //AVSubtitle* sub = new AVSubtitle;
         //avcodec_decode_subtitle2(stream_ctx[1].dec_ctx, sub, &got_sub, stream_ctx[1].packet);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <chrono>
+#include <fstream>
 #include <unordered_map>
 
 #include "AbstractFrontendService.hpp"
@@ -56,5 +58,13 @@ private:
     int counter = 0;
 
     std::unordered_map<std::string, std::vector<StreamContext>> stream_ctx_map_;
+
+    bool first_time_ = true;
+
+    std::chrono::high_resolution_clock::time_point start_;
+
+    std::chrono::high_resolution_clock::time_point last_;
+
+    std::ofstream srt_file_;
 };
 } // namespace megamol::frontend

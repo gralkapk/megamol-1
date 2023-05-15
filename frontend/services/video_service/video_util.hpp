@@ -166,12 +166,27 @@ void rgb2yuv(StreamContext& config) {
         config.yuvpic->linesize);
 }
 
-void flipRGB(StreamContext& config, megamol::frontend_resources::ScreenshotImageData const& image) {
+void yuv2rgb(StreamContext& config) {
+    sws_scale(config.sws_ctx, config.yuvpic->data, config.yuvpic->linesize, 0, config.dim.y, config.rgbpic->data,
+        config.rgbpic->linesize);
+}
+
+void flipImage2RGB(StreamContext& config, megamol::frontend_resources::ScreenshotImageData const& image) {
     for (int y = 0; y < config.dim.y; ++y) {
         for (int x = 0; x < config.dim.x; ++x) {
             config.rgbpic->data[0][y * config.rgbpic->linesize[0] + 3 * x] = image.flipped_rows[y][x].r;
             config.rgbpic->data[0][y * config.rgbpic->linesize[0] + 3 * x + 1] = image.flipped_rows[y][x].g;
             config.rgbpic->data[0][y * config.rgbpic->linesize[0] + 3 * x + 2] = image.flipped_rows[y][x].b;
+        }
+    }
+}
+
+void flipRGB2Image(StreamContext& config, megamol::frontend_resources::ScreenshotImageData const& image) {
+    for (int y = 0; y < config.dim.y; ++y) {
+        for (int x = 0; x < config.dim.x; ++x) {
+            image.flipped_rows[y][x].r = config.rgbpic->data[0][y * config.rgbpic->linesize[0] + 3 * x];
+            image.flipped_rows[y][x].g = config.rgbpic->data[0][y * config.rgbpic->linesize[0] + 3 * x + 1];
+            image.flipped_rows[y][x].b = config.rgbpic->data[0][y * config.rgbpic->linesize[0] + 3 * x + 2];
         }
     }
 }
@@ -344,8 +359,8 @@ bool open_video(std::string const& in_filename) {
             ret = avcodec_open2(codec_ctx, dec, nullptr);
             if (ret < 0)
                 break;
-            stream_ctx[i].yuvpic = av_frame_alloc();
-            stream_ctx[i].rgbpic = av_frame_alloc();
+            /*stream_ctx[i].yuvpic = av_frame_alloc();
+            stream_ctx[i].rgbpic = av_frame_alloc();*/
         } else if (codec_ctx->codec_type == AVMEDIA_TYPE_SUBTITLE) {
             codec_ctx->time_base = AVRational{1, 30};
             ret = avcodec_open2(codec_ctx, dec, nullptr);
@@ -358,6 +373,30 @@ bool open_video(std::string const& in_filename) {
     }
 
     av_dump_format(ivid_fmtctx, 0, in_filename.c_str(), 0);
+
+    glm::ivec2 dim;
+    dim.x = ivid_fmtctx->streams[0]->codecpar->width;
+    dim.y = ivid_fmtctx->streams[0]->codecpar->height;
+    stream_ctx[0].sws_ctx = sws_getContext(
+        dim.x, dim.y, AV_PIX_FMT_YUV420P, dim.x, dim.y, AV_PIX_FMT_RGB24, SWS_FAST_BILINEAR, nullptr, nullptr, nullptr);
+
+    stream_ctx[0].rgbpic = av_frame_alloc();
+    stream_ctx[0].rgbpic->format = AV_PIX_FMT_RGB24;
+    stream_ctx[0].rgbpic->width = dim.x;
+    stream_ctx[0].rgbpic->height = dim.y;
+    ret = av_frame_get_buffer(stream_ctx[0].rgbpic, 1);
+    if (ret < 0)
+        return false;
+
+    stream_ctx[0].yuvpic = av_frame_alloc();
+    stream_ctx[0].yuvpic->format = AV_PIX_FMT_YUV420P;
+    stream_ctx[0].yuvpic->width = dim.x;
+    stream_ctx[0].yuvpic->height = dim.y;
+    ret = av_frame_get_buffer(stream_ctx[0].yuvpic, 1);
+    if (ret < 0)
+        return false;
+
+    stream_ctx[0].dim = dim;
 }
 
 std::string decode_sub(std::vector<StreamContext>& stream_ctx) {
@@ -385,21 +424,69 @@ std::string decode_sub(std::vector<StreamContext>& stream_ctx) {
     return text;
 }
 
-void decode_vid(std::vector<StreamContext>& stream_ctx) {
+void decode_video(AVFormatContext* ivid_fmtctx, std::vector<StreamContext>& stream_ctx) {
+    auto packet = av_packet_alloc();
+    AVSubtitle* sub = new AVSubtitle;
+    int got_sub = 0;
+    std::string text;
+    frontend_resources::ScreenshotImageData image;
+    image.resize(stream_ctx[0].dim.x, stream_ctx[0].dim.y);
     int ret = 0;
-
-    int counter = 0;
     while (1) {
         ret = av_read_frame(ivid_fmtctx, packet);
+        auto stream_index = packet->stream_index;
+
         av_packet_rescale_ts(
             packet, ivid_fmtctx->streams[stream_index]->time_base, stream_ctx[stream_index].dec_ctx->time_base);
-        avcodec_send_packet(stream_ctx[stream_index].dec_ctx, packet);
 
-        int dec_ret = 0;
-        while (dec_ret >= 0) {
-            dec_ret = avcodec_receive_frame(stream_ctx[stream_index].dec_ctx, stream_ctx[stream_index].dec_frame);
-            if (dec_ret == AVERROR_EOF || dec_ret == AVERROR(EAGAIN))
-                break;
+        if (stream_ctx[stream_index].dec_ctx->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+            avcodec_decode_subtitle2(stream_ctx[stream_index].dec_ctx, sub, &got_sub, packet);
+            if (got_sub) {
+                if (sub->num_rects > 0) {
+                    if (sub->rects[0]->type == AVSubtitleType::SUBTITLE_TEXT) {
+                        text = std::string(sub->rects[0]->text);
+                    } else if (sub->rects[0]->type == AVSubtitleType::SUBTITLE_ASS) {
+                        text = std::string(sub->rects[0]->ass);
+                    }
+                }
+            }
+        } else {
+            ret = avcodec_send_packet(stream_ctx[stream_index].dec_ctx, packet);
+            int dec_ret = 0;
+            while (dec_ret >= 0) {
+                dec_ret = avcodec_receive_frame(stream_ctx[stream_index].dec_ctx, stream_ctx[stream_index].yuvpic);
+                if (dec_ret == AVERROR_EOF || dec_ret == AVERROR(EAGAIN))
+                    break;
+
+                // convert yuvpic to rgbpic
+                yuv2rgb(stream_ctx[stream_index]);
+                flipRGB2Image(stream_ctx[stream_index], image);
+
+                // send rgb frame to sink
+            }
         }
+        av_packet_unref(packet);
     }
+    avsubtitle_free(sub);
+    av_packet_free(&packet);
+}
+
+//void decode_vid(std::vector<StreamContext>& stream_ctx) {
+//    int ret = 0;
+//
+//    int counter = 0;
+//    while (1) {
+//        ret = av_read_frame(ivid_fmtctx, packet);
+//        av_packet_rescale_ts(
+//            packet, ivid_fmtctx->streams[stream_index]->time_base, stream_ctx[stream_index].dec_ctx->time_base);
+//        avcodec_send_packet(stream_ctx[stream_index].dec_ctx, packet);
+//
+//        int dec_ret = 0;
+//        while (dec_ret >= 0) {
+//            dec_ret = avcodec_receive_frame(stream_ctx[stream_index].dec_ctx, stream_ctx[stream_index].dec_frame);
+//            if (dec_ret == AVERROR_EOF || dec_ret == AVERROR(EAGAIN))
+//                break;
+//        }
+//    }
+//}
 } // namespace megamol::frontend

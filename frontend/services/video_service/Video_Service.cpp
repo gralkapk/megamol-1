@@ -102,7 +102,7 @@ void megamol::frontend::Video_Service::postGraphRender() {
         //auto& vid_ctx = stream_ctx_[0];
         auto& vid_ctx = stream_ctx[0];
 
-        flipRGB(vid_ctx, image_);
+        flipImage2RGB(vid_ctx, image_);
 
         rgb2yuv(vid_ctx);
 

@@ -19,7 +19,7 @@ megamol::frontend::Video_Service::~Video_Service() {}
 bool megamol::frontend::Video_Service::init(void* configPtr) {
 
     //requestedResourcesNames_ = {"RegisterLuaCallback", "MegaMolGraph"};
-    requestedResourcesNames_ = {"MegaMolGraph"};
+    requestedResourcesNames_ = {"MegaMolGraph", "GUIRegisterWindow"};
 
     // for test purposes
     start_video_rec("./test_out.mkv");
@@ -151,6 +151,8 @@ void megamol::frontend::Video_Service::fill_lua_callbacks() {
     // pause video
 
     // unload video
+
+    // register sink with video output
 }
 
 

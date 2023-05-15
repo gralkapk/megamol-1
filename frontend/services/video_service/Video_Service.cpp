@@ -1,5 +1,7 @@
 #include "Video_Service.hpp"
 
+#include <sstream>
+
 #include "video_util.hpp"
 
 #include "glad/gl.h"
@@ -64,8 +66,22 @@ void megamol::frontend::Video_Service::preGraphRender() {
 }
 
 
+std::string parameter_diff(std::string const& lhs, std::string const& rhs) {
+    std::istringstream lhs_stream(lhs);
+    std::istringstream rhs_stream(rhs);
+    std::stringstream diff;
+    for (std::string lhs_line, rhs_line; std::getline(lhs_stream, lhs_line), std::getline(rhs_stream, rhs_line);) {
+        if (lhs_line != rhs_line) {
+            diff << rhs_line << "\n";
+        }
+    }
+
+    return diff.str();
+}
+
+
 void megamol::frontend::Video_Service::postGraphRender() {
-    auto text = mmgraph_ptr->Convenience().SerializeAllParameters();
+    std::string text;
 
     // loop over all video files
     glReadBuffer(GL_FRONT);
@@ -74,7 +90,13 @@ void megamol::frontend::Video_Service::postGraphRender() {
     if (first_time_) {
         start_ = std::chrono::high_resolution_clock::now();
         last_ = start_;
+        text = mmgraph_ptr->Convenience().SerializeAllParameters();
+        old_param_text_ = text;
         first_time_ = false;
+    } else {
+        auto new_params = mmgraph_ptr->Convenience().SerializeAllParameters();
+        text = parameter_diff(old_param_text_, new_params);
+        old_param_text_ = new_params;
     }
     for (auto& [filename, stream_ctx] : stream_ctx_map_) {
         //auto& vid_ctx = stream_ctx_[0];
@@ -89,11 +111,14 @@ void megamol::frontend::Video_Service::postGraphRender() {
         //vid_ctx.yuvpic->pts = counter++;
         vid_ctx.yuvpic->pts = time_in_ms;
 
-        auto base_ts = convert_to_timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(last_ - start_));
-        auto next_ts = convert_to_timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(current - start_));
+        if (!text.empty()) {
+            auto base_ts = convert_to_timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(last_ - start_));
+            auto next_ts =
+                convert_to_timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(current - start_));
 
-        //write_srt_entry(srt_file_, counter, base_ts, next_ts, std::string("Frame ") + std::to_string(counter++));
-        write_srt_entry(srt_file_, counter++, base_ts, next_ts, text);
+            //write_srt_entry(srt_file_, counter, base_ts, next_ts, std::string("Frame ") + std::to_string(counter++));
+            write_srt_entry(srt_file_, counter++, base_ts, next_ts, text);
+        }
 
         last_ = current;
 
@@ -120,6 +145,12 @@ void megamol::frontend::Video_Service::fill_lua_callbacks() {
             stop_video_rec(filename);
             return frontend_resources::LuaCallbacksCollection::VoidResult{};
         }});
+
+    // load video
+
+    // pause video
+
+    // unload video
 }
 
 

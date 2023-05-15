@@ -318,4 +318,88 @@ void encode_sub(std::vector<StreamContext>& stream_ctx) {
             break;
     }
 }
+
+bool open_video(std::string const& in_filename) {
+    int ret = 0;
+    AVFormatContext* ivid_fmtctx = nullptr;
+    ret = avformat_open_input(&ivid_fmtctx, in_filename.c_str(), nullptr, nullptr);
+    if (ret < 0)
+        return false;
+    ret = avformat_find_stream_info(ivid_fmtctx, nullptr);
+    if (ret < 0)
+        return false;
+
+    std::vector<StreamContext> stream_ctx(ivid_fmtctx->nb_streams);
+
+    for (int i = 0; i < ivid_fmtctx->nb_streams; ++i) {
+        AVStream* stream = ivid_fmtctx->streams[i];
+        AVCodec const* dec = avcodec_find_decoder(stream->codecpar->codec_id);
+        AVCodecContext* codec_ctx = avcodec_alloc_context3(dec);
+        ret = avcodec_parameters_to_context(codec_ctx, stream->codecpar);
+        if (ret < 0)
+            break;
+        if (codec_ctx->codec_type == AVMEDIA_TYPE_VIDEO || codec_ctx->codec_type == AVMEDIA_TYPE_AUDIO) {
+            if (codec_ctx->codec_type == AVMEDIA_TYPE_VIDEO)
+                codec_ctx->framerate = av_guess_frame_rate(ivid_fmtctx, stream, nullptr);
+            ret = avcodec_open2(codec_ctx, dec, nullptr);
+            if (ret < 0)
+                break;
+            stream_ctx[i].yuvpic = av_frame_alloc();
+            stream_ctx[i].rgbpic = av_frame_alloc();
+        } else if (codec_ctx->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+            codec_ctx->time_base = AVRational{1, 30};
+            ret = avcodec_open2(codec_ctx, dec, nullptr);
+            if (ret < 0)
+                break;
+        }
+        stream_ctx[i].dec_ctx = codec_ctx;
+        stream_ctx[i].in_fmt_ctx = ivid_fmtctx;
+        stream_ctx[i].packet = av_packet_alloc();
+    }
+
+    av_dump_format(ivid_fmtctx, 0, in_filename.c_str(), 0);
+}
+
+std::string decode_sub(std::vector<StreamContext>& stream_ctx) {
+    int ret = 0;
+    AVSubtitle* sub = new AVSubtitle;
+    int got_sub = 0;
+    std::string text;
+    while (1) {
+        av_packet_unref(stream_ctx[1].packet);
+        ret = av_read_frame(stream_ctx[1].in_fmt_ctx, stream_ctx[1].packet);
+        if (ret < 0)
+            break;
+        avcodec_decode_subtitle2(stream_ctx[1].dec_ctx, sub, &got_sub, stream_ctx[1].packet);
+        if (!got_sub)
+            break;
+        if (sub->num_rects > 0)
+            break;
+        if (sub->rects[0]->type == AVSubtitleType::SUBTITLE_TEXT) {
+            text = std::string(sub->rects[0]->text);
+        } else if (sub->rects[0]->type == AVSubtitleType::SUBTITLE_ASS) {
+            text = std::string(sub->rects[0]->ass);
+        }
+    }
+    avsubtitle_free(sub);
+    return text;
+}
+
+void decode_vid(std::vector<StreamContext>& stream_ctx) {
+    int ret = 0;
+
+    int counter = 0;
+    while (1) {
+        ret = av_read_frame(ivid_fmtctx, packet);
+        av_packet_rescale_ts(
+            packet, ivid_fmtctx->streams[stream_index]->time_base, stream_ctx[stream_index].dec_ctx->time_base);
+        avcodec_send_packet(stream_ctx[stream_index].dec_ctx, packet);
+
+        int dec_ret = 0;
+        while (dec_ret >= 0) {
+            dec_ret = avcodec_receive_frame(stream_ctx[stream_index].dec_ctx, stream_ctx[stream_index].dec_frame);
+            if (dec_ret == AVERROR_EOF || dec_ret == AVERROR(EAGAIN))
+                break;
+        }
+    }
 } // namespace megamol::frontend

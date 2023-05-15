@@ -69,5 +69,7 @@ private:
     std::ofstream srt_file_;
 
     megamol::core::MegaMolGraph* mmgraph_ptr = nullptr;
+
+    std::string old_param_text_;
 };
 } // namespace megamol::frontend

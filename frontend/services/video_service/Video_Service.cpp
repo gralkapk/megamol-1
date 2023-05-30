@@ -90,11 +90,13 @@ void megamol::frontend::Video_Service::postGraphRender() {
     if (first_time_) {
         start_ = std::chrono::high_resolution_clock::now();
         last_ = start_;
-        text = mmgraph_ptr->Convenience().SerializeAllParameters();
+        //text = mmgraph_ptr->Convenience().SerializeAllParameters();
+        text = mmgraph_ptr->Convenience().SerializeGraph();
         old_param_text_ = text;
         first_time_ = false;
     } else {
-        auto new_params = mmgraph_ptr->Convenience().SerializeAllParameters();
+        //auto new_params = mmgraph_ptr->Convenience().SerializeAllParameters();
+        auto new_params = mmgraph_ptr->Convenience().SerializeGraph();
         text = parameter_diff(old_param_text_, new_params);
         old_param_text_ = new_params;
     }

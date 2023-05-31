@@ -471,6 +471,44 @@ void decode_video(AVFormatContext* ivid_fmtctx, std::vector<StreamContext>& stre
     av_packet_free(&packet);
 }
 
+void decode_frame(AVFormatContext* ivid_fmtctx, std::vector<StreamContext>& stream_ctx,
+    frontend_resources::ScreenshotImageData& image, std::string& text) {
+    AVSubtitle* sub = new AVSubtitle;
+    int got_sub = 0;
+    auto ret = av_read_frame(ivid_fmtctx, stream_ctx[0].packet);
+    if (ret >= 0) {
+        auto stream_index = stream_ctx[0].packet->stream_index;
+        if (stream_ctx[stream_index].dec_ctx->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+            avcodec_decode_subtitle2(stream_ctx[stream_index].dec_ctx, sub, &got_sub, stream_ctx[0].packet);
+            if (got_sub) {
+                if (sub->num_rects > 0) {
+                    if (sub->rects[0]->type == AVSubtitleType::SUBTITLE_TEXT) {
+                        text = std::string(sub->rects[0]->text);
+                    } else if (sub->rects[0]->type == AVSubtitleType::SUBTITLE_ASS) {
+                        text = std::string(sub->rects[0]->ass);
+                    }
+                }
+            }
+        } else {
+            ret = avcodec_send_packet(stream_ctx[stream_index].dec_ctx, stream_ctx[0].packet);
+            int dec_ret = 0;
+            while (dec_ret >= 0) {
+                dec_ret = avcodec_receive_frame(stream_ctx[stream_index].dec_ctx, stream_ctx[stream_index].yuvpic);
+                if (dec_ret == AVERROR_EOF || dec_ret == AVERROR(EAGAIN))
+                    break;
+
+                // convert yuvpic to rgbpic
+                yuv2rgb(stream_ctx[stream_index]);
+                flipRGB2Image(stream_ctx[stream_index], image);
+
+                // send rgb frame to sink
+            }
+        }
+        av_packet_unref(stream_ctx[0].packet);
+    }
+    avsubtitle_free(sub);
+}
+
 //void decode_vid(std::vector<StreamContext>& stream_ctx) {
 //    int ret = 0;
 //

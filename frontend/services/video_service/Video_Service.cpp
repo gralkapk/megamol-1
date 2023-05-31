@@ -7,6 +7,7 @@
 #include "glad/gl.h"
 
 
+#include "ImageWrapper.h"
 #include "LuaCallbacksCollection.h"
 
 
@@ -27,12 +28,30 @@ bool megamol::frontend::Video_Service::init(void* configPtr) {
 
     image_.resize(1920, 1080);
 
+    glGenTextures(1, &ogl_texture_);
+    glBindTexture(GL_TEXTURE_2D, ogl_texture_);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+
+    /*ogl_texture_ = std::make_shared<glowl::Texture2D>(
+        "playback_texture", glowl::TextureLayout(GL_RGB8, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, 1), nullptr);*/
+
+    iw_ = std::make_shared<frontend_resources::ImageWrapper>(frontend_resources::wrap_image(
+        {1920, 1080}, ogl_texture_, frontend_resources::ImageWrapper::DataChannels::RGB8));
+
     return true;
 }
 
 
 void megamol::frontend::Video_Service::close() {
     stop_video_rec("./test_out.mkv");
+
+    glDeleteTextures(1, &ogl_texture_);
 }
 
 
@@ -48,6 +67,8 @@ const std::vector<std::string> megamol::frontend::Video_Service::getRequestedRes
 
 void megamol::frontend::Video_Service::setRequestedResources(std::vector<FrontendResource> resources) {
     mmgraph_ptr = const_cast<megamol::core::MegaMolGraph*>(&resources[0].getResource<megamol::core::MegaMolGraph>());
+    guireg_ptr = const_cast<megamol::frontend_resources::GUIRegisterWindow*>(
+        &resources[1].getResource<megamol::frontend_resources::GUIRegisterWindow>());
 }
 
 
@@ -193,4 +214,30 @@ void megamol::frontend::Video_Service::stop_video_rec(std::string const& filenam
         // flush encoder
         // clean up
     }
+}
+
+
+struct iw_functor {
+    void init(std::vector<megamol::frontend_resources::ImageWrapper> const& images) {
+        images_ = images;
+    }
+    std::vector<megamol::frontend_resources::ImageWrapper> images_;
+};
+
+
+void megamol::frontend::Video_Service::create_playback_window() {
+    auto iw = std::make_shared<iw_functor>();
+
+    auto win_func = std::bind(
+        [](std::shared_ptr<iw_functor> iw, megamol::gui::AbstractWindow::BasicConfig& window_config) {
+            window_config.flags = ImGuiWindowFlags_AlwaysAutoResize;
+
+            for (auto& image : iw->images_) {
+                ImGui::Image(image.referenced_image_handle, ImVec2{(float)image.size.width, (float)image.size.height},
+                    ImVec2(0, 1), ImVec2(1, 0));
+            }
+        },
+        iw, std::placeholders::_1);
+
+    guireg_ptr->register_window("test", win_func);
 }

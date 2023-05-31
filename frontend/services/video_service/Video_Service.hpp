@@ -8,6 +8,10 @@
 
 #include "Screenshots.h"
 #include "mmcore/MegaMolGraph.h"
+#include "GUIRegisterWindow.h"
+#include "ImageWrapper.h"
+
+#include "glowl/Texture2D.hpp"
 
 namespace megamol::frontend {
 
@@ -50,6 +54,8 @@ private:
 
     void stop_video_rec(std::string const& filename);
 
+    void create_playback_window();
+
     std::vector<std::string> requestedResourcesNames_;
 
     std::vector<megamol::frontend::FrontendResource> providedResources_;
@@ -69,6 +75,14 @@ private:
     std::ofstream srt_file_;
 
     megamol::core::MegaMolGraph* mmgraph_ptr = nullptr;
+
+    megamol::frontend_resources::GUIRegisterWindow* guireg_ptr = nullptr;
+
+    //std::shared_ptr<glowl::Texture2D> ogl_texture_;
+
+    std::shared_ptr<frontend_resources::ImageWrapper> iw_;
+
+    GLuint ogl_texture_ = 0;
 
     std::string old_param_text_;
 };

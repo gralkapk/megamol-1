@@ -1,6 +1,7 @@
 #include "Video_Service.hpp"
 
 #include <sstream>
+#include <regex>
 
 #include "video_util.hpp"
 
@@ -20,7 +21,7 @@ megamol::frontend::Video_Service::~Video_Service() {}
 bool megamol::frontend::Video_Service::init(void* configPtr) {
 
     //requestedResourcesNames_ = {"RegisterLuaCallback", "MegaMolGraph"};
-    requestedResourcesNames_ = {"MegaMolGraph", "GUIRegisterWindow"};
+    requestedResourcesNames_ = {"MegaMolGraph", "GUIRegisterWindow", "ExecuteLuaScript"};
 
     // for test purposes
     //start_video_rec("./test_out.mkv");
@@ -74,6 +75,7 @@ void megamol::frontend::Video_Service::setRequestedResources(std::vector<Fronten
     mmgraph_ptr = const_cast<megamol::core::MegaMolGraph*>(&resources[0].getResource<megamol::core::MegaMolGraph>());
     guireg_ptr = const_cast<megamol::frontend_resources::GUIRegisterWindow*>(
         &resources[1].getResource<megamol::frontend_resources::GUIRegisterWindow>());
+    execute_lua_ = &resources[2].getResource<LuaFuncType>();
 
     create_playback_window(*iw_.get());
 }
@@ -158,19 +160,23 @@ void megamol::frontend::Video_Service::postGraphRender() {
             encodeFrame(vid_ctx);
         }
     } else {
-        // read video
-
-
         // read frame
         auto& stream_ctx = stream_ctx_map_["./test_out.mkv"];
         auto& vid_ctx = stream_ctx[0];
         std::string test_txt;
         decode_frame(vid_ctx.in_fmt_ctx, stream_ctx, image_, test_txt);
 
+        // write texture
         glBindTexture(GL_TEXTURE_2D, ogl_texture_);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1920, 1080, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
         glBindTexture(GL_TEXTURE_2D, 0);
-        // write texture
+        if (!test_txt.empty()) {
+            // 0,0,Default,,0,0,0,,
+            test_txt = std::regex_replace(test_txt, std::regex("\\\\N"), "\n");
+            test_txt = std::regex_replace(test_txt, std::regex("\\d.\\d.Default..\\d.\\d.\\d.."), "");
+            std::cout << "[SRT]\n" << test_txt << "\n[SRT]" << std::endl;
+            execute_lua_->operator()(test_txt);
+        }
     }
 }
 

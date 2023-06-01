@@ -48,6 +48,8 @@ public:
 
 protected:
 private:
+    using LuaFuncType = std::function<std::tuple<bool, std::string>(std::string const&)>;
+
     void fill_lua_callbacks();
 
     void start_video_rec(std::string const& filename);
@@ -83,6 +85,8 @@ private:
     std::shared_ptr<frontend_resources::ImageWrapper> iw_;
 
     GLuint ogl_texture_ = 0;
+
+    LuaFuncType const* execute_lua_;
 
     std::string old_param_text_;
 };

@@ -23,8 +23,13 @@ bool megamol::frontend::Video_Service::init(void* configPtr) {
     requestedResourcesNames_ = {"MegaMolGraph", "GUIRegisterWindow"};
 
     // for test purposes
-    start_video_rec("./test_out.mkv");
-    srt_file_ = std::ofstream("./test_out.srt");
+    //start_video_rec("./test_out.mkv");
+    //srt_file_ = std::ofstream("./test_out.srt");
+
+
+    std::vector<StreamContext> sc;
+    open_video("./test_out.mkv", sc);
+    stream_ctx_map_["./test_out.mkv"] = std::move(sc);
 
     image_.resize(1920, 1080);
 
@@ -49,7 +54,7 @@ bool megamol::frontend::Video_Service::init(void* configPtr) {
 
 
 void megamol::frontend::Video_Service::close() {
-    stop_video_rec("./test_out.mkv");
+    //stop_video_rec("./test_out.mkv");
 
     glDeleteTextures(1, &ogl_texture_);
 }
@@ -69,6 +74,8 @@ void megamol::frontend::Video_Service::setRequestedResources(std::vector<Fronten
     mmgraph_ptr = const_cast<megamol::core::MegaMolGraph*>(&resources[0].getResource<megamol::core::MegaMolGraph>());
     guireg_ptr = const_cast<megamol::frontend_resources::GUIRegisterWindow*>(
         &resources[1].getResource<megamol::frontend_resources::GUIRegisterWindow>());
+
+    create_playback_window(*iw_.get());
 }
 
 
@@ -102,7 +109,7 @@ std::string parameter_diff(std::string const& lhs, std::string const& rhs) {
 
 
 void megamol::frontend::Video_Service::postGraphRender() {
-    constexpr bool writeVideo = true;
+    constexpr bool writeVideo = false;
     if (writeVideo) {
         std::string text;
 
@@ -155,7 +162,14 @@ void megamol::frontend::Video_Service::postGraphRender() {
 
 
         // read frame
+        auto& stream_ctx = stream_ctx_map_["./test_out.mkv"];
+        auto& vid_ctx = stream_ctx[0];
+        std::string test_txt;
+        decode_frame(vid_ctx.in_fmt_ctx, stream_ctx, image_, test_txt);
 
+        glBindTexture(GL_TEXTURE_2D, ogl_texture_);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1920, 1080, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
+        glBindTexture(GL_TEXTURE_2D, 0);
         // write texture
     }
 }
@@ -225,8 +239,9 @@ struct iw_functor {
 };
 
 
-void megamol::frontend::Video_Service::create_playback_window() {
+void megamol::frontend::Video_Service::create_playback_window(megamol::frontend_resources::ImageWrapper const& image) {
     auto iw = std::make_shared<iw_functor>();
+    iw->init({image});
 
     auto win_func = std::bind(
         [](std::shared_ptr<iw_functor> iw, megamol::gui::AbstractWindow::BasicConfig& window_config) {

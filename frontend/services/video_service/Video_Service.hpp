@@ -54,7 +54,7 @@ private:
 
     void stop_video_rec(std::string const& filename);
 
-    void create_playback_window();
+    void create_playback_window(megamol::frontend_resources::ImageWrapper const& image);
 
     std::vector<std::string> requestedResourcesNames_;
 

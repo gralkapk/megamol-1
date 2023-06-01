@@ -334,7 +334,7 @@ void encode_sub(std::vector<StreamContext>& stream_ctx) {
     }
 }
 
-bool open_video(std::string const& in_filename) {
+bool open_video(std::string const& in_filename, std::vector<StreamContext>& stream_ctx) {
     int ret = 0;
     AVFormatContext* ivid_fmtctx = nullptr;
     ret = avformat_open_input(&ivid_fmtctx, in_filename.c_str(), nullptr, nullptr);
@@ -344,7 +344,8 @@ bool open_video(std::string const& in_filename) {
     if (ret < 0)
         return false;
 
-    std::vector<StreamContext> stream_ctx(ivid_fmtctx->nb_streams);
+    //std::vector<StreamContext> stream_ctx(ivid_fmtctx->nb_streams);
+    stream_ctx.resize(ivid_fmtctx->nb_streams);
 
     for (int i = 0; i < ivid_fmtctx->nb_streams; ++i) {
         AVStream* stream = ivid_fmtctx->streams[i];
@@ -506,7 +507,11 @@ void decode_frame(AVFormatContext* ivid_fmtctx, std::vector<StreamContext>& stre
         }
         av_packet_unref(stream_ctx[0].packet);
     }
-    avsubtitle_free(sub);
+    if (got_sub) {
+        avsubtitle_free(sub);
+    } else {
+        delete sub;
+    }
 }
 
 //void decode_vid(std::vector<StreamContext>& stream_ctx) {

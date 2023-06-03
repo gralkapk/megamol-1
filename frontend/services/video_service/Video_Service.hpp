@@ -49,6 +49,7 @@ public:
 protected:
 private:
     using LuaFuncType = std::function<std::tuple<bool, std::string>(std::string const&)>;
+    using SetScriptPath = std::function<void(std::string const&)>;
 
     void fill_lua_callbacks();
 
@@ -87,6 +88,8 @@ private:
     GLuint ogl_texture_ = 0;
 
     LuaFuncType const* execute_lua_;
+
+    SetScriptPath const* set_script_path_;
 
     std::string old_param_text_;
 };

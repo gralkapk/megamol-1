@@ -339,7 +339,7 @@ void megamol::gui::Module::Draw(megamol::gui::PresentPhase phase, megamol::gui::
                 }
 
                 // Rename pop-up
-                std::string new_name;
+                std::string new_name = this->name;
                 std::string last_module_name = this->FullName();
                 if (this->gui_rename_popup.Rename("Rename Module", popup_rename, new_name)) {
                     this->SetName(new_name);
@@ -713,11 +713,11 @@ void megamol::gui::Module::AppendPerformanceData(frontend_resources::Performance
         switch (entry.api) {
         case frontend_resources::PerformanceManager::query_api::CPU:
             this->cpu_perf_history[entry.handle].push_sample(frame, entry.frame_index,
-                std::chrono::duration<double, std::milli>(entry.timestamp.time_since_epoch()).count());
+                std::chrono::duration<double, std::milli>(entry.duration.time_since_epoch()).count());
             break;
         case frontend_resources::PerformanceManager::query_api::OPENGL:
             this->gl_perf_history[entry.handle].push_sample(frame, entry.frame_index,
-                std::chrono::duration<double, std::milli>(entry.timestamp.time_since_epoch()).count());
+                std::chrono::duration<double, std::milli>(entry.duration.time_since_epoch()).count());
             break;
         }
     }

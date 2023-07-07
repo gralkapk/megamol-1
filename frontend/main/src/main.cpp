@@ -49,6 +49,8 @@ static void log_error(std::string const& text) {
 
 void loadPlugins(megamol::frontend_resources::PluginsResource& pluginsRes);
 
+constexpr bool useVideo = false;
+
 int main(const int argc, const char** argv) {
 #ifdef MEGAMOL_USE_TRACY
     ZoneScoped;
@@ -172,10 +174,6 @@ int main(const int argc, const char** argv) {
     profiling_config.autostart_profiling = config.autostart_profiling;
     profiling_config.include_graph_events = config.include_graph_events;
 
-    megamol::frontend::Video_Service video_service;
-    video_service.setPriority(42);
-    
-
 #ifdef MM_CUDA_ENABLED
     megamol::frontend::CUDA_Service cuda_service;
     cuda_service.setPriority(24);
@@ -212,7 +210,11 @@ int main(const int argc, const char** argv) {
     }
 
     services.add(profiling_service, &profiling_config);
-    services.add(video_service, nullptr);
+    if constexpr (useVideo) {
+        megamol::frontend::Video_Service video_service;
+        video_service.setPriority(42);
+        services.add(video_service, nullptr);
+    }
 
 #ifdef MM_CUDA_ENABLED
     services.add(cuda_service, nullptr);

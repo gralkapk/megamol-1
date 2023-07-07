@@ -1,7 +1,7 @@
 #include "Video_Service.hpp"
 
-#include <sstream>
 #include <regex>
+#include <sstream>
 
 #include "video_util.hpp"
 
@@ -11,6 +11,7 @@
 #include "ImageWrapper.h"
 #include "LuaCallbacksCollection.h"
 
+constexpr bool writeVideo = false;
 
 megamol::frontend::Video_Service::Video_Service() {}
 
@@ -24,13 +25,14 @@ bool megamol::frontend::Video_Service::init(void* configPtr) {
     requestedResourcesNames_ = {"MegaMolGraph", "GUIRegisterWindow", "ExecuteLuaScript", "SetScriptPath"};
 
     // for test purposes
-    //start_video_rec("./test_out.mkv");
-    //srt_file_ = std::ofstream("./test_out.srt");
-
-
-    std::vector<StreamContext> sc;
-    open_video("./test_out.mkv", sc);
-    stream_ctx_map_["./test_out.mkv"] = std::move(sc);
+    if constexpr (writeVideo) {
+        start_video_rec("./test_out.mkv");
+        srt_file_ = std::ofstream("./test_out.srt");
+    } else {
+        std::vector<StreamContext> sc;
+        open_video("./test_out.mkv", sc);
+        stream_ctx_map_["./test_out.mkv"] = std::move(sc);
+    }
 
     image_.resize(1920, 1080);
 
@@ -55,7 +57,9 @@ bool megamol::frontend::Video_Service::init(void* configPtr) {
 
 
 void megamol::frontend::Video_Service::close() {
-    //stop_video_rec("./test_out.mkv");
+    if constexpr (writeVideo) {
+        stop_video_rec("./test_out.mkv");
+    }
 
     glDeleteTextures(1, &ogl_texture_);
 }
@@ -95,28 +99,30 @@ void megamol::frontend::Video_Service::preGraphRender() {
     // handle start and stop
     // need lua callbacks for that
     // read frame
-    auto& stream_ctx = stream_ctx_map_["./test_out.mkv"];
-    auto& vid_ctx = stream_ctx[0];
-    std::string test_txt;
-    decode_frame(vid_ctx.in_fmt_ctx, stream_ctx, image_, test_txt);
+    if constexpr (!writeVideo) {
+        auto& stream_ctx = stream_ctx_map_["./test_out.mkv"];
+        auto& vid_ctx = stream_ctx[0];
+        std::string test_txt;
+        decode_frame(vid_ctx.in_fmt_ctx, stream_ctx, image_, test_txt);
 
-    // write texture
-    glBindTexture(GL_TEXTURE_2D, ogl_texture_);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1920, 1080, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
-    glBindTexture(GL_TEXTURE_2D, 0);
-    if (!test_txt.empty()) {
-        // 0,0,Default,,0,0,0,,
-        test_txt = std::regex_replace(test_txt, std::regex("\\\\N"), "\n");
-        test_txt = std::regex_replace(test_txt, std::regex("\\d.\\d.Default..\\d.\\d.\\d.."), "");
-        std::cout << "[SRT]\n" << test_txt << "\n[SRT]" << std::endl;
-        set_script_path_->operator()("C:\\data\\dev\\vidmol\\build\\x64-Debug\\install\\examples\\testspheres.lua");
-        auto result = execute_lua_->operator()(test_txt);
-        if (!std::get<0>(result)) {
-            std::cout << "[LUA ERROR] " << std::get<1>(result) << std::endl;
-        }
-        if (test_txt.find("mmCreateView") != std::string::npos) {
-            std::cout << "[SRT] Found View" << std::endl;
-            //execute_lua_->operator()("mmRenderNextFrame()");
+        // write texture
+        glBindTexture(GL_TEXTURE_2D, ogl_texture_);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1920, 1080, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
+        glBindTexture(GL_TEXTURE_2D, 0);
+        if (!test_txt.empty()) {
+            // 0,0,Default,,0,0,0,,
+            test_txt = std::regex_replace(test_txt, std::regex("\\\\N"), "\n");
+            test_txt = std::regex_replace(test_txt, std::regex("\\d+.\\d.Default..\\d.\\d.\\d.."), "");
+            std::cout << "[SRT]\n" << test_txt << "\n[SRT]" << std::endl;
+            //set_script_path_->operator()("C:\\data\\dev\\vidmol\\build\\x64-Debug\\install\\examples\\testspheres.lua");
+            auto result = execute_lua_->operator()(test_txt);
+            if (!std::get<0>(result)) {
+                std::cout << "[LUA ERROR] " << std::get<1>(result) << std::endl;
+            }
+            if (test_txt.find("mmCreateView") != std::string::npos) {
+                std::cout << "[SRT] Found View" << std::endl;
+                //execute_lua_->operator()("mmRenderNextFrame()");
+            }
         }
     }
 }
@@ -137,8 +143,7 @@ std::string parameter_diff(std::string const& lhs, std::string const& rhs) {
 
 
 void megamol::frontend::Video_Service::postGraphRender() {
-    constexpr bool writeVideo = false;
-    if (writeVideo) {
+    if constexpr (writeVideo) {
         std::string text;
 
         // loop over all video files
@@ -186,7 +191,7 @@ void megamol::frontend::Video_Service::postGraphRender() {
             encodeFrame(vid_ctx);
         }
     } else {
-        #if 0
+#if 0
         // read frame
         auto& stream_ctx = stream_ctx_map_["./test_out.mkv"];
         auto& vid_ctx = stream_ctx[0];
@@ -212,7 +217,7 @@ void megamol::frontend::Video_Service::postGraphRender() {
                 execute_lua_->operator()("mmRenderNextFrame()");
             }
         }
-        #endif
+#endif
     }
 }
 

@@ -22,7 +22,8 @@ megamol::frontend::Video_Service::~Video_Service() {}
 bool megamol::frontend::Video_Service::init(void* configPtr) {
 
     //requestedResourcesNames_ = {"RegisterLuaCallback", "MegaMolGraph"};
-    requestedResourcesNames_ = {"MegaMolGraph", "GUIRegisterWindow", "ExecuteLuaScript", "SetScriptPath"};
+    requestedResourcesNames_ = {
+        "MegaMolGraph", "GUIRegisterWindow", "ExecuteLuaScript", "SetScriptPath", "FramebufferEvents"};
 
     // for test purposes
     if constexpr (writeVideo) {
@@ -34,7 +35,36 @@ bool megamol::frontend::Video_Service::init(void* configPtr) {
         stream_ctx_map_["./test_out.mkv"] = std::move(sc);
     }
 
-    image_.resize(1920, 1080);
+    //image_.resize(1920, 1080);
+
+    //glGenTextures(1, &ogl_texture_);
+    //glBindTexture(GL_TEXTURE_2D, ogl_texture_);
+
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+
+    ///*ogl_texture_ = std::make_shared<glowl::Texture2D>(
+    //    "playback_texture", glowl::TextureLayout(GL_RGB8, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, 1), nullptr);*/
+
+    //iw_ = std::make_shared<frontend_resources::ImageWrapper>(frontend_resources::wrap_image(
+    //    {1920, 1080}, ogl_texture_, frontend_resources::ImageWrapper::DataChannels::RGB8));
+
+    resize();
+
+    return true;
+}
+
+
+void megamol::frontend::Video_Service::resize() {
+    image_.resize(fbo_size_.x, fbo_size_.y);
+
+    if (glIsTexture(ogl_texture_)) {
+        glDeleteTextures(1, &ogl_texture_);
+    }
 
     glGenTextures(1, &ogl_texture_);
     glBindTexture(GL_TEXTURE_2D, ogl_texture_);
@@ -44,15 +74,14 @@ bool megamol::frontend::Video_Service::init(void* configPtr) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, fbo_size_.x, fbo_size_.y, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 
     /*ogl_texture_ = std::make_shared<glowl::Texture2D>(
         "playback_texture", glowl::TextureLayout(GL_RGB8, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, 1), nullptr);*/
 
     iw_ = std::make_shared<frontend_resources::ImageWrapper>(frontend_resources::wrap_image(
-        {1920, 1080}, ogl_texture_, frontend_resources::ImageWrapper::DataChannels::RGB8));
-
-    return true;
+        frontend_resources::ImageWrapper::ImageSize{static_cast<size_t>(fbo_size_.x), static_cast<size_t>(fbo_size_.y)},
+        ogl_texture_, frontend_resources::ImageWrapper::DataChannels::RGB8));
 }
 
 
@@ -81,6 +110,9 @@ void megamol::frontend::Video_Service::setRequestedResources(std::vector<Fronten
         &resources[1].getResource<megamol::frontend_resources::GUIRegisterWindow>());
     execute_lua_ = &resources[2].getResource<LuaFuncType>();
     set_script_path_ = &resources[3].getResource<SetScriptPath>();
+    fbo_events_ = &resources[4].getResource<megamol::frontend_resources::FramebufferEvents>();
+
+    fbo_size_ = glm::ivec2(fbo_events_->previous_state.width, fbo_events_->previous_state.height);
 
     create_playback_window(*iw_.get());
 }
@@ -89,7 +121,13 @@ void megamol::frontend::Video_Service::setRequestedResources(std::vector<Fronten
 void megamol::frontend::Video_Service::updateProvidedResources() {}
 
 
-void megamol::frontend::Video_Service::digestChangedRequestedResources() {}
+void megamol::frontend::Video_Service::digestChangedRequestedResources() {
+    // check for resize
+    if (fbo_events_->is_resized()) {
+        auto current_size = fbo_events_->size_events.back();
+        fbo_size_ = glm::ivec2(current_size.width, current_size.height);
+    }
+}
 
 
 void megamol::frontend::Video_Service::resetProvidedResources() {}
@@ -107,7 +145,7 @@ void megamol::frontend::Video_Service::preGraphRender() {
 
         // write texture
         glBindTexture(GL_TEXTURE_2D, ogl_texture_);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1920, 1080, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, fbo_size_.x, fbo_size_.y, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
         glBindTexture(GL_TEXTURE_2D, 0);
         if (!test_txt.empty()) {
             // 0,0,Default,,0,0,0,,
@@ -148,7 +186,7 @@ void megamol::frontend::Video_Service::postGraphRender() {
 
         // loop over all video files
         glReadBuffer(GL_FRONT);
-        glReadPixels(0, 0, 1920, 1080, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
+        glReadPixels(0, 0, fbo_size_.x, fbo_size_.y, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
 
         if (first_time_) {
             start_ = std::chrono::high_resolution_clock::now();

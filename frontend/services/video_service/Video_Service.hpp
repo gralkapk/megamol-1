@@ -10,8 +10,11 @@
 #include "mmcore/MegaMolGraph.h"
 #include "GUIRegisterWindow.h"
 #include "ImageWrapper.h"
+#include "Framebuffer_Events.h"
 
 #include "glowl/Texture2D.hpp"
+
+#include <glm/glm.hpp>
 
 namespace megamol::frontend {
 
@@ -59,6 +62,8 @@ private:
 
     void create_playback_window(megamol::frontend_resources::ImageWrapper const& image);
 
+    void resize();
+
     std::vector<std::string> requestedResourcesNames_;
 
     std::vector<megamol::frontend::FrontendResource> providedResources_;
@@ -91,6 +96,10 @@ private:
 
     SetScriptPath const* set_script_path_;
 
+    megamol::frontend_resources::FramebufferEvents const* fbo_events_;
+
     std::string old_param_text_;
+
+    glm::ivec2 fbo_size_ = glm::ivec2(1, 1);
 };
 } // namespace megamol::frontend

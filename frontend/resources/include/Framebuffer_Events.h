@@ -27,7 +27,7 @@ struct FramebufferEvents {
 
     FramebufferState previous_state;
 
-    bool is_resized() {
+    bool is_resized() const {
         return !size_events.empty() && previous_state != size_events.back();
     }
 

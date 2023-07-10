@@ -2,10 +2,13 @@
 
 #include <regex>
 #include <sstream>
+#include <filesystem>
 
 #include "video_util.hpp"
 
 #include "glad/gl.h"
+
+#include <imgui_stdlib.h>
 
 
 #include "ImageWrapper.h"
@@ -122,6 +125,7 @@ void megamol::frontend::Video_Service::setRequestedResources(std::vector<Fronten
     //}
 
     create_playback_window(*iw_.get());
+    create_recorder_window();
 }
 
 
@@ -205,6 +209,10 @@ void megamol::frontend::Video_Service::postGraphRender() {
         // loop over all video files
         glReadBuffer(GL_FRONT);
         glReadPixels(0, 0, fbo_size_.x, fbo_size_.y, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
+
+        for (auto& [filename, vc] : video_ctx_map_) {
+            capture_frame(vc, image_);
+        }
 
         if (first_time_) {
             start_ = std::chrono::high_resolution_clock::now();
@@ -310,32 +318,50 @@ void megamol::frontend::Video_Service::fill_lua_callbacks() {
 void megamol::frontend::Video_Service::start_video_rec(std::string const& filename) {
     std::vector<StreamContext> sc;
     setup_video(filename, fbo_size_, sc);
-    //setup_subtitles(filename, sc);
+
+    VideoContext vc;
+    vc.dim = fbo_size_;
+    vc.stream_ctx = sc;
+    std::filesystem::path p(filename);
+    auto const full_p = std::filesystem::temp_directory_path() / p.filename().replace_extension("srt");
+    vc.srt_file_path = full_p;
+    vc.srt_file.open(vc.srt_file_path);
+    video_ctx_map_[filename] = std::move(vc);
+
     //stream_ctx_map_[filename] = std::move(sc);
-    //stream_ctx_map_.insert(std::pair<std::string, std::vector<StreamContext>>(filename, std::vector<StreamContext>()));
-    /*std::unordered_map<std::string, std::vector<StreamContext>> test;
-    test[filename] = std::vector<StreamContext>{2};*/
-    stream_ctx_map_[filename] = std::move(sc);
 }
 
 
 void megamol::frontend::Video_Service::stop_video_rec(std::string const& filename) {
-    auto fit = stream_ctx_map_.find(filename);
-    if (fit != stream_ctx_map_.end()) {
-        // write subtitles
-        //encode_sub(fit->second);
-        flush_encoder(fit->second[0]);
+    //auto fit = stream_ctx_map_.find(filename);
+    //if (fit != stream_ctx_map_.end()) {
+    //    // write subtitles
+    //    //encode_sub(fit->second);
+    //    flush_encoder(fit->second[0]);
 
-        srt_file_.flush();
-        srt_file_.close();
-        setup_subtitles("./test_out.srt", fit->second);
+    //    srt_file_.close();
+    //    setup_subtitles("./test_out.srt", fit->second);
 
-        encode_sub(fit->second);
+    //    encode_sub(fit->second);
 
-        auto ret = av_write_trailer(fit->second[0].fmt_ctx);
-        // flush encoder
-        // clean up
+    //    auto ret = av_write_trailer(fit->second[0].fmt_ctx);
+    //    // flush encoder
+    //    // clean up
+    //}
+
+    auto v_fit = video_ctx_map_.find(filename);
+    if (v_fit != video_ctx_map_.end()) {
+        flush_encoder(v_fit->second.stream_ctx[0]);
+
+        v_fit->second.srt_file.close();
+        setup_subtitles(v_fit->second.srt_file_path.string(), v_fit->second.stream_ctx);
+
+        encode_sub(v_fit->second.stream_ctx);
+
+        auto ret = av_write_trailer(v_fit->second.stream_ctx[0].fmt_ctx);
     }
+
+    video_ctx_map_.erase(filename);
 }
 
 
@@ -367,12 +393,74 @@ void megamol::frontend::Video_Service::create_playback_window(megamol::frontend_
 
 
 void megamol::frontend::Video_Service::create_recorder_window() {
-    auto win_func = [](megamol::gui::AbstractWindow::BasicConfig& window_config) {
+    auto win_func = [&](megamol::gui::AbstractWindow::BasicConfig& window_config) {
         // record button
         // stop button
         // output file
         // capture entrypoint
+        std::string output_file;
+        ImGui::InputText("ouput", &output_file);
+
+        if (ImGui::Button("record")) {
+            // start record
+            if (!output_file.empty()) {
+                start_video_rec(output_file);
+            } else {
+                core::utility::log::Log::DefaultLog.WriteError("[Video_Service] Provide path to output file first");
+            }
+        }
+        if (ImGui::Button("stop")) {
+            // stop record
+            if (!output_file.empty()) {
+                stop_video_rec(output_file);
+            } else {
+                core::utility::log::Log::DefaultLog.WriteError("[Video_Service] Provide path to output file first");
+            }
+        }
     };
 
     guireg_ptr->register_window("Video: recorder", win_func);
+}
+
+
+void megamol::frontend::Video_Service::capture_frame(
+    VideoContext& vc, megamol::frontend_resources::ScreenshotImageData const& image) {
+    std::string text;
+    if (vc.first_time) {
+        vc.start = std::chrono::high_resolution_clock::now();
+        vc.last = vc.start;
+        //text = mmgraph_ptr->Convenience().SerializeAllParameters();
+        text = mmgraph_ptr->Convenience().SerializeGraph();
+        vc.old_param_list = text;
+        vc.first_time = false;
+    } else {
+        //auto new_params = mmgraph_ptr->Convenience().SerializeAllParameters();
+        auto new_params = mmgraph_ptr->Convenience().SerializeGraph();
+        text = parameter_diff(vc.old_param_list, new_params);
+        vc.old_param_list = new_params;
+    }
+
+    //auto& vid_ctx = stream_ctx_[0];
+    auto& vid_ctx = vc.stream_ctx[0];
+
+    flipImage2RGB(vid_ctx, image);
+
+    rgb2yuv(vid_ctx);
+
+    auto const current = std::chrono::high_resolution_clock::now();
+    auto const time_in_ms = std::chrono::duration_cast<std::chrono::milliseconds>(current - vc.start).count();
+    //vid_ctx.yuvpic->pts = counter++;
+    vid_ctx.yuvpic->pts = time_in_ms;
+
+    if (!text.empty()) {
+        auto base_ts = convert_to_timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(vc.last - vc.start));
+        auto next_ts = convert_to_timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(current - vc.start));
+
+        //write_srt_entry(srt_file_, counter, base_ts, next_ts, std::string("Frame ") + std::to_string(counter++));
+        write_srt_entry(vc.srt_file, vc.counter++, base_ts, next_ts, text);
+    }
+
+    vc.last = current;
+
+    encodeFrame(vid_ctx);
 }

@@ -66,6 +66,26 @@ struct StreamContext {
     glm::ivec2 dim;
 };
 
+struct VideoContext {
+    std::vector<StreamContext> stream_ctx;
+
+    std::ofstream srt_file;
+
+    std::filesystem::path srt_file_path;
+
+    glm::ivec2 dim;
+
+    bool first_time = true;
+
+    std::chrono::steady_clock::time_point start;
+
+    std::chrono::steady_clock::time_point last;
+
+    std::string old_param_list;
+
+    int counter = 0;
+};
+
 bool setup_video(std::string const& out_filename, glm::ivec2 const& dim, std::vector<StreamContext>& stream_ctx) {
 #ifdef DEBUG
     av_log_set_level(AV_LOG_DEBUG);

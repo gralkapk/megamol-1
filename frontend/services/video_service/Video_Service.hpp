@@ -19,6 +19,7 @@
 namespace megamol::frontend {
 
 struct StreamContext;
+struct VideoContext;
 
 class Video_Service : public AbstractFrontendService {
 public:
@@ -66,6 +67,8 @@ private:
 
     void resize();
 
+    void capture_frame(VideoContext& vc, megamol::frontend_resources::ScreenshotImageData const& image);
+
     std::vector<std::string> requestedResourcesNames_;
 
     std::vector<megamol::frontend::FrontendResource> providedResources_;
@@ -75,6 +78,8 @@ private:
     int counter = 0;
 
     std::unordered_map<std::string, std::vector<StreamContext>> stream_ctx_map_;
+
+    std::unordered_map<std::string, VideoContext> video_ctx_map_;
 
     bool first_time_ = true;
 

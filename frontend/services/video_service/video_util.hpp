@@ -27,7 +27,7 @@ auto static const sub_header =
 struct StreamContext {
     StreamContext() = default;
     ~StreamContext() {
-        if (enc_ctx != nullptr) {
+        /*if (enc_ctx != nullptr) {
             avcodec_free_context(&enc_ctx);
         }
         if (dec_ctx != nullptr) {
@@ -44,7 +44,7 @@ struct StreamContext {
         }
         if (packet != nullptr) {
             av_packet_free(&packet);
-        }
+        }*/
         /*if (fmt_ctx != nullptr) {
             avformat_free_context(fmt_ctx);
         }*/

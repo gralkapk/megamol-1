@@ -49,7 +49,7 @@ static void log_error(std::string const& text) {
 
 void loadPlugins(megamol::frontend_resources::PluginsResource& pluginsRes);
 
-constexpr bool useVideo = false;
+constexpr bool useVideo = true;
 
 int main(const int argc, const char** argv) {
 #ifdef MEGAMOL_USE_TRACY
@@ -210,11 +210,11 @@ int main(const int argc, const char** argv) {
     }
 
     services.add(profiling_service, &profiling_config);
-    if constexpr (useVideo) {
+    //if constexpr (useVideo) {
         megamol::frontend::Video_Service video_service;
         video_service.setPriority(42);
         services.add(video_service, nullptr);
-    }
+    //}
 
 #ifdef MM_CUDA_ENABLED
     services.add(cuda_service, nullptr);

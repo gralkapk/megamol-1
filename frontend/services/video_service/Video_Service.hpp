@@ -62,6 +62,8 @@ private:
 
     void create_playback_window(megamol::frontend_resources::ImageWrapper const& image);
 
+    void create_recorder_window();
+
     void resize();
 
     std::vector<std::string> requestedResourcesNames_;

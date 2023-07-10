@@ -11,7 +11,7 @@
 #include "ImageWrapper.h"
 #include "LuaCallbacksCollection.h"
 
-constexpr bool writeVideo = false;
+constexpr bool writeVideo = true;
 
 megamol::frontend::Video_Service::Video_Service() {}
 
@@ -25,15 +25,9 @@ bool megamol::frontend::Video_Service::init(void* configPtr) {
     requestedResourcesNames_ = {
         "MegaMolGraph", "GUIRegisterWindow", "ExecuteLuaScript", "SetScriptPath", "FramebufferEvents"};
 
+
     // for test purposes
-    if constexpr (writeVideo) {
-        start_video_rec("./test_out.mkv");
-        srt_file_ = std::ofstream("./test_out.srt");
-    } else {
-        std::vector<StreamContext> sc;
-        open_video("./test_out.mkv", sc);
-        stream_ctx_map_["./test_out.mkv"] = std::move(sc);
-    }
+    
 
     //image_.resize(1920, 1080);
 
@@ -114,6 +108,19 @@ void megamol::frontend::Video_Service::setRequestedResources(std::vector<Fronten
 
     fbo_size_ = glm::ivec2(fbo_events_->previous_state.width, fbo_events_->previous_state.height);
 
+    
+
+    //if (fbo_size_ != glm::ivec2(1)) {
+    //    if constexpr (writeVideo) {
+    //        start_video_rec("./test_out.mkv");
+    //        srt_file_ = std::ofstream("./test_out.srt");
+    //    } else {
+    //        std::vector<StreamContext> sc;
+    //        open_video("./test_out.mkv", sc);
+    //        stream_ctx_map_["./test_out.mkv"] = std::move(sc);
+    //    }
+    //}
+
     create_playback_window(*iw_.get());
 }
 
@@ -126,6 +133,17 @@ void megamol::frontend::Video_Service::digestChangedRequestedResources() {
     if (fbo_events_->is_resized()) {
         auto current_size = fbo_events_->size_events.back();
         fbo_size_ = glm::ivec2(current_size.width, current_size.height);
+
+        resize();
+
+        if constexpr (writeVideo) {
+            start_video_rec("./test_out.mkv");
+            srt_file_ = std::ofstream("./test_out.srt");
+        } else {
+            std::vector<StreamContext> sc;
+            open_video("./test_out.mkv", sc);
+            stream_ctx_map_["./test_out.mkv"] = std::move(sc);
+        }
     }
 }
 
@@ -291,8 +309,12 @@ void megamol::frontend::Video_Service::fill_lua_callbacks() {
 
 void megamol::frontend::Video_Service::start_video_rec(std::string const& filename) {
     std::vector<StreamContext> sc;
-    setup_video(filename, {1920, 1080}, sc);
+    setup_video(filename, fbo_size_, sc);
     //setup_subtitles(filename, sc);
+    //stream_ctx_map_[filename] = std::move(sc);
+    //stream_ctx_map_.insert(std::pair<std::string, std::vector<StreamContext>>(filename, std::vector<StreamContext>()));
+    /*std::unordered_map<std::string, std::vector<StreamContext>> test;
+    test[filename] = std::vector<StreamContext>{2};*/
     stream_ctx_map_[filename] = std::move(sc);
 }
 
@@ -304,6 +326,7 @@ void megamol::frontend::Video_Service::stop_video_rec(std::string const& filenam
         //encode_sub(fit->second);
         flush_encoder(fit->second[0]);
 
+        srt_file_.flush();
         srt_file_.close();
         setup_subtitles("./test_out.srt", fit->second);
 
@@ -339,5 +362,17 @@ void megamol::frontend::Video_Service::create_playback_window(megamol::frontend_
         },
         iw, std::placeholders::_1);
 
-    guireg_ptr->register_window("test", win_func);
+    guireg_ptr->register_window("Video: playback", win_func);
+}
+
+
+void megamol::frontend::Video_Service::create_recorder_window() {
+    auto win_func = [](megamol::gui::AbstractWindow::BasicConfig& window_config) {
+        // record button
+        // stop button
+        // output file
+        // capture entrypoint
+    };
+
+    guireg_ptr->register_window("Video: recorder", win_func);
 }

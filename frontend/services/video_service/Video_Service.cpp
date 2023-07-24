@@ -159,32 +159,37 @@ void megamol::frontend::Video_Service::preGraphRender() {
     // handle start and stop
     // need lua callbacks for that
     // read frame
-    if constexpr (!writeVideo) {
-        auto& stream_ctx = stream_ctx_map_["./test_out.mkv"];
-        auto& vid_ctx = stream_ctx[0];
-        std::string test_txt;
-        decode_frame(vid_ctx.in_fmt_ctx, stream_ctx, image_, test_txt);
 
-        // write texture
-        glBindTexture(GL_TEXTURE_2D, ogl_texture_);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, fbo_size_.x, fbo_size_.y, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
-        glBindTexture(GL_TEXTURE_2D, 0);
-        if (!test_txt.empty()) {
-            // 0,0,Default,,0,0,0,,
-            test_txt = std::regex_replace(test_txt, std::regex("\\\\N"), "\n");
-            test_txt = std::regex_replace(test_txt, std::regex("\\d+.\\d.Default..\\d.\\d.\\d.."), "");
-            std::cout << "[SRT]\n" << test_txt << "\n[SRT]" << std::endl;
-            //set_script_path_->operator()("C:\\data\\dev\\vidmol\\build\\x64-Debug\\install\\examples\\testspheres.lua");
-            auto result = execute_lua_->operator()(test_txt);
-            if (!std::get<0>(result)) {
-                std::cout << "[LUA ERROR] " << std::get<1>(result) << std::endl;
-            }
-            if (test_txt.find("mmCreateView") != std::string::npos) {
-                std::cout << "[SRT] Found View" << std::endl;
-                //execute_lua_->operator()("mmRenderNextFrame()");
-            }
-        }
+    for (auto& [filename, vc] : video_play_ctx_map_) {
+        read_frame(vc, image_);
     }
+
+    //if constexpr (!writeVideo) {
+    //    auto& stream_ctx = stream_ctx_map_["./test_out.mkv"];
+    //    auto& vid_ctx = stream_ctx[0];
+    //    std::string test_txt;
+    //    decode_frame(vid_ctx.in_fmt_ctx, stream_ctx, image_, test_txt);
+
+    //    // write texture
+    //    glBindTexture(GL_TEXTURE_2D, ogl_texture_);
+    //    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, fbo_size_.x, fbo_size_.y, GL_RGBA, GL_UNSIGNED_BYTE, image_.image.data());
+    //    glBindTexture(GL_TEXTURE_2D, 0);
+    //    if (!test_txt.empty()) {
+    //        // 0,0,Default,,0,0,0,,
+    //        test_txt = std::regex_replace(test_txt, std::regex("\\\\N"), "\n");
+    //        test_txt = std::regex_replace(test_txt, std::regex("\\d+.\\d.Default..\\d.\\d.\\d.."), "");
+    //        std::cout << "[SRT]\n" << test_txt << "\n[SRT]" << std::endl;
+    //        //set_script_path_->operator()("C:\\data\\dev\\vidmol\\build\\x64-Debug\\install\\examples\\testspheres.lua");
+    //        auto result = execute_lua_->operator()(test_txt);
+    //        if (!std::get<0>(result)) {
+    //            std::cout << "[LUA ERROR] " << std::get<1>(result) << std::endl;
+    //        }
+    //        if (test_txt.find("mmCreateView") != std::string::npos) {
+    //            std::cout << "[SRT] Found View" << std::endl;
+    //            //execute_lua_->operator()("mmRenderNextFrame()");
+    //        }
+    //    }
+    //}
 }
 
 
@@ -214,46 +219,46 @@ void megamol::frontend::Video_Service::postGraphRender() {
             capture_frame(vc, image_);
         }
 
-        if (first_time_) {
-            start_ = std::chrono::high_resolution_clock::now();
-            last_ = start_;
-            //text = mmgraph_ptr->Convenience().SerializeAllParameters();
-            text = mmgraph_ptr->Convenience().SerializeGraph();
-            old_param_text_ = text;
-            first_time_ = false;
-        } else {
-            //auto new_params = mmgraph_ptr->Convenience().SerializeAllParameters();
-            auto new_params = mmgraph_ptr->Convenience().SerializeGraph();
-            text = parameter_diff(old_param_text_, new_params);
-            old_param_text_ = new_params;
-        }
-        for (auto& [filename, stream_ctx] : stream_ctx_map_) {
-            //auto& vid_ctx = stream_ctx_[0];
-            auto& vid_ctx = stream_ctx[0];
+        //if (first_time_) {
+        //    start_ = std::chrono::high_resolution_clock::now();
+        //    last_ = start_;
+        //    //text = mmgraph_ptr->Convenience().SerializeAllParameters();
+        //    text = mmgraph_ptr->Convenience().SerializeGraph();
+        //    old_param_text_ = text;
+        //    first_time_ = false;
+        //} else {
+        //    //auto new_params = mmgraph_ptr->Convenience().SerializeAllParameters();
+        //    auto new_params = mmgraph_ptr->Convenience().SerializeGraph();
+        //    text = parameter_diff(old_param_text_, new_params);
+        //    old_param_text_ = new_params;
+        //}
+        //for (auto& [filename, stream_ctx] : stream_ctx_map_) {
+        //    //auto& vid_ctx = stream_ctx_[0];
+        //    auto& vid_ctx = stream_ctx[0];
 
-            flipImage2RGB(vid_ctx, image_);
+        //    flipImage2RGB(vid_ctx, image_);
 
-            rgb2yuv(vid_ctx);
+        //    rgb2yuv(vid_ctx);
 
-            auto const current = std::chrono::high_resolution_clock::now();
-            auto const time_in_ms = std::chrono::duration_cast<std::chrono::milliseconds>(current - start_).count();
-            //vid_ctx.yuvpic->pts = counter++;
-            vid_ctx.yuvpic->pts = time_in_ms;
+        //    auto const current = std::chrono::high_resolution_clock::now();
+        //    auto const time_in_ms = std::chrono::duration_cast<std::chrono::milliseconds>(current - start_).count();
+        //    //vid_ctx.yuvpic->pts = counter++;
+        //    vid_ctx.yuvpic->pts = time_in_ms;
 
-            if (!text.empty()) {
-                auto base_ts =
-                    convert_to_timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(last_ - start_));
-                auto next_ts =
-                    convert_to_timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(current - start_));
+        //    if (!text.empty()) {
+        //        auto base_ts =
+        //            convert_to_timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(last_ - start_));
+        //        auto next_ts =
+        //            convert_to_timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(current - start_));
 
-                //write_srt_entry(srt_file_, counter, base_ts, next_ts, std::string("Frame ") + std::to_string(counter++));
-                write_srt_entry(srt_file_, counter++, base_ts, next_ts, text);
-            }
+        //        //write_srt_entry(srt_file_, counter, base_ts, next_ts, std::string("Frame ") + std::to_string(counter++));
+        //        write_srt_entry(srt_file_, counter++, base_ts, next_ts, text);
+        //    }
 
-            last_ = current;
+        //    last_ = current;
 
-            encodeFrame(vid_ctx);
-        }
+        //    encodeFrame(vid_ctx);
+        //}
     } else {
 #if 0
         // read frame
@@ -365,20 +370,20 @@ void megamol::frontend::Video_Service::stop_video_rec(std::string const& filenam
 }
 
 
-struct iw_functor {
-    void init(std::vector<megamol::frontend_resources::ImageWrapper> const& images) {
-        images_ = images;
-    }
-    std::vector<megamol::frontend_resources::ImageWrapper> images_;
-};
+//struct iw_functor {
+//    void init(std::vector<megamol::frontend_resources::ImageWrapper> const& images) {
+//        images_ = images;
+//    }
+//    std::vector<megamol::frontend_resources::ImageWrapper> images_;
+//};
 
 
 void megamol::frontend::Video_Service::create_playback_window(megamol::frontend_resources::ImageWrapper const& image) {
-    auto iw = std::make_shared<iw_functor>();
-    iw->init({image});
+    /*auto iw = std::make_shared<iw_functor>();
+    iw->init({image});*/
 
     auto win_func = std::bind(
-        [&](std::shared_ptr<iw_functor> iw, megamol::gui::AbstractWindow::BasicConfig& window_config) {
+        [&](megamol::gui::AbstractWindow::BasicConfig& window_config) {
             window_config.flags = ImGuiWindowFlags_AlwaysAutoResize;
 
             static std::string input_file;
@@ -408,12 +413,14 @@ void megamol::frontend::Video_Service::create_playback_window(megamol::frontend_
                 }
             }
 
-            for (auto& image : iw->images_) {
+            /*for (auto& image : iw->images_) {
                 ImGui::Image(image.referenced_image_handle, ImVec2{(float)image.size.width, (float)image.size.height},
                     ImVec2(0, 1), ImVec2(1, 0));
-            }
+            }*/
+            ImGui::Image(iw_->referenced_image_handle, ImVec2{(float)iw_->size.width/4, (float)iw_->size.height/4},
+                ImVec2(0, 1), ImVec2(1, 0));
         },
-        iw, std::placeholders::_1);
+        std::placeholders::_1);
 
     guireg_ptr->register_window("Video: playback", win_func);
 }
@@ -494,7 +501,14 @@ void megamol::frontend::Video_Service::capture_frame(
 
 
 void megamol::frontend::Video_Service::start_video_play(std::string const& filename) {
+    std::vector<StreamContext> sc;
+    open_video(filename, sc);
 
+    VideoContext vc;
+    vc.dim = fbo_size_;
+    vc.stream_ctx = sc;
+
+    video_play_ctx_map_[filename] = std::move(vc);
 }
 
 
@@ -502,3 +516,32 @@ void megamol::frontend::Video_Service::pause_video_play(std::string const& filen
 
 
 void megamol::frontend::Video_Service::stop_video_play(std::string const& filename) {}
+
+
+void megamol::frontend::Video_Service::read_frame(
+    VideoContext& vc, megamol::frontend_resources::ScreenshotImageData& image) {
+    //auto& stream_ctx = stream_ctx_map_["./test_out.mkv"];
+    auto& vid_ctx = vc.stream_ctx[0];
+    std::string test_txt;
+    decode_frame(vid_ctx.in_fmt_ctx, vc.stream_ctx, image, test_txt);
+
+    // write texture
+    glBindTexture(GL_TEXTURE_2D, ogl_texture_);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, fbo_size_.x, fbo_size_.y, GL_RGBA, GL_UNSIGNED_BYTE, image.image.data());
+    glBindTexture(GL_TEXTURE_2D, 0);
+    if (!test_txt.empty()) {
+        // 0,0,Default,,0,0,0,,
+        test_txt = std::regex_replace(test_txt, std::regex("\\\\N"), "\n");
+        test_txt = std::regex_replace(test_txt, std::regex("\\d+.\\d.Default..\\d.\\d.\\d.."), "");
+        std::cout << "[SRT]\n" << test_txt << "\n[SRT]" << std::endl;
+        //set_script_path_->operator()("C:\\data\\dev\\vidmol\\build\\x64-Debug\\install\\examples\\testspheres.lua");
+        auto result = execute_lua_->operator()(test_txt);
+        if (!std::get<0>(result)) {
+            std::cout << "[LUA ERROR] " << std::get<1>(result) << std::endl;
+        }
+        if (test_txt.find("mmCreateView") != std::string::npos) {
+            std::cout << "[SRT] Found View" << std::endl;
+            //execute_lua_->operator()("mmRenderNextFrame()");
+        }
+    }
+}

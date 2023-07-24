@@ -75,6 +75,8 @@ private:
 
     void capture_frame(VideoContext& vc, megamol::frontend_resources::ScreenshotImageData const& image);
 
+    void read_frame(VideoContext& vc, megamol::frontend_resources::ScreenshotImageData& image);
+
     std::vector<std::string> requestedResourcesNames_;
 
     std::vector<megamol::frontend::FrontendResource> providedResources_;
@@ -86,6 +88,8 @@ private:
     std::unordered_map<std::string, std::vector<StreamContext>> stream_ctx_map_;
 
     std::unordered_map<std::string, VideoContext> video_ctx_map_;
+
+    std::unordered_map<std::string, VideoContext> video_play_ctx_map_;
 
     bool first_time_ = true;
 

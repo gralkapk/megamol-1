@@ -1,8 +1,8 @@
 #include "Video_Service.hpp"
 
+#include <filesystem>
 #include <regex>
 #include <sstream>
-#include <filesystem>
 
 #include "video_util.hpp"
 
@@ -30,7 +30,7 @@ bool megamol::frontend::Video_Service::init(void* configPtr) {
 
 
     // for test purposes
-    
+
 
     //image_.resize(1920, 1080);
 
@@ -111,7 +111,6 @@ void megamol::frontend::Video_Service::setRequestedResources(std::vector<Fronten
 
     fbo_size_ = glm::ivec2(fbo_events_->previous_state.width, fbo_events_->previous_state.height);
 
-    
 
     //if (fbo_size_ != glm::ivec2(1)) {
     //    if constexpr (writeVideo) {
@@ -382,45 +381,49 @@ void megamol::frontend::Video_Service::create_playback_window(megamol::frontend_
     /*auto iw = std::make_shared<iw_functor>();
     iw->init({image});*/
 
-    auto win_func = std::bind(
-        [&](megamol::gui::AbstractWindow::BasicConfig& window_config) {
-            window_config.flags = ImGuiWindowFlags_AlwaysAutoResize;
+    auto win_func = [&](megamol::gui::AbstractWindow::BasicConfig& window_config) {
+        window_config.flags = ImGuiWindowFlags_AlwaysAutoResize;
 
-            static std::string input_file;
-            ImGui::InputText("input", &input_file);
+        static std::string input_file;
+        ImGui::InputText("input", &input_file);
 
-            if (ImGui::Button("start")) {
-                if (!input_file.empty()) {
-                    start_video_play(input_file);
-                } else {
-                    core::utility::log::Log::DefaultLog.WriteError("[Video_Service] Provide path to input file first");
-                }
+        ImGui::SameLine();
+
+        if (ImGui::Button("start")) {
+            if (!input_file.empty()) {
+                start_video_play(input_file);
+            } else {
+                core::utility::log::Log::DefaultLog.WriteError("[Video_Service] Provide path to input file first");
             }
+        }
 
-            if (ImGui::Button("pause")) {
-                if (!input_file.empty()) {
-                    pause_video_play(input_file);
-                } else {
-                    core::utility::log::Log::DefaultLog.WriteError("[Video_Service] Provide path to input file first");
-                }
+        ImGui::SameLine();
+
+        if (ImGui::Button("pause")) {
+            if (!input_file.empty()) {
+                pause_video_play(input_file);
+            } else {
+                core::utility::log::Log::DefaultLog.WriteError("[Video_Service] Provide path to input file first");
             }
+        }
 
-            if (ImGui::Button("stop")) {
-                if (!input_file.empty()) {
-                    stop_video_play(input_file);
-                } else {
-                    core::utility::log::Log::DefaultLog.WriteError("[Video_Service] Provide path to input file first");
-                }
+        ImGui::SameLine();
+
+        if (ImGui::Button("stop")) {
+            if (!input_file.empty()) {
+                stop_video_play(input_file);
+            } else {
+                core::utility::log::Log::DefaultLog.WriteError("[Video_Service] Provide path to input file first");
             }
+        }
 
-            /*for (auto& image : iw->images_) {
-                ImGui::Image(image.referenced_image_handle, ImVec2{(float)image.size.width, (float)image.size.height},
-                    ImVec2(0, 1), ImVec2(1, 0));
-            }*/
-            ImGui::Image(iw_->referenced_image_handle, ImVec2{(float)iw_->size.width/4, (float)iw_->size.height/4},
+        /*for (auto& image : iw->images_) {
+            ImGui::Image(image.referenced_image_handle, ImVec2{(float)image.size.width, (float)image.size.height},
                 ImVec2(0, 1), ImVec2(1, 0));
-        },
-        std::placeholders::_1);
+        }*/
+        ImGui::Image(iw_->referenced_image_handle, ImVec2{(float)iw_->size.width / 4, (float)iw_->size.height / 4},
+            ImVec2(0, 1), ImVec2(1, 0));
+    };
 
     guireg_ptr->register_window("Video: playback", win_func);
 }
@@ -428,6 +431,7 @@ void megamol::frontend::Video_Service::create_playback_window(megamol::frontend_
 
 void megamol::frontend::Video_Service::create_recorder_window() {
     auto win_func = [&](megamol::gui::AbstractWindow::BasicConfig& window_config) {
+        window_config.flags = ImGuiWindowFlags_AlwaysAutoResize;
         // record button
         // stop button
         // output file
@@ -443,6 +447,9 @@ void megamol::frontend::Video_Service::create_recorder_window() {
                 core::utility::log::Log::DefaultLog.WriteError("[Video_Service] Provide path to output file first");
             }
         }
+
+        ImGui::SameLine();
+
         if (ImGui::Button("stop")) {
             // stop record
             if (!output_file.empty()) {
@@ -536,6 +543,20 @@ void megamol::frontend::Video_Service::read_frame(
         std::cout << "[SRT]\n" << test_txt << "\n[SRT]" << std::endl;
         //set_script_path_->operator()("C:\\data\\dev\\vidmol\\build\\x64-Debug\\install\\examples\\testspheres.lua");
         auto result = execute_lua_->operator()(test_txt);
+
+        std::smatch matches;
+        //auto has_matches = std::regex_match(test_txt, matches, std::regex("mmSetParamValue\\((\\w*)\\,\\w*\\)"));
+        auto has_matches = std::regex_match(test_txt, matches, std::regex("mmSetParamValue\\(\"([^\"]*)\",\\[=\\[[^\\]]*\\]=\\]\\)"));
+        //"mmSetParamValue\\(\"[^\"]*\",\\[=\\[6\\.298232\\]=\\]\\)"
+
+        if (has_matches) {
+            for (auto& m : matches) {
+                std::cout << m.str() << std::endl;
+            }
+        } else {
+            std::cout << "No match" << std::endl;
+        }
+
         if (!std::get<0>(result)) {
             std::cout << "[LUA ERROR] " << std::get<1>(result) << std::endl;
         }

@@ -61,6 +61,12 @@ private:
 
     void stop_video_rec(std::string const& filename);
 
+    void start_video_play(std::string const& filename);
+
+    void pause_video_play(std::string const& filename);
+
+    void stop_video_play(std::string const& filename);
+
     void create_playback_window(megamol::frontend_resources::ImageWrapper const& image);
 
     void create_recorder_window();

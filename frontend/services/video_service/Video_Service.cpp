@@ -83,9 +83,9 @@ void megamol::frontend::Video_Service::resize() {
 
 
 void megamol::frontend::Video_Service::close() {
-    if constexpr (writeVideo) {
+    /*if constexpr (writeVideo) {
         stop_video_rec("./test_out.mkv");
-    }
+    }*/
 
     glDeleteTextures(1, &ogl_texture_);
 }
@@ -140,14 +140,14 @@ void megamol::frontend::Video_Service::digestChangedRequestedResources() {
 
         resize();
 
-        if constexpr (writeVideo) {
+        /*if constexpr (writeVideo) {
             start_video_rec("./test_out.mkv");
             srt_file_ = std::ofstream("./test_out.srt");
         } else {
             std::vector<StreamContext> sc;
             open_video("./test_out.mkv", sc);
             stream_ctx_map_["./test_out.mkv"] = std::move(sc);
-        }
+        }*/
     }
 }
 
@@ -378,8 +378,35 @@ void megamol::frontend::Video_Service::create_playback_window(megamol::frontend_
     iw->init({image});
 
     auto win_func = std::bind(
-        [](std::shared_ptr<iw_functor> iw, megamol::gui::AbstractWindow::BasicConfig& window_config) {
+        [&](std::shared_ptr<iw_functor> iw, megamol::gui::AbstractWindow::BasicConfig& window_config) {
             window_config.flags = ImGuiWindowFlags_AlwaysAutoResize;
+
+            static std::string input_file;
+            ImGui::InputText("input", &input_file);
+
+            if (ImGui::Button("start")) {
+                if (!input_file.empty()) {
+                    start_video_play(input_file);
+                } else {
+                    core::utility::log::Log::DefaultLog.WriteError("[Video_Service] Provide path to input file first");
+                }
+            }
+
+            if (ImGui::Button("pause")) {
+                if (!input_file.empty()) {
+                    pause_video_play(input_file);
+                } else {
+                    core::utility::log::Log::DefaultLog.WriteError("[Video_Service] Provide path to input file first");
+                }
+            }
+
+            if (ImGui::Button("stop")) {
+                if (!input_file.empty()) {
+                    stop_video_play(input_file);
+                } else {
+                    core::utility::log::Log::DefaultLog.WriteError("[Video_Service] Provide path to input file first");
+                }
+            }
 
             for (auto& image : iw->images_) {
                 ImGui::Image(image.referenced_image_handle, ImVec2{(float)image.size.width, (float)image.size.height},
@@ -398,8 +425,8 @@ void megamol::frontend::Video_Service::create_recorder_window() {
         // stop button
         // output file
         // capture entrypoint
-        std::string output_file;
-        ImGui::InputText("ouput", &output_file);
+        static std::string output_file;
+        ImGui::InputText("output", &output_file);
 
         if (ImGui::Button("record")) {
             // start record
@@ -464,3 +491,14 @@ void megamol::frontend::Video_Service::capture_frame(
 
     encodeFrame(vid_ctx);
 }
+
+
+void megamol::frontend::Video_Service::start_video_play(std::string const& filename) {
+
+}
+
+
+void megamol::frontend::Video_Service::pause_video_play(std::string const& filename) {}
+
+
+void megamol::frontend::Video_Service::stop_video_play(std::string const& filename) {}

@@ -544,25 +544,32 @@ void megamol::frontend::Video_Service::read_frame(
         //set_script_path_->operator()("C:\\data\\dev\\vidmol\\build\\x64-Debug\\install\\examples\\testspheres.lua");
         auto result = execute_lua_->operator()(test_txt);
 
-        std::smatch matches;
-        //auto has_matches = std::regex_match(test_txt, matches, std::regex("mmSetParamValue\\((\\w*)\\,\\w*\\)"));
-        auto has_matches = std::regex_match(test_txt, matches, std::regex("mmSetParamValue\\(\"([^\"]*)\",\\[=\\[[^\\]]*\\]=\\]\\)"));
-        //"mmSetParamValue\\(\"[^\"]*\",\\[=\\[6\\.298232\\]=\\]\\)"
-
-        if (has_matches) {
-            for (auto& m : matches) {
-                std::cout << m.str() << std::endl;
-            }
-        } else {
-            std::cout << "No match" << std::endl;
-        }
-
         if (!std::get<0>(result)) {
             std::cout << "[LUA ERROR] " << std::get<1>(result) << std::endl;
         }
         if (test_txt.find("mmCreateView") != std::string::npos) {
             std::cout << "[SRT] Found View" << std::endl;
             //execute_lua_->operator()("mmRenderNextFrame()");
+        } else {
+            std::istringstream input;
+            input.str(test_txt);
+            for (std::string line; std::getline(input, line);) {
+                std::smatch matches;
+                //auto has_matches = std::regex_match(test_txt, matches, std::regex("mmSetParamValue\\((\\w*)\\,\\w*\\)"));
+                auto has_matches = std::regex_match(
+                    line, matches, std::regex("mmSetParamValue\\(\\\"([^\"]*)\\\",\\[=\\[[^\\]]*\\]=\\]\\)"));
+                //"mmSetParamValue\\(\"[^\"]*\",\\[=\\[6\\.298232\\]=\\]\\)"
+
+                if (has_matches) {
+                    for (auto& m : matches) {
+                        std::cout << m.str() << std::endl;
+                        auto command = std ::string("mmSetParamHighlight(\"") + m.str() + std::string("\",[=[true]=])");
+                        auto result = execute_lua_->operator()(command);
+                    }
+                } else {
+                    std::cout << "No match" << std::endl;
+                }
+            }
         }
     }
 }

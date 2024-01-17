@@ -256,6 +256,7 @@ inline __device__ void set_depth(PerRayData& prd, float depth) {
 // Modified 2021 MegaMol Dev Team
 //
 
+#if 0
 inline __device__ void lighting(PerRayData& prd, glm::vec3 const& geo_col, glm::vec3 const& P, glm::vec3 const& ffN) {
     if (prd.countEmitted)
         prd.emitted = geo_col * 0.2f;
@@ -310,6 +311,7 @@ inline __device__ void lighting(PerRayData& prd, glm::vec3 const& geo_col, glm::
 
     prd.radiance += glm::vec3(prd.intensity) * weight;
 }
+#endif
 
 
 } // namespace device

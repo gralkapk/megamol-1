@@ -21,7 +21,7 @@
 
 include(configure_cuda)
 #find_package(CUDA REQUIRED)
-find_package(OptiX REQUIRED VERSION 7)
+find_package(OptiX REQUIRED VERSION 8)
 
 include_directories(${CUDA_TOOLKIT_INCLUDE})
 include_directories(${OptiX_INCLUDE})
@@ -54,7 +54,7 @@ macro(cuda_compile_and_embed output_var cuda_file)
   else()
     cuda_compile_ptx(ptx_files
       ${cuda_file}
-      OPTIONS -arch=compute_${CMAKE_CUDA_ARCHITECTURES}
+      OPTIONS -lineinfo -arch=compute_${CMAKE_CUDA_ARCHITECTURES}
       )
   endif()
   list(GET ptx_files 0 ptx_file)

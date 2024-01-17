@@ -67,6 +67,8 @@ private:
 
     std::vector<CUdeviceptr> particle_data_;
 
+    std::vector<CUdeviceptr> radius_data_;
+
     std::vector<CUdeviceptr> color_data_;
 
     OptixTraversableHandle _geo_handle;

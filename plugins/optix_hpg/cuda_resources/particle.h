@@ -6,7 +6,7 @@ namespace megamol {
 namespace optix_hpg {
 namespace device {
 struct Particle {
-    glm::vec4 pos;
+    glm::vec3 pos;
 };
 } // namespace device
 } // namespace optix_hpg

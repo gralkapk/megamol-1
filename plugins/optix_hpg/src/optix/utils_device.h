@@ -33,18 +33,19 @@
 
 #define MM_OPTIX_EXCEPTION_KERNEL(name) extern "C" __global__ void __exception__##name
 
-#define MM_OPTIX_BOUNDS_KERNEL(name)                                                                         \
-    inline __device__ void __bounds__##name(void const* geo_data, box3f& bounds, unsigned int const primID); \
-                                                                                                             \
-    extern "C" __global__ void __boundsKernel__##name(                                                       \
-        void const* geo_data, box3f* boundsArray, unsigned int const numPrims) {                             \
-        unsigned int blockIndex = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;  \
-        unsigned int primID = threadIdx.x + blockDim.x * threadIdx.y + blockDim.x * blockDim.y * blockIndex; \
-        if (primID < numPrims) {                                                                             \
-            __bounds__##name(geo_data, boundsArray[primID], primID);                                         \
-        }                                                                                                    \
-    }                                                                                                        \
-                                                                                                             \
+#define MM_OPTIX_BOUNDS_KERNEL(name)                                                                                  \
+    inline __device__ void __bounds__##name(                                                                          \
+        void const* geo_data, float const* rad_data, float radius, box3f& bounds, unsigned int const primID);         \
+                                                                                                                      \
+    extern "C" __global__ void __boundsKernel__##name(                                                                \
+        void const* geo_data, float const* rad_data, float radius, box3f* boundsArray, unsigned int const numPrims) { \
+        unsigned int blockIndex = blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;           \
+        unsigned int primID = threadIdx.x + blockDim.x * threadIdx.y + blockDim.x * blockDim.y * blockIndex;          \
+        if (primID < numPrims) {                                                                                      \
+            __bounds__##name(geo_data, rad_data, radius, boundsArray[primID], primID);                                \
+        }                                                                                                             \
+    }                                                                                                                 \
+                                                                                                                      \
     inline __device__ void __bounds__##name
 
 namespace megamol {

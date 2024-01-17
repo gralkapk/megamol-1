@@ -50,6 +50,9 @@ void megamol::optix_hpg::SphereGeometry::release() {
     for (auto const& el : particle_data_) {
         CUDA_CHECK_ERROR(cuMemFree(el));
     }
+    for (auto const& el : radius_data_) {
+        CUDA_CHECK_ERROR(cuMemFree(el));
+    }
     for (auto const& el : color_data_) {
         CUDA_CHECK_ERROR(cuMemFree(el));
     }
@@ -81,11 +84,15 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
     for (auto const& el : particle_data_) {
         CUDA_CHECK_ERROR(cuMemFree(el));
     }
+    for (auto const& el : radius_data_) {
+        CUDA_CHECK_ERROR(cuMemFree(el));
+    }
     for (auto const& el : color_data_) {
         CUDA_CHECK_ERROR(cuMemFree(el));
     }
 
     particle_data_.resize(pl_count, 0);
+    radius_data_.resize(pl_count, 0);
     color_data_.resize(pl_count, 0);
     std::vector<CUdeviceptr> bounds_data(pl_count);
     std::vector<OptixBuildInput> build_inputs;
@@ -103,11 +110,14 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
         auto const has_color = (color_type != geocalls::SimpleSphericalParticles::COLDATA_NONE) &&
                                (color_type != geocalls::SimpleSphericalParticles::COLDATA_DOUBLE_I) &&
                                (color_type != geocalls::SimpleSphericalParticles::COLDATA_FLOAT_I);
+        auto const vert_type = particles.GetVertexDataType();
+        auto const has_gobal_radius = vert_type != geocalls::SimpleSphericalParticles::VERTDATA_FLOAT_XYZR;
 
         std::vector<device::Particle> data(p_count);
         auto x_acc = particles.GetParticleStore().GetXAcc();
         auto y_acc = particles.GetParticleStore().GetYAcc();
         auto z_acc = particles.GetParticleStore().GetZAcc();
+
         auto rad_acc = particles.GetParticleStore().GetRAcc();
 
         auto cr_acc = particles.GetParticleStore().GetCRAcc();
@@ -119,7 +129,16 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
             data[p_idx].pos.x = x_acc->Get_f(p_idx);
             data[p_idx].pos.y = y_acc->Get_f(p_idx);
             data[p_idx].pos.z = z_acc->Get_f(p_idx);
-            data[p_idx].pos.w = rad_acc->Get_f(p_idx);
+        }
+
+        std::vector<float> rad_data;
+        if (!has_gobal_radius) {
+            rad_data.resize(p_count);
+            for (std::size_t p_idx = 0; p_idx < p_count; ++p_idx) {
+                rad_data[p_idx] = rad_acc->Get_f(p_idx);
+            }
+        } else {
+            rad_data.push_back(particles.GetGlobalRadius());
         }
 
         auto col_count = p_count;
@@ -144,9 +163,19 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
         CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
             particle_data_[pl_idx], data.data(), p_count * sizeof(device::Particle), ctx.GetExecStream()));
 
+        CUDA_CHECK_ERROR(cuMemAlloc(&radius_data_[pl_idx], rad_data.size() * sizeof(float)));
+        CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
+            radius_data_[pl_idx], rad_data.data(), rad_data.size() * sizeof(float), ctx.GetExecStream()));
+
         CUDA_CHECK_ERROR(cuMemAlloc(&bounds_data[pl_idx], p_count * sizeof(box3f)));
 
-        sphere_module_.ComputeBounds(particle_data_[pl_idx], bounds_data[pl_idx], p_count, ctx.GetExecStream());
+        if (has_gobal_radius) {
+            sphere_module_.ComputeBounds(particle_data_[pl_idx], 0, particles.GetGlobalRadius(), bounds_data[pl_idx],
+                p_count, ctx.GetExecStream());
+        } else {
+            sphere_module_.ComputeBounds(particle_data_[pl_idx], radius_data_[pl_idx], particles.GetGlobalRadius(),
+                bounds_data[pl_idx], p_count, ctx.GetExecStream());
+        }
 
         //////////////////////////////////////
         // geometry
@@ -172,13 +201,18 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
         OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_module_, &sbt_record));
 
         sbt_record.data.particleBufferPtr = (device::Particle*) particle_data_[pl_idx];
+        sbt_record.data.radiusBufferPtr = nullptr;
         sbt_record.data.colorBufferPtr = nullptr;
         sbt_record.data.radius = particles.GetGlobalRadius();
+        sbt_record.data.hasGlobalRadius = has_gobal_radius;
         sbt_record.data.hasColorData = has_color;
         sbt_record.data.globalColor =
             glm::vec4(particles.GetGlobalColour()[0] / 255.f, particles.GetGlobalColour()[1] / 255.f,
                 particles.GetGlobalColour()[2] / 255.f, particles.GetGlobalColour()[3] / 255.f);
 
+        if (!has_gobal_radius) {
+            sbt_record.data.radiusBufferPtr = (float*) radius_data_[pl_idx];
+        }
         if (has_color) {
             sbt_record.data.colorBufferPtr = (glm::vec4*) color_data_[pl_idx];
         }

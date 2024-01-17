@@ -59,7 +59,8 @@ public:
         return &program_;
     }
 
-    void ComputeBounds(CUdeviceptr data_in, CUdeviceptr bounds_out, uint32_t num_elements, CUstream stream) const;
+    void ComputeBounds(CUdeviceptr data_in, CUdeviceptr radius_in, float radius, CUdeviceptr bounds_out,
+        uint32_t num_elements, CUstream stream) const;
 
 private:
     OptixModule module_ = nullptr;

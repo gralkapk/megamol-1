@@ -259,7 +259,7 @@ megamol::optix_hpg::MMOptixModule::~MMOptixModule() {
 
 
 void megamol::optix_hpg::MMOptixModule::ComputeBounds(
-    CUdeviceptr data_in, CUdeviceptr bounds_out, uint32_t num_elements, CUstream stream) const {
+    CUdeviceptr data_in, CUdeviceptr radius_in, float radius, CUdeviceptr bounds_out, uint32_t num_elements, CUstream stream) const {
     glm::vec3 blockDims(32, 32, 1);
     uint32_t threadsPerBlock = blockDims.x * blockDims.y * blockDims.z;
 
@@ -270,7 +270,7 @@ void megamol::optix_hpg::MMOptixModule::ComputeBounds(
 
     glm::uvec3 gridDims(numBlocks_x, numBlocks_y, numBlocks_z);
 
-    void* args[] = {&data_in, &bounds_out, (void*) &num_elements};
+    void* args[] = {&data_in, &radius_in, (void*) &radius, &bounds_out, (void*) &num_elements};
 
     CUDA_CHECK_ERROR(cuLaunchKernel(bounds_function_, gridDims.x, gridDims.y, gridDims.z, blockDims.x, blockDims.y,
         blockDims.z, 0, stream, args, nullptr));

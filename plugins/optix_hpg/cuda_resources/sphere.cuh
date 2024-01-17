@@ -52,7 +52,11 @@ inline __device__ void kernel_sphere_intersect() {
     /*if (intersectSphere(particle, particle.pos.w, ray, tmp_hit_t)) {
         optixReportIntersection(tmp_hit_t, 0);
     }*/
-    intersectSphere(particle, particle.pos.w, ray);
+    if (self.hasGlobalRadius) {
+        intersectSphere(particle, self.radius, ray);
+    } else {
+        intersectSphere(particle, self.radiusBufferPtr[primID], ray);
+    }
 }
 
 // OptiX SDK
@@ -129,16 +133,20 @@ inline __device__ void kernel_sphere_closest_hit() {
 #endif
 }
 
-inline __device__ void kernel_bounds(const void* geomData, box3f& primBounds, const unsigned int primID) {
+inline __device__ void kernel_bounds(const void* geomData, const float* radData, float radius, box3f& primBounds, const unsigned int primID) {
     /*const SphereGeoData& self = *(const SphereGeoData*) geomData;
 
     const Particle& particle = self.particleBufferPtr[primID];*/
     Particle const* particles = (Particle const*) geomData;
     Particle const& particle = particles[primID];
 
+    float rad = radius;
+    if (radData != 0) {
+        rad = radData[primID];
+    }
 
-    primBounds.lower = glm::vec3(particle.pos) - particle.pos.w;
-    primBounds.upper = glm::vec3(particle.pos) + particle.pos.w;
+    primBounds.lower = glm::vec3(particle.pos) - rad;
+    primBounds.upper = glm::vec3(particle.pos) + rad;
 
     // printf("BOUNDS: %d with radius %f and box %f %f %f %f %f %f\n", primID, self.radius,
     // primBounds.lower.x, primBounds.lower.y, primBounds.lower.z, primBounds.upper.x, primBounds.upper.y,

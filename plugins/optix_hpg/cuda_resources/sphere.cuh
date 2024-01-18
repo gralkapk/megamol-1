@@ -13,7 +13,7 @@ namespace optix_hpg {
 namespace device {
 inline __device__ void intersectSphere(const Particle& particle, const float particleRadius, const Ray& ray) {
     // Raytracing Gems Intersection Code (Chapter 7)
-    const glm::vec3 pos = glm::vec3(particle.pos);
+    const glm::vec3 pos = glm::vec3(particle.x, particle.y, particle.z);
     const glm::vec3 oc = ray.origin - pos;
     const float sqrRad = particleRadius * particleRadius;
 
@@ -122,7 +122,7 @@ inline __device__ void kernel_sphere_closest_hit() {
 #else
     prd.particleID = primID;
     const Particle& particle = self.particleBufferPtr[primID];
-    prd.pos = glm::vec3(particle.pos);
+    prd.pos = glm::vec3(particle.x, particle.y, particle.z);
     glm::vec3 geo_col = glm::vec3(self.globalColor);
     if (self.hasColorData) {
         geo_col = glm::vec3(self.colorBufferPtr[primID]);
@@ -145,8 +145,9 @@ inline __device__ void kernel_bounds(const void* geomData, const float* radData,
         rad = radData[primID];
     }
 
-    primBounds.lower = glm::vec3(particle.pos) - rad;
-    primBounds.upper = glm::vec3(particle.pos) + rad;
+    auto const pos = glm::vec3(particle.x, particle.y, particle.z);
+    primBounds.lower = pos - rad;
+    primBounds.upper = pos + rad;
 
     // printf("BOUNDS: %d with radius %f and box %f %f %f %f %f %f\n", primID, self.radius,
     // primBounds.lower.x, primBounds.lower.y, primBounds.lower.z, primBounds.upper.x, primBounds.upper.y,

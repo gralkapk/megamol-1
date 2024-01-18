@@ -6,6 +6,8 @@
 #include "mmcore/CallerSlot.h"
 #include "mmcore/Module.h"
 
+#include "mmcore/param/ParamSlot.h"
+
 #include "optix/CallContext.h"
 
 #include "cuda.h"
@@ -55,9 +57,13 @@ private:
 
     core::CallerSlot _in_data_slot;
 
+    core::param::ParamSlot built_in_intersector_slot_;
+
     MMOptixModule sphere_module_;
 
     MMOptixModule sphere_occlusion_module_;
+
+    OptixModule sphere_intersector_;
 
     std::vector<SBTRecord<device::SphereGeoData>> sbt_records_;
 

@@ -122,7 +122,6 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
     color_data_.resize(pl_count, 0);
     std::vector<CUdeviceptr> bounds_data(pl_count);
     std::vector<OptixBuildInput> build_inputs;
-    sbt_records_.clear();
 
     for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
         // for now only the first geometry

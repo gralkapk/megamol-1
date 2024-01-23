@@ -49,9 +49,23 @@ private:
 
     bool assertData(geocalls::MultiParticleDataCall& call, Context const& ctx);
 
+    bool createSBTRecords(geocalls::MultiParticleDataCall& call, Context const& ctx);
+
     bool get_data_cb(core::Call& c);
 
     bool get_extents_cb(core::Call& c);
+
+    bool has_color(geocalls::SimpleSphericalParticles const& parts) const {
+        auto const color_type = parts.GetColourDataType();
+        return (color_type != geocalls::SimpleSphericalParticles::COLDATA_NONE) &&
+               (color_type != geocalls::SimpleSphericalParticles::COLDATA_DOUBLE_I) &&
+               (color_type != geocalls::SimpleSphericalParticles::COLDATA_FLOAT_I);
+    }
+
+    bool has_global_radius(geocalls::SimpleSphericalParticles const& parts) const {
+        auto const vert_type = parts.GetVertexDataType();
+        return vert_type != geocalls::SimpleSphericalParticles::VERTDATA_FLOAT_XYZR;
+    }
 
     core::CalleeSlot _out_geo_slot;
 

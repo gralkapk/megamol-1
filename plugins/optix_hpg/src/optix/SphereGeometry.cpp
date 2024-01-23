@@ -132,12 +132,12 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
         if (p_count == 0)
             continue;
 
-        auto const color_type = particles.GetColourDataType();
+        /*auto const color_type = particles.GetColourDataType();
         auto const has_color = (color_type != geocalls::SimpleSphericalParticles::COLDATA_NONE) &&
                                (color_type != geocalls::SimpleSphericalParticles::COLDATA_DOUBLE_I) &&
                                (color_type != geocalls::SimpleSphericalParticles::COLDATA_FLOAT_I);
         auto const vert_type = particles.GetVertexDataType();
-        auto const has_gobal_radius = vert_type != geocalls::SimpleSphericalParticles::VERTDATA_FLOAT_XYZR;
+        auto const has_gobal_radius = vert_type != geocalls::SimpleSphericalParticles::VERTDATA_FLOAT_XYZR;*/
 
         std::vector<device::Particle> data(p_count);
         auto x_acc = particles.GetParticleStore().GetXAcc();
@@ -158,7 +158,7 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
         }
 
         std::vector<float> rad_data;
-        if (!has_gobal_radius) {
+        if (!has_global_radius(particles)) {
             rad_data.resize(p_count);
             for (std::size_t p_idx = 0; p_idx < p_count; ++p_idx) {
                 rad_data[p_idx] = rad_acc->Get_f(p_idx);
@@ -168,11 +168,11 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
         }
 
         auto col_count = p_count;
-        if (!has_color) {
+        if (!has_color(particles)) {
             col_count = 0;
         }
         std::vector<glm::vec4> color_data(col_count);
-        if (has_color) {
+        if (has_color(particles)) {
             for (std::size_t p_idx = 0; p_idx < col_count; ++p_idx) {
                 color_data[p_idx].r = cr_acc->Get_f(p_idx);
                 color_data[p_idx].g = cg_acc->Get_f(p_idx);
@@ -214,7 +214,7 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
             cp_input.sbtIndexOffsetBuffer = NULL;
             cp_input.sbtIndexOffsetSizeInBytes = 0;
             cp_input.sbtIndexOffsetStrideInBytes = 0;
-            if (has_gobal_radius) {
+            if (has_global_radius(particles)) {
                 cp_input.singleRadius = 1;
             } else {
                 cp_input.singleRadius = 0;
@@ -222,7 +222,7 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
         } else {
             CUDA_CHECK_ERROR(cuMemAllocAsync(&bounds_data[pl_idx], p_count * sizeof(box3f), ctx.GetExecStream()));
 
-            if (has_gobal_radius) {
+            if (has_global_radius(particles)) {
                 sphere_module_.ComputeBounds(particle_data_[pl_idx], 0, particles.GetGlobalRadius(),
                     bounds_data[pl_idx], p_count, ctx.GetExecStream());
             } else {
@@ -248,42 +248,42 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
             cp_input.strideInBytes = 0;
         }
 
-        SBTRecord<device::SphereGeoData> sbt_record;
-        if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
-            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_module_bi_, &sbt_record));
-        } else {
-            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_module_, &sbt_record));
-        }
+        //SBTRecord<device::SphereGeoData> sbt_record;
+        //if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
+        //    OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_module_bi_, &sbt_record));
+        //} else {
+        //    OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_module_, &sbt_record));
+        //}
 
-        sbt_record.data.particleBufferPtr = (device::Particle*) particle_data_[pl_idx];
-        sbt_record.data.radiusBufferPtr = nullptr;
-        sbt_record.data.colorBufferPtr = nullptr;
-        sbt_record.data.radius = particles.GetGlobalRadius();
-        sbt_record.data.hasGlobalRadius = has_gobal_radius;
-        sbt_record.data.hasColorData = has_color;
-        sbt_record.data.globalColor =
-            glm::vec4(particles.GetGlobalColour()[0] / 255.f, particles.GetGlobalColour()[1] / 255.f,
-                particles.GetGlobalColour()[2] / 255.f, particles.GetGlobalColour()[3] / 255.f);
+        //sbt_record.data.particleBufferPtr = (device::Particle*) particle_data_[pl_idx];
+        //sbt_record.data.radiusBufferPtr = nullptr;
+        //sbt_record.data.colorBufferPtr = nullptr;
+        //sbt_record.data.radius = particles.GetGlobalRadius();
+        //sbt_record.data.hasGlobalRadius = has_gobal_radius;
+        //sbt_record.data.hasColorData = has_color;
+        //sbt_record.data.globalColor =
+        //    glm::vec4(particles.GetGlobalColour()[0] / 255.f, particles.GetGlobalColour()[1] / 255.f,
+        //        particles.GetGlobalColour()[2] / 255.f, particles.GetGlobalColour()[3] / 255.f);
 
-        if (!has_gobal_radius) {
-            sbt_record.data.radiusBufferPtr = (float*) radius_data_[pl_idx];
-        }
-        if (has_color) {
-            sbt_record.data.colorBufferPtr = (glm::vec4*) color_data_[pl_idx];
-        }
-        sbt_records_.push_back(sbt_record);
+        //if (!has_gobal_radius) {
+        //    sbt_record.data.radiusBufferPtr = (float*) radius_data_[pl_idx];
+        //}
+        //if (has_color) {
+        //    sbt_record.data.colorBufferPtr = (glm::vec4*) color_data_[pl_idx];
+        //}
+        //sbt_records_.push_back(sbt_record);
 
-        // occlusion stuff
-        SBTRecord<device::SphereGeoData> sbt_record_occlusion;
-        if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
-            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_occlusion_module_bi_, &sbt_record_occlusion));
-        } else {
-            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_occlusion_module_, &sbt_record_occlusion));
-        }
-        sbt_record_occlusion.data = sbt_record.data;
-        sbt_records_.push_back(sbt_record_occlusion);
+        //// occlusion stuff
+        //SBTRecord<device::SphereGeoData> sbt_record_occlusion;
+        //if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
+        //    OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_occlusion_module_bi_, &sbt_record_occlusion));
+        //} else {
+        //    OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_occlusion_module_, &sbt_record_occlusion));
+        //}
+        //sbt_record_occlusion.data = sbt_record.data;
+        //sbt_records_.push_back(sbt_record_occlusion);
 
-        ++sbt_version;
+        //++sbt_version;
     }
 
     OptixAccelBuildOptions accelOptions = {};
@@ -341,6 +341,55 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
     return true;
 }
 
+bool megamol::optix_hpg::SphereGeometry::createSBTRecords(geocalls::MultiParticleDataCall& call, Context const& ctx) {
+    auto const pl_count = call.GetParticleListCount();
+
+    sbt_records_.clear();
+
+    for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
+        auto const& particles = call.AccessParticles(pl_idx);
+
+        SBTRecord<device::SphereGeoData> sbt_record;
+        if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_module_bi_, &sbt_record));
+        } else {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_module_, &sbt_record));
+        }
+
+        sbt_record.data.particleBufferPtr = (device::Particle*) particle_data_[pl_idx];
+        sbt_record.data.radiusBufferPtr = nullptr;
+        sbt_record.data.colorBufferPtr = nullptr;
+        sbt_record.data.radius = particles.GetGlobalRadius();
+        sbt_record.data.hasGlobalRadius = has_global_radius(particles);
+        sbt_record.data.hasColorData = has_color(particles);
+        sbt_record.data.globalColor =
+            glm::vec4(particles.GetGlobalColour()[0] / 255.f, particles.GetGlobalColour()[1] / 255.f,
+                particles.GetGlobalColour()[2] / 255.f, particles.GetGlobalColour()[3] / 255.f);
+
+        if (!has_global_radius(particles)) {
+            sbt_record.data.radiusBufferPtr = (float*) radius_data_[pl_idx];
+        }
+        if (has_color(particles)) {
+            sbt_record.data.colorBufferPtr = (glm::vec4*) color_data_[pl_idx];
+        }
+        sbt_records_.push_back(sbt_record);
+
+        // occlusion stuff
+        SBTRecord<device::SphereGeoData> sbt_record_occlusion;
+        if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_occlusion_module_bi_, &sbt_record_occlusion));
+        } else {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_occlusion_module_, &sbt_record_occlusion));
+        }
+        sbt_record_occlusion.data = sbt_record.data;
+        sbt_records_.push_back(sbt_record_occlusion);
+    }
+
+    ++sbt_version;
+
+    return true;
+}
+
 
 bool megamol::optix_hpg::SphereGeometry::get_data_cb(core::Call& c) {
     auto out_geo = dynamic_cast<CallGeometry*>(&c);
@@ -364,14 +413,16 @@ bool megamol::optix_hpg::SphereGeometry::get_data_cb(core::Call& c) {
     if (!(*in_data)(0))
         return false;
 
-    if (in_data->FrameID() != _frame_id || in_data->DataHash() != _data_hash || built_in_intersector_slot_.IsDirty()) {
-        if (built_in_intersector_slot_.IsDirty()) {
-            ++program_version;
-        }
+    if (in_data->FrameID() != _frame_id || in_data->DataHash() != _data_hash) {
         if (!assertData(*in_data, *ctx))
             return false;
         _frame_id = in_data->FrameID();
         _data_hash = in_data->DataHash();
+        
+    }
+    if (built_in_intersector_slot_.IsDirty()) {
+        createSBTRecords(*in_data, *ctx);
+        ++program_version;
         built_in_intersector_slot_.ResetDirty();
     }
     if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {

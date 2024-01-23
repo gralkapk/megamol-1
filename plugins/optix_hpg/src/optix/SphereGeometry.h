@@ -63,6 +63,10 @@ private:
 
     MMOptixModule sphere_occlusion_module_;
 
+    MMOptixModule sphere_module_bi_;
+
+    MMOptixModule sphere_occlusion_module_bi_;
+
     OptixModule sphere_intersector_;
 
     std::vector<SBTRecord<device::SphereGeoData>> sbt_records_;

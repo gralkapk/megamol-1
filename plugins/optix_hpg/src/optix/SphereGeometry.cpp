@@ -75,31 +75,28 @@ void megamol::optix_hpg::SphereGeometry::init(Context const& ctx) {
     OPTIX_CHECK_ERROR(optixBuiltinISModuleGet(ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), &opts, &sphere_intersector_));
 
-    if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
-        sphere_module_ = MMOptixModule(embedded_sphere_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
-            &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP, sphere_intersector_,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "sphere_intersect"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "sphere_closesthit"}});
-        sphere_occlusion_module_ = MMOptixModule(embedded_sphere_occlusion_programs, ctx.GetOptiXContext(),
-            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP, sphere_intersector_,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "sphere_intersect"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "sphere_closesthit_occlusion"}});
-    } else {
-        sphere_module_ = MMOptixModule(embedded_sphere_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
-            &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "sphere_intersect"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "sphere_closesthit"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "sphere_bounds"}});
-        sphere_occlusion_module_ = MMOptixModule(embedded_sphere_occlusion_programs, ctx.GetOptiXContext(),
-            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "sphere_intersect"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "sphere_closesthit_occlusion"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "sphere_bounds_occlusion"}});
-    }
+    sphere_module_bi_ = MMOptixModule(embedded_sphere_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
+        &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        sphere_intersector_,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "sphere_intersect"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "sphere_closesthit"}});
+    sphere_occlusion_module_bi_ = MMOptixModule(embedded_sphere_occlusion_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP, sphere_intersector_,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "sphere_intersect"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "sphere_closesthit_occlusion"}});
+
+    sphere_module_ = MMOptixModule(embedded_sphere_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
+        &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "sphere_intersect"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "sphere_closesthit"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "sphere_bounds"}});
+    sphere_occlusion_module_ = MMOptixModule(embedded_sphere_occlusion_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "sphere_intersect"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "sphere_closesthit_occlusion"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "sphere_bounds_occlusion"}});
 
     ++program_version;
 
@@ -111,13 +108,13 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
     auto const pl_count = call.GetParticleListCount();
 
     for (auto const& el : particle_data_) {
-        CUDA_CHECK_ERROR(cuMemFree(el));
+        CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
     }
     for (auto const& el : radius_data_) {
-        CUDA_CHECK_ERROR(cuMemFree(el));
+        CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
     }
     for (auto const& el : color_data_) {
-        CUDA_CHECK_ERROR(cuMemFree(el));
+        CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
     }
 
     particle_data_.resize(pl_count, 0);
@@ -183,16 +180,17 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
                 color_data[p_idx].a = ca_acc->Get_f(p_idx);
             }
             // CUDA_CHECK_ERROR(cuMemFree(color_data_));
-            CUDA_CHECK_ERROR(cuMemAlloc(&color_data_[pl_idx], col_count * sizeof(glm::vec4)));
+            CUDA_CHECK_ERROR(cuMemAllocAsync(&color_data_[pl_idx], col_count * sizeof(glm::vec4), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
                 color_data_[pl_idx], color_data.data(), col_count * sizeof(glm::vec4), ctx.GetExecStream()));
         }
         // CUDA_CHECK_ERROR(cuMemFree(_particle_data));
-        CUDA_CHECK_ERROR(cuMemAlloc(&particle_data_[pl_idx], p_count * sizeof(device::Particle)));
+        CUDA_CHECK_ERROR(
+            cuMemAllocAsync(&particle_data_[pl_idx], p_count * sizeof(device::Particle), ctx.GetExecStream()));
         CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
             particle_data_[pl_idx], data.data(), p_count * sizeof(device::Particle), ctx.GetExecStream()));
 
-        CUDA_CHECK_ERROR(cuMemAlloc(&radius_data_[pl_idx], rad_data.size() * sizeof(float)));
+        CUDA_CHECK_ERROR(cuMemAllocAsync(&radius_data_[pl_idx], rad_data.size() * sizeof(float), ctx.GetExecStream()));
         CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
             radius_data_[pl_idx], rad_data.data(), rad_data.size() * sizeof(float), ctx.GetExecStream()));
 
@@ -222,7 +220,7 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
                 cp_input.singleRadius = 0;
             }
         } else {
-            CUDA_CHECK_ERROR(cuMemAlloc(&bounds_data[pl_idx], p_count * sizeof(box3f)));
+            CUDA_CHECK_ERROR(cuMemAllocAsync(&bounds_data[pl_idx], p_count * sizeof(box3f), ctx.GetExecStream()));
 
             if (has_gobal_radius) {
                 sphere_module_.ComputeBounds(particle_data_[pl_idx], 0, particles.GetGlobalRadius(),
@@ -251,7 +249,11 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
         }
 
         SBTRecord<device::SphereGeoData> sbt_record;
-        OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_module_, &sbt_record));
+        if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_module_bi_, &sbt_record));
+        } else {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_module_, &sbt_record));
+        }
 
         sbt_record.data.particleBufferPtr = (device::Particle*) particle_data_[pl_idx];
         sbt_record.data.radiusBufferPtr = nullptr;
@@ -273,7 +275,11 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
 
         // occlusion stuff
         SBTRecord<device::SphereGeoData> sbt_record_occlusion;
-        OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_occlusion_module_, &sbt_record_occlusion));
+        if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_occlusion_module_bi_, &sbt_record_occlusion));
+        } else {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_occlusion_module_, &sbt_record_occlusion));
+        }
         sbt_record_occlusion.data = sbt_record.data;
         sbt_records_.push_back(sbt_record_occlusion);
 
@@ -281,7 +287,7 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
     }
 
     OptixAccelBuildOptions accelOptions = {};
-    accelOptions.buildFlags = OPTIX_BUILD_FLAG_PREFER_FAST_TRACE;
+    accelOptions.buildFlags = OPTIX_BUILD_FLAG_PREFER_FAST_TRACE | OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
     accelOptions.operation = OPTIX_BUILD_OPERATION_BUILD;
     accelOptions.motionOptions.numKeys = 0;
 
@@ -290,19 +296,42 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
         ctx.GetOptiXContext(), &accelOptions, build_inputs.data(), build_inputs.size(), &bufferSizes));
 
     CUdeviceptr geo_temp;
-    CUDA_CHECK_ERROR(cuMemFree(_geo_buffer));
-    CUDA_CHECK_ERROR(cuMemAlloc(&_geo_buffer, bufferSizes.outputSizeInBytes));
-    CUDA_CHECK_ERROR(cuMemAlloc(&geo_temp, bufferSizes.tempSizeInBytes));
+    CUDA_CHECK_ERROR(cuMemFreeAsync(_geo_buffer, ctx.GetExecStream()));
+    CUDA_CHECK_ERROR(cuMemAllocAsync(&_geo_buffer, bufferSizes.outputSizeInBytes, ctx.GetExecStream()));
+    CUDA_CHECK_ERROR(cuMemAllocAsync(&geo_temp, bufferSizes.tempSizeInBytes, ctx.GetExecStream()));
 
-    OptixTraversableHandle geo_handle = 0;
+    CUdeviceptr d_compSize;
+    CUDA_CHECK_ERROR(cuMemAllocAsync(&d_compSize, sizeof(std::size_t), ctx.GetExecStream()));
+    OptixAccelEmitDesc build_prop = {};
+    build_prop.type = OPTIX_PROPERTY_TYPE_COMPACTED_SIZE;
+    build_prop.result = d_compSize;
+
     OPTIX_CHECK_ERROR(optixAccelBuild(ctx.GetOptiXContext(), ctx.GetExecStream(), &accelOptions, build_inputs.data(),
         build_inputs.size(), geo_temp, bufferSizes.tempSizeInBytes, _geo_buffer, bufferSizes.outputSizeInBytes,
-        &_geo_handle, nullptr, 0));
+        &_geo_handle, &build_prop, 1));
 
-    CUDA_CHECK_ERROR(cuMemFree(geo_temp));
+    std::size_t compSize;
+    CUDA_CHECK_ERROR(cuMemcpyDtoHAsync(&compSize, d_compSize, sizeof(std::size_t), ctx.GetExecStream()));
+    CUDA_CHECK_ERROR(cuMemFreeAsync(d_compSize, ctx.GetExecStream()));
+    if (compSize < bufferSizes.outputSizeInBytes) {
+        CUdeviceptr comp_geo_buffer;
+        CUDA_CHECK_ERROR(cuMemAllocAsync(&comp_geo_buffer, compSize, ctx.GetExecStream()));
+        OptixTraversableHandle compacted_geo_handle = 0;
+        OPTIX_CHECK_ERROR(optixAccelCompact(
+            ctx.GetOptiXContext(), ctx.GetExecStream(), _geo_handle, comp_geo_buffer, compSize, &compacted_geo_handle));
+
+        auto temp_handle = _geo_handle;
+        auto temp_buffer = _geo_buffer;
+        _geo_handle = compacted_geo_handle;
+        _geo_buffer = comp_geo_buffer;
+
+        CUDA_CHECK_ERROR(cuMemFreeAsync(temp_buffer, ctx.GetExecStream()));
+    }
+
+    CUDA_CHECK_ERROR(cuMemFreeAsync(geo_temp, ctx.GetExecStream()));
     // CUDA_CHECK_ERROR(cuMemFree(bounds_data));
     for (auto const& el : bounds_data) {
-        CUDA_CHECK_ERROR(cuMemFree(el));
+        CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
     }
 
     //////////////////////////////////////
@@ -335,15 +364,23 @@ bool megamol::optix_hpg::SphereGeometry::get_data_cb(core::Call& c) {
     if (!(*in_data)(0))
         return false;
 
-    if (in_data->FrameID() != _frame_id || in_data->DataHash() != _data_hash) {
+    if (in_data->FrameID() != _frame_id || in_data->DataHash() != _data_hash || built_in_intersector_slot_.IsDirty()) {
+        if (built_in_intersector_slot_.IsDirty()) {
+            ++program_version;
+        }
         if (!assertData(*in_data, *ctx))
             return false;
         _frame_id = in_data->FrameID();
         _data_hash = in_data->DataHash();
+        built_in_intersector_slot_.ResetDirty();
     }
-
-    program_groups_[0] = sphere_module_;
-    program_groups_[1] = sphere_occlusion_module_;
+    if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
+        program_groups_[0] = sphere_module_bi_;
+        program_groups_[1] = sphere_occlusion_module_bi_;
+    } else {
+        program_groups_[0] = sphere_module_;
+        program_groups_[1] = sphere_occlusion_module_;
+    }
 
     out_geo->set_handle(&_geo_handle);
     out_geo->set_program_groups(program_groups_.data(), program_groups_.size(), program_version);

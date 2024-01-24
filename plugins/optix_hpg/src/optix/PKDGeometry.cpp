@@ -152,12 +152,11 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
     }
     program_groups_[0] = pkd_module_;
     program_groups_[1] = pkd_module_occlusion_;
-    
+
 
     out_geo->set_handle(&geo_handle_);
     out_geo->set_program_groups(program_groups_.data(), program_groups_.size(), program_version);
-    out_geo->set_record(
-        sbt_records_.data(), sbt_records_.size(), sizeof(SBTRecord<device::PKDGeoData>), sbt_version);
+    out_geo->set_record(sbt_records_.data(), sbt_records_.size(), sizeof(SBTRecord<device::PKDGeoData>), sbt_version);
 
     return true;
 }
@@ -216,8 +215,12 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         auto const& particles = call.AccessParticles(pl_idx);
 
         auto const p_count = particles.GetCount();
-        if (p_count == 0)
+        if (p_count == 0 || !has_global_radius(particles)) {
+            if (!has_global_radius(particles)) {
+                core::utility::log::Log::DefaultLog.WriteWarn("[PKDGeometry]: Per-particle radius not supported");
+            }
             continue;
+        }
 
         std::vector<device::PKDParticle> data(p_count);
         auto x_acc = particles.GetParticleStore().GetXAcc();

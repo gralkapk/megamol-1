@@ -151,9 +151,9 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
         auto ca_acc = particles.GetParticleStore().GetCAAcc();
 
         for (std::size_t p_idx = 0; p_idx < p_count; ++p_idx) {
-            data[p_idx].x = x_acc->Get_f(p_idx);
-            data[p_idx].y = y_acc->Get_f(p_idx);
-            data[p_idx].z = z_acc->Get_f(p_idx);
+            data[p_idx].pos.x = x_acc->Get_f(p_idx);
+            data[p_idx].pos.y = y_acc->Get_f(p_idx);
+            data[p_idx].pos.z = z_acc->Get_f(p_idx);
         }
 
         std::vector<float> rad_data;

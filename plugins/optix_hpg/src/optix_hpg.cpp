@@ -12,6 +12,7 @@
 #include "optix/Renderer.h"
 #include "optix/SphereGeometry.h"
 #include "optix/TransitionCalculator.h"
+#include "optix/PKDGeometry.h"
 
 #include "CallRender3DCUDA.h"
 #include "optix/CallGeometry.h"
@@ -35,6 +36,7 @@ public:
         this->module_descriptions.RegisterAutoDescription<megamol::optix_hpg::MeshGeometry>();
         this->module_descriptions.RegisterAutoDescription<megamol::optix_hpg::TransitionCalculator>();
         this->module_descriptions.RegisterAutoDescription<megamol::optix_hpg::CUDAToGL>();
+        this->module_descriptions.RegisterAutoDescription<megamol::optix_hpg::PKDGeometry>();
 
         // register calls
         this->call_descriptions.RegisterAutoDescription<megamol::optix_hpg::CallGeometry>();

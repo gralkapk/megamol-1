@@ -48,8 +48,9 @@ if (optix_hpg_PLUGIN_ENABLED)
   cuda_compile_and_embed(embedded_sphere_occlusion_programs cuda_resources/sphere_occlusion.cu)
   cuda_compile_and_embed(embedded_mesh_programs cuda_resources/mesh.cu)
   cuda_compile_and_embed(embedded_transitioncalculator_programs cuda_resources/transitioncalculator.cu)
+  cuda_compile_and_embed(embedded_pkd_programs cuda_resources/pkd.cu)
 
-  target_sources(optix_hpg PRIVATE ${cuda_resource_include_files} ${embedded_raygen_programs} ${embedded_miss_programs} ${embedded_miss_occlusion_programs} ${embedded_sphere_programs} ${embedded_sphere_occlusion_programs} ${embedded_mesh_programs} ${embedded_transitioncalculator_programs})
+  target_sources(optix_hpg PRIVATE ${cuda_resource_include_files} ${embedded_raygen_programs} ${embedded_miss_programs} ${embedded_miss_occlusion_programs} ${embedded_sphere_programs} ${embedded_sphere_occlusion_programs} ${embedded_mesh_programs} ${embedded_transitioncalculator_programs} ${embedded_pkd_programs})
 
   target_include_directories(optix_hpg PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/cuda_resources/")
   target_link_libraries(optix_hpg PRIVATE CUDA::cuda_driver)

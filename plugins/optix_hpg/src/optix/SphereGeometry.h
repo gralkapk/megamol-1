@@ -104,5 +104,7 @@ private:
     uint64_t sbt_version = 0;
 
     uint64_t program_version = 0;
+
+    uint64_t geo_version = 0;
 };
 } // namespace megamol::optix_hpg

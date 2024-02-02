@@ -41,7 +41,21 @@
 
 namespace megamol {
 namespace optix_hpg {
+
 typedef struct box3f {
+    box3f()
+            : lower{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
+                  std::numeric_limits<float>::max()}
+            , upper{std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(),
+                  std::numeric_limits<float>::lowest()} {}
+    void extend(glm::vec3 const& pos) {
+        lower = glm::vec3(fminf(pos.x, lower.x), fminf(pos.y, lower.y), fminf(pos.z, lower.z));
+        upper = glm::vec3(fmaxf(pos.x, upper.x), fmaxf(pos.y, upper.y), fmaxf(pos.z, upper.z));
+    }
+    void extend(box3f const& box) {
+        extend(box.lower);
+        extend(box.upper);
+    }
     glm::vec3 lower;
     glm::vec3 upper;
 } box3f;

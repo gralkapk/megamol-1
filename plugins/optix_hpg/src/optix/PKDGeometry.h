@@ -100,6 +100,9 @@ private:
         for (auto& el : color_data_) {
             CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
         }
+        for (auto& el : treelets_data_) {
+            CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
+        }
     }
 
     core::CalleeSlot out_geo_slot_;
@@ -114,6 +117,8 @@ private:
 
     std::vector<SBTRecord<device::PKDGeoData>> sbt_records_;
 
+    std::vector<SBTRecord<device::TreeletsGeoData>> treelets_sbt_records_;
+
     std::array<OptixProgramGroup, 2> program_groups_;
 
     std::vector<CUdeviceptr> particle_data_;
@@ -121,6 +126,8 @@ private:
     std::vector<CUdeviceptr> radius_data_;
 
     std::vector<CUdeviceptr> color_data_;
+
+    std::vector<CUdeviceptr> treelets_data_;
 
     std::vector<std::pair<glm::vec3, glm::vec3>> local_boxes_;
 
@@ -132,9 +139,15 @@ private:
 
     MMOptixModule pkd_module_occlusion_;
 
+    MMOptixModule treelets_module_;
+
+    MMOptixModule treelets_occlusion_module_;
+
     uint64_t sbt_version = 0;
 
     uint64_t program_version = 0;
+
+    uint64_t geo_version = 0;
 
     unsigned int frame_id_ = std::numeric_limits<unsigned int>::max();
 

@@ -76,7 +76,7 @@ bool megamol::optix_hpg::AbstractRenderer::Render(CallRender3DCUDA& call) {
     }
 
     // change data
-    if (frame_id_ != in_geo->FrameID() || in_data_hash_ != in_geo->DataHash()) {
+    if (frame_id_ != in_geo->FrameID() || in_data_hash_ != in_geo->DataHash() || in_geo->has_geo_update()) {
         on_change_data(*in_geo->get_handle());
 
         rebuild_sbt = true;

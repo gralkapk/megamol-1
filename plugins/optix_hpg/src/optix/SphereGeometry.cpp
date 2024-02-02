@@ -327,6 +327,8 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
         CUDA_CHECK_ERROR(cuMemFreeAsync(temp_buffer, ctx.GetExecStream()));
     }
 
+    ++geo_version;
+
     CUDA_CHECK_ERROR(cuMemFreeAsync(geo_temp, ctx.GetExecStream()));
     // CUDA_CHECK_ERROR(cuMemFree(bounds_data));
     for (auto const& el : bounds_data) {
@@ -432,7 +434,7 @@ bool megamol::optix_hpg::SphereGeometry::get_data_cb(core::Call& c) {
         program_groups_[1] = sphere_occlusion_module_;
     }
 
-    out_geo->set_handle(&_geo_handle);
+    out_geo->set_handle(&_geo_handle, geo_version);
     out_geo->set_program_groups(program_groups_.data(), program_groups_.size(), program_version);
     out_geo->set_record(
         sbt_records_.data(), sbt_records_.size(), sizeof(SBTRecord<device::SphereGeoData>), sbt_version);

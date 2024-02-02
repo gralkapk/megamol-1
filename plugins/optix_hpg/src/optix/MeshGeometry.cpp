@@ -182,6 +182,8 @@ bool megamol::optix_hpg::MeshGeometry::assertData(mesh::CallMesh& call, Context 
         build_inputs.size(), geo_temp, bufferSizes.tempSizeInBytes, _geo_buffer, bufferSizes.outputSizeInBytes,
         &_geo_handle, nullptr, 0));
 
+    ++geo_version;
+
     CUDA_CHECK_ERROR(cuMemFree(geo_temp));
 
     return true;
@@ -225,7 +227,7 @@ bool megamol::optix_hpg::MeshGeometry::get_data_cb(core::Call& c) {
     program_groups_[0] = mesh_module_;
     program_groups_[1] = mesh_occlusion_module_;
 
-    out_geo->set_handle(&_geo_handle);
+    out_geo->set_handle(&_geo_handle, geo_version);
     out_geo->set_program_groups(program_groups_.data(), program_groups_.size(), program_version);
     out_geo->set_record(sbt_records_.data(), sbt_records_.size(), sizeof(SBTRecord<device::MeshGeoData>), sbt_version);
 

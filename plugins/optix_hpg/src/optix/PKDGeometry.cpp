@@ -145,6 +145,12 @@ void partitionRecursively(
     // parallel bounding box computation
     // -------------------------------------------------------
     box3f bounds;
+
+    for (size_t idx = begin; idx < end; ++idx) {
+        bounds.extend(particles[idx].pos);
+    }
+
+#if 0
     std::mutex boundsMutex;
 
     const size_t blockSize = 32 * 1024;
@@ -162,12 +168,6 @@ void partitionRecursively(
         auto const blockBounds = extendBounds(particles, blockBegin, blockEnd, 0.f);
         std::lock_guard<std::mutex> lock(boundsMutex);
         bounds.extend(blockBounds);
-        /*bounds.lower.x = std::min(bounds.lower.x, blockBounds.lower.x);
-        bounds.lower.y = std::min(bounds.lower.y, blockBounds.lower.y);
-        bounds.lower.z = std::min(bounds.lower.z, blockBounds.lower.z);
-        bounds.upper.x = std::max(bounds.upper.x, blockBounds.upper.x);
-        bounds.upper.y = std::max(bounds.upper.y, blockBounds.upper.y);
-        bounds.upper.z = std::max(bounds.upper.z, blockBounds.upper.z);*/
     };
     tbb::parallel_for((size_t) 0, numBlocks, [&](size_t blockID) {
         size_t block_begin = begin + blockID * blockSize;
@@ -188,6 +188,7 @@ void partitionRecursively(
     //    bounds.upper.y = std::max(bounds.upper.y, blockBounds.upper.y);
     //    bounds.upper.z = std::max(bounds.upper.z, blockBounds.upper.z);
     //});
+#endif
 
     int splitDim;
     auto mid = sort_partition(particles, begin, end, bounds, splitDim);
@@ -217,11 +218,6 @@ std::vector<device::PKDlet> prePartition_inPlace(
         device::PKDlet treelet;
         treelet.begin = begin;
         treelet.end = end;
-        /*treelet.bounds = box3f();
-        for (size_t i = begin; i < end; ++i) {
-            treelet.bounds.extend(model->particles[i].pos - radius);
-            treelet.bounds.extend(model->particles[i].pos + radius);
-        }*/
         treelet.bounds = extendBounds(particles, begin, end, radius);
 
         std::lock_guard<std::mutex> lock(resultMutex);
@@ -322,9 +318,8 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
         program_groups_[1] = treelets_occlusion_module_;
     } else {
         program_groups_[0] = pkd_module_;
-        program_groups_[1] = pkd_module_occlusion_;
+        program_groups_[1] = pkd_occlusion_module_;
     }
-
 
     out_geo->set_handle(&geo_handle_, geo_version);
     out_geo->set_program_groups(program_groups_.data(), program_groups_.size(), program_version);
@@ -364,7 +359,7 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "pkd_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "pkd_bounds"}});
 
-    pkd_module_occlusion_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
+    pkd_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "pkd_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "pkd_closesthit_occlusion"},
@@ -397,11 +392,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     radius_data_.resize(pl_count, 0);
     color_data_.resize(pl_count, 0);
     treelets_data_.resize(pl_count, 0);
-    local_boxes_.resize(
-        pl_count, std::make_pair(glm::vec3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
-                                     std::numeric_limits<float>::max()),
-                      glm::vec3(std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(),
-                          std::numeric_limits<float>::lowest())));
+    local_boxes_.resize(pl_count);
     std::vector<CUdeviceptr> bounds_data(pl_count);
     std::vector<OptixBuildInput> build_inputs;
 
@@ -434,9 +425,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             data[p_idx].pos.z = z_acc->Get_f(p_idx);
         }
 
-        std::array<float, 6> local_box = {std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
-            std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest(),
-            std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest()};
+        box3f local_box;
 
         std::vector<device::PKDlet> treelets;
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
@@ -459,12 +448,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             // TODO compress data if requested
         } else {
             auto const max_threads = omp_get_max_threads();
-            glm::vec3 initial_lower = glm::vec3(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
-                          std::numeric_limits<float>::max()),
-                      initial_upper = glm::vec3(std::numeric_limits<float>::lowest(),
-                          std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest());
-            std::vector<std::pair<glm::vec3, glm::vec3>> local_boxes(
-                max_threads, std::make_pair(initial_lower, initial_upper));
+            std::vector<box3f> local_boxes(max_threads);
 #pragma omp parallel for shared(local_boxes)
             for (int64_t p_idx = 0; p_idx < p_count; ++p_idx) {
                 auto const thread_num = omp_get_thread_num();
@@ -473,29 +457,16 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 auto const rad = rad_acc->Get_f(p_idx);
                 auto const new_lower = pos - rad;
                 auto const new_upper = pos + rad;
-                std::get<0>(box).x = std::min(std::get<0>(box).x, new_lower.x);
-                std::get<0>(box).y = std::min(std::get<0>(box).y, new_lower.y);
-                std::get<0>(box).z = std::min(std::get<0>(box).z, new_lower.z);
-                std::get<1>(box).x = std::max(std::get<1>(box).x, new_upper.x);
-                std::get<1>(box).y = std::max(std::get<1>(box).y, new_upper.y);
-                std::get<1>(box).z = std::max(std::get<1>(box).z, new_upper.z);
+                box.extend(new_lower);
+                box.extend(new_upper);
             }
-
 
             for (auto const& el : local_boxes) {
-                local_box[0] = std::min(std::get<0>(el).x, local_box[0]);
-                local_box[1] = std::min(std::get<0>(el).y, local_box[1]);
-                local_box[2] = std::min(std::get<0>(el).z, local_box[2]);
-                local_box[3] = std::max(std::get<1>(el).x, local_box[3]);
-                local_box[4] = std::max(std::get<1>(el).y, local_box[4]);
-                local_box[5] = std::max(std::get<1>(el).z, local_box[5]);
+                local_box.extend(el);
             }
 
-            box3f op_box;
-            op_box.lower = glm::vec3(local_box[0], local_box[1], local_box[2]);
-            op_box.upper = glm::vec3(local_box[3], local_box[4], local_box[5]);
-            makePKD(data, op_box);
-            local_boxes_[pl_idx] = std::make_pair(op_box.lower, op_box.upper);
+            makePKD(data, local_box);
+            local_boxes_[pl_idx] = local_box;
         }
 
         std::vector<float> rad_data;
@@ -555,7 +526,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         } else {
             CUDA_CHECK_ERROR(cuMemAllocAsync(&bounds_data[pl_idx], 1 * sizeof(box3f), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(
-                cuMemcpyHtoDAsync(bounds_data[pl_idx], local_box.data(), 6 * sizeof(float), ctx.GetExecStream()));
+                cuMemcpyHtoDAsync(bounds_data[pl_idx], &local_box, sizeof(local_box), ctx.GetExecStream()));
         }
 
 
@@ -662,8 +633,7 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
             glm::vec4(particles.GetGlobalColour()[0] / 255.f, particles.GetGlobalColour()[1] / 255.f,
                 particles.GetGlobalColour()[2] / 255.f, particles.GetGlobalColour()[3] / 255.f);
         sbt_record.data.particleCount = p_count;
-        sbt_record.data.worldBounds.lower = std::get<0>(local_boxes_[pl_idx]);
-        sbt_record.data.worldBounds.upper = std::get<1>(local_boxes_[pl_idx]);
+        sbt_record.data.worldBounds = local_boxes_[pl_idx];
 
         if (!has_global_radius(particles)) {
             sbt_record.data.radiusBufferPtr = (float*) radius_data_[pl_idx];
@@ -675,7 +645,7 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
 
         // occlusion stuff
         SBTRecord<device::PKDGeoData> sbt_record_occlusion;
-        OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(pkd_module_occlusion_, &sbt_record_occlusion));
+        OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(pkd_occlusion_module_, &sbt_record_occlusion));
 
         sbt_record_occlusion.data = sbt_record.data;
         sbt_records_.push_back(sbt_record_occlusion);
@@ -695,8 +665,7 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
             glm::vec4(particles.GetGlobalColour()[0] / 255.f, particles.GetGlobalColour()[1] / 255.f,
                 particles.GetGlobalColour()[2] / 255.f, particles.GetGlobalColour()[3] / 255.f);
         treelets_sbt_record.data.particleCount = p_count;
-        treelets_sbt_record.data.worldBounds.lower = std::get<0>(local_boxes_[pl_idx]);
-        treelets_sbt_record.data.worldBounds.upper = std::get<1>(local_boxes_[pl_idx]);
+        treelets_sbt_record.data.worldBounds = local_boxes_[pl_idx];
 
         if (!has_global_radius(particles)) {
             treelets_sbt_record.data.radiusBufferPtr = (float*) radius_data_[pl_idx];

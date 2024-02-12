@@ -129,7 +129,7 @@ private:
 
     std::vector<CUdeviceptr> treelets_data_;
 
-    std::vector<std::pair<glm::vec3, glm::vec3>> local_boxes_;
+    std::vector<box3f> local_boxes_;
 
     CUdeviceptr geo_buffer_ = 0;
 
@@ -137,7 +137,7 @@ private:
 
     MMOptixModule pkd_module_;
 
-    MMOptixModule pkd_module_occlusion_;
+    MMOptixModule pkd_occlusion_module_;
 
     MMOptixModule treelets_module_;
 

@@ -75,11 +75,14 @@ struct StackEntry {
 MM_OPTIX_INTERSECTION_KERNEL(pkd_intersect)() {
     const auto& self = getProgramData<PKDGeoData>();
 
-    auto const ray = Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), optixGetRayTmin(), optixGetRayTmax());
-
     float t0, t1;
-    if (!clipToBounds(ray, self.worldBounds, t0, t1))
-        return;
+    {
+        auto const ray =
+            Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), optixGetRayTmin(), optixGetRayTmax());
+        if (!clipToBounds(ray, self.worldBounds, t0, t1))
+            return;
+    }
+    auto const ray = Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), fmaxf(optixGetRayTmin(), t0), fminf(optixGetRayTmax(), t1));
 
     int nodeID = 0;
     float tmp_hit_t = t1;
@@ -178,7 +181,7 @@ MM_OPTIX_INTERSECTION_KERNEL(pkd_intersect)() {
             }
             --stackPtr;
             t0 = stackPtr->t0;
-            t1 = min(stackPtr->t1, tmp_hit_t);
+            t1 = fminf(stackPtr->t1, tmp_hit_t);
             nodeID = stackPtr->nodeID;
             if (t1 <= t0)
                 continue;
@@ -223,16 +226,18 @@ MM_OPTIX_INTERSECTION_KERNEL(treelets_intersect)
     const auto& self = getProgramData<TreeletsGeoData>();
     const auto treelet = self.treeletBufferPtr[treeletID];
 
-    auto const ray = Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), optixGetRayTmin(), optixGetRayTmax());
-
     const int begin = treelet.begin;
     const int size = treelet.end - begin;
     {
         float t0, t1;
-        if (!clipToBounds(ray, treelet.bounds, t0, t1))
-            return;
-
-
+        {
+            auto const ray =
+                Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), optixGetRayTmin(), optixGetRayTmax());
+            if (!clipToBounds(ray, treelet.bounds, t0, t1))
+                return;
+        }
+        auto const ray = Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), fmaxf(optixGetRayTmin(), t0), fminf(optixGetRayTmax(), t1));
+        
         int nodeID = 0;
         float tmp_hit_t = ray.tmax;
         int tmp_hit_primID = -1;

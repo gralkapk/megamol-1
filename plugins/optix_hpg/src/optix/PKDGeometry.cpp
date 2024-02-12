@@ -301,16 +301,19 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
     if (!(*in_data)(0))
         return false;
 
-    if (in_data->FrameID() != frame_id_ || in_data->DataHash() != data_hash_ || mode_slot_.IsDirty()) {
+    if (in_data->FrameID() != frame_id_ || in_data->DataHash() != data_hash_ || mode_slot_.IsDirty() ||
+        ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) &&
+            threshold_slot_.IsDirty())) {
         if (!assert_data(*in_data, *ctx))
             return false;
         createSBTRecords(*in_data, *ctx);
         frame_id_ = in_data->FrameID();
         data_hash_ = in_data->DataHash();
-        if (mode_slot_.IsDirty()) {
+        if (mode_slot_.IsDirty() || threshold_slot_.IsDirty()) {
             ++program_version;
         }
         mode_slot_.ResetDirty();
+        threshold_slot_.ResetDirty();
     }
     
     if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {

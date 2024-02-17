@@ -268,9 +268,9 @@ void PKDGeometry::release() {
     for (auto& el : particle_data_) {
         CUDA_CHECK_ERROR(cuMemFree(el));
     }
-    for (auto& el : radius_data_) {
+    /*for (auto& el : radius_data_) {
         CUDA_CHECK_ERROR(cuMemFree(el));
-    }
+    }*/
     for (auto& el : color_data_) {
         CUDA_CHECK_ERROR(cuMemFree(el));
     }
@@ -392,7 +392,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     auto const pl_count = call.GetParticleListCount();
 
     particle_data_.resize(pl_count, 0);
-    radius_data_.resize(pl_count, 0);
+    //radius_data_.resize(pl_count, 0);
     color_data_.resize(pl_count, 0);
     treelets_data_.resize(pl_count, 0);
     local_boxes_.resize(pl_count);
@@ -415,7 +415,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         auto y_acc = particles.GetParticleStore().GetYAcc();
         auto z_acc = particles.GetParticleStore().GetZAcc();
 
-        auto rad_acc = particles.GetParticleStore().GetRAcc();
+        // auto rad_acc = particles.GetParticleStore().GetRAcc();
+        auto const global_rad = particles.GetGlobalRadius();
 
         auto cr_acc = particles.GetParticleStore().GetCRAcc();
         auto cg_acc = particles.GetParticleStore().GetCGAcc();
@@ -457,9 +458,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 auto const thread_num = omp_get_thread_num();
                 auto& box = local_boxes[thread_num];
                 glm::vec3 pos(x_acc->Get_f(p_idx), y_acc->Get_f(p_idx), z_acc->Get_f(p_idx));
-                auto const rad = rad_acc->Get_f(p_idx);
-                auto const new_lower = pos - rad;
-                auto const new_upper = pos + rad;
+                auto const new_lower = pos - global_rad;
+                auto const new_upper = pos + global_rad;
                 box.extend(new_lower);
                 box.extend(new_upper);
             }
@@ -472,7 +472,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             local_boxes_[pl_idx] = local_box;
         }
 
-        std::vector<float> rad_data;
+        /*std::vector<float> rad_data;
         if (!has_global_radius(particles)) {
             rad_data.resize(p_count);
             for (std::size_t p_idx = 0; p_idx < p_count; ++p_idx) {
@@ -480,7 +480,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             }
         } else {
             rad_data.push_back(particles.GetGlobalRadius());
-        }
+        }*/
 
         auto col_count = p_count;
         if (!has_color(particles)) {
@@ -503,9 +503,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
             particle_data_[pl_idx], data.data(), p_count * sizeof(device::PKDParticle), ctx.GetExecStream()));
 
-        CUDA_CHECK_ERROR(cuMemAllocAsync(&radius_data_[pl_idx], rad_data.size() * sizeof(float), ctx.GetExecStream()));
+        /*CUDA_CHECK_ERROR(cuMemAllocAsync(&radius_data_[pl_idx], rad_data.size() * sizeof(float), ctx.GetExecStream()));
         CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
-            radius_data_[pl_idx], rad_data.data(), rad_data.size() * sizeof(float), ctx.GetExecStream()));
+            radius_data_[pl_idx], rad_data.data(), rad_data.size() * sizeof(float), ctx.GetExecStream()));*/
 
         unsigned int geo_flag = OPTIX_GEOMETRY_FLAG_DISABLE_ANYHIT;
         build_inputs.emplace_back();
@@ -638,9 +638,10 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         sbt_record.data.particleCount = p_count;
         sbt_record.data.worldBounds = local_boxes_[pl_idx];
 
-        if (!has_global_radius(particles)) {
+        /*if (!has_global_radius(particles)) {
             sbt_record.data.radiusBufferPtr = (float*) radius_data_[pl_idx];
-        }
+        }*/
+        sbt_record.data.radiusBufferPtr = nullptr;
         if (has_color(particles)) {
             sbt_record.data.colorBufferPtr = (glm::vec4*) color_data_[pl_idx];
         }
@@ -670,9 +671,10 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         treelets_sbt_record.data.particleCount = p_count;
         treelets_sbt_record.data.worldBounds = local_boxes_[pl_idx];
 
-        if (!has_global_radius(particles)) {
+        /*if (!has_global_radius(particles)) {
             treelets_sbt_record.data.radiusBufferPtr = (float*) radius_data_[pl_idx];
-        }
+        }*/
+        treelets_sbt_record.data.radiusBufferPtr = nullptr;
         if (has_color(particles)) {
             treelets_sbt_record.data.colorBufferPtr = (glm::vec4*) color_data_[pl_idx];
         }

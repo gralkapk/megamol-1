@@ -94,9 +94,9 @@ private:
         for (auto& el : particle_data_) {
             CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
         }
-        for (auto& el : radius_data_) {
+        /*for (auto& el : radius_data_) {
             CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
-        }
+        }*/
         for (auto& el : color_data_) {
             CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
         }
@@ -123,7 +123,7 @@ private:
 
     std::vector<CUdeviceptr> particle_data_;
 
-    std::vector<CUdeviceptr> radius_data_;
+    //std::vector<CUdeviceptr> radius_data_;
 
     std::vector<CUdeviceptr> color_data_;
 

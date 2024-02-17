@@ -337,7 +337,7 @@ MM_OPTIX_INTERSECTION_KERNEL(treelets_intersect)
                 t0 = stackPtr->t0;
                 t1 = stackPtr->t1;
                 nodeID = stackPtr->nodeID;
-                t1 = min(t1, tmp_hit_t);
+                t1 = fminf(t1, tmp_hit_t);
                 if (t1 <= t0)
                     continue;
                 break;

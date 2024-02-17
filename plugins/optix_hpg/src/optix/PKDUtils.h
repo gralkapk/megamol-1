@@ -90,6 +90,11 @@ void partitionRecursively(
 }
 // END TREELETS
 
+// BEGIN COMPRESS
+void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* out_particle, size_t N, box3f bounds,
+    float radius);
+// END COMPRESS
+
 inline size_t parent(size_t C) {
     if (C == 0)
         return 0;

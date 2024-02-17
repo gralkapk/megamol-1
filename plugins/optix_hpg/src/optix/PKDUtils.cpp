@@ -8,7 +8,7 @@ namespace megamol::optix_hpg {
 
 int arg_max(glm::vec3 const& v) {
     int biggestDim = 0;
-    for (int i = 1; i < 3; i++)
+    for (int i = 1; i < 3; ++i)
         if ((v[i]) > (v[biggestDim]))
             biggestDim = i;
     return biggestDim;
@@ -148,4 +148,61 @@ std::vector<device::PKDlet> prePartition_inPlace(
 }
 
 // END TREELETS
+
+// BEGIN COMPRESSION
+
+glm::uvec3 encode_coord(glm::vec3 const& pos, glm::vec3 const& center, glm::vec3 const& span) {
+    constexpr unsigned int digits = 1023u;
+    auto const dir = pos - center;
+    auto const diff = span / static_cast<float>(digits);
+    auto const coord = glm::uvec3(dir.x / diff.x, dir.y / diff.y, dir.z / diff.z);
+
+    return coord;
+}
+
+glm::vec3 decode_coord(glm::uvec3 const& coord, glm::vec3 const& center, glm::vec3 const& span) {
+    constexpr unsigned int digits = 1023u;
+    auto const diff = span / static_cast<float>(digits);
+    auto pos = glm::vec3(static_cast<float>(coord.x) * diff.x, static_cast<float>(coord.y) * diff.y,
+        static_cast<float>(coord.z) * diff.z);
+    pos = pos + center;
+
+    return pos;
+}
+
+void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* out_particle, size_t N, box3f bounds,
+    float radius) {
+    if (P >= N)
+        return;
+
+    int const dim = in_particle[P].dim;
+
+    auto const center = bounds.center();
+    auto const span = bounds.span();
+
+    auto const coord = encode_coord(in_particle[P].pos, center, span);
+    auto const pos = decode_coord(coord, center, span);
+
+    out_particle[P].dim = dim;
+    out_particle[P].x = coord.x;
+    out_particle[P].y = coord.y;
+    out_particle[P].z = coord.z;
+
+    auto lBounds = bounds;
+    auto rBounds = bounds;
+
+    lBounds.upper[dim] = pos[dim] + radius;
+    rBounds.lower[dim] = pos[dim] - radius;
+
+    auto const L = lChild(P);
+    auto const R = rChild(P);
+    //const bool lValid = (L < N);
+    //const bool rValid = (R < N);
+
+    // TODO parallel
+    convert(L, in_particle, out_particle, N, lBounds, radius);
+    convert(R, in_particle, out_particle, N, rBounds, radius);
+}
+
+// END COMPRESSION
 } // namespace megamol::optix_hpg

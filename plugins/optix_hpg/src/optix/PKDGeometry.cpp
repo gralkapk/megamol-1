@@ -17,6 +17,15 @@
 namespace megamol::optix_hpg {
 extern "C" const char embedded_pkd_programs[];
 
+void compress() {
+    // take local bbox as ref frame
+    // dependent coding towards bbox center
+    // 10bit per coord + 2bit split dim
+
+    // requires tracking of local bbox
+    // fuzzy split positions
+}
+
 PKDGeometry::PKDGeometry()
         : out_geo_slot_("outGeo", "")
         , in_data_slot_("inData", "")
@@ -102,7 +111,7 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
         mode_slot_.ResetDirty();
         threshold_slot_.ResetDirty();
     }
-    
+
     if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
         program_groups_[0] = treelets_module_;
         program_groups_[1] = treelets_occlusion_module_;
@@ -219,6 +228,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         box3f local_box;
 
         std::vector<device::PKDlet> treelets;
+        std::vector<device::QPKDParticle> qparticles;
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
             // TODO separate particles into a set of treelets
             treelets = prePartition_inPlace(
@@ -237,6 +247,15 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 treelets.size() * sizeof(device::PKDlet), ctx.GetExecStream()));
 
             // TODO compress data if requested
+            // for debugging without parallel
+            if (compression_slot_.Param<core::param::BoolParam>()->Value()) {
+                qparticles.resize(data.size());
+                for (size_t tID = 0; tID < treelets.size(); ++tID) {
+                    auto const& treelet = treelets[tID];
+                    convert(0, &data[treelet.begin], &qparticles[treelet.begin], treelet.end - treelet.begin,
+                        treelet.bounds, global_rad);
+                }
+            }
         } else {
             auto const max_threads = omp_get_max_threads();
             std::vector<box3f> local_boxes(max_threads);

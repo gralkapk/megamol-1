@@ -56,6 +56,12 @@ typedef struct box3f {
         extend(box.lower);
         extend(box.upper);
     }
+    glm::vec3 center() const {
+        return (lower + upper) * 0.5f;
+    }
+    glm::vec3 span() const {
+        return upper - lower;
+    }
     glm::vec3 lower;
     glm::vec3 upper;
 } box3f;

@@ -39,7 +39,8 @@ inline __device__ bool clipToBounds(const Ray& ray, const box3f& bounds, float& 
     return t0 < t1;
 }
 
-inline __device__ bool intersectSphere(const PKDParticle& particle, const float particleRadius, const Ray& ray, float& hit_t) {
+inline __device__ bool intersectSphere(
+    const PKDParticle& particle, const float particleRadius, const Ray& ray, float& hit_t) {
     // Raytracing Gems Intersection Code (Chapter 7)
     //const glm::vec3 pos = glm::vec3(particle.x, particle.y, particle.z);
     const glm::vec3 oc = ray.origin - particle.pos;
@@ -82,7 +83,8 @@ MM_OPTIX_INTERSECTION_KERNEL(pkd_intersect)() {
         if (!clipToBounds(ray, self.worldBounds, t0, t1))
             return;
     }
-    auto const ray = Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), fmaxf(optixGetRayTmin(), t0), fminf(optixGetRayTmax(), t1));
+    auto const ray = Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), fmaxf(optixGetRayTmin(), t0),
+        fminf(optixGetRayTmax(), t1));
 
     int nodeID = 0;
     float tmp_hit_t = t1;
@@ -236,8 +238,9 @@ MM_OPTIX_INTERSECTION_KERNEL(treelets_intersect)
             if (!clipToBounds(ray, treelet.bounds, t0, t1))
                 return;
         }
-        auto const ray = Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), fmaxf(optixGetRayTmin(), t0), fminf(optixGetRayTmax(), t1));
-        
+        auto const ray = Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), fmaxf(optixGetRayTmin(), t0),
+            fminf(optixGetRayTmax(), t1));
+
         int nodeID = 0;
         float tmp_hit_t = ray.tmax;
         int tmp_hit_primID = -1;
@@ -375,6 +378,18 @@ MM_OPTIX_CLOSESTHIT_KERNEL(treelets_closesthit_occlusion)
 
 MM_OPTIX_BOUNDS_KERNEL(treelets_bounds)
 (const void* geomData, const float* radData, float radius, box3f& primBounds, const unsigned int primID) {}
+
+
+inline __device__ glm::vec3 decode_coord(glm::uvec3 const& coord, glm::vec3 const& center, glm::vec3 const& span) {
+    constexpr unsigned int digits = 1023u;
+    auto const diff = span / static_cast<float>(digits);
+    /*auto pos = glm::vec3(static_cast<float>(coord.x) * span.x, static_cast<float>(coord.y) * span.y,
+        static_cast<float>(coord.z) * span.z);
+    pos = pos + center;*/
+    auto const pos = glm::vec3(fmaf(static_cast<float>(coord.x), diff.x, center.x),
+        fmaf(static_cast<float>(coord.y), diff.y, center.y), fmaf(static_cast<float>(coord.z), diff.z, center.z));
+    return pos;
+}
 
 } // namespace device
 } // namespace optix_hpg

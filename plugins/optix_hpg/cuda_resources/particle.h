@@ -23,6 +23,13 @@ struct PKDlet {
     //! begin/end range in the common particles array
     size_t begin, end;
 };
+
+struct QPKDParticle {
+    unsigned int dim : 2;
+    unsigned int x : 10;
+    unsigned int y : 10;
+    unsigned int z : 10;
+};
 } // namespace device
 } // namespace optix_hpg
 } // namespace megamol

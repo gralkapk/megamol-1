@@ -105,7 +105,9 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
         createSBTRecords(*in_data, *ctx);
         frame_id_ = in_data->FrameID();
         data_hash_ = in_data->DataHash();
-        if (mode_slot_.IsDirty() || threshold_slot_.IsDirty()) {
+        if (mode_slot_.IsDirty() || threshold_slot_.IsDirty() ||
+            ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) &&
+                compression_slot_.IsDirty())) {
             ++program_version;
         }
         mode_slot_.ResetDirty();
@@ -113,8 +115,13 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
     }
 
     if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
-        program_groups_[0] = treelets_module_;
-        program_groups_[1] = treelets_occlusion_module_;
+        if (compression_slot_.Param<core::param::BoolParam>()->Value()) {
+            program_groups_[0] = comp_treelets_module_;
+            program_groups_[1] = comp_treelets_occlusion_module_;
+        } else {
+            program_groups_[0] = treelets_module_;
+            program_groups_[1] = treelets_occlusion_module_;
+        }
     } else {
         program_groups_[0] = pkd_module_;
         program_groups_[1] = pkd_occlusion_module_;
@@ -123,8 +130,13 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
     out_geo->set_handle(&geo_handle_, geo_version);
     out_geo->set_program_groups(program_groups_.data(), program_groups_.size(), program_version);
     if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
-        out_geo->set_record(treelets_sbt_records_.data(), treelets_sbt_records_.size(),
-            sizeof(SBTRecord<device::TreeletsGeoData>), sbt_version);
+        if (compression_slot_.Param<core::param::BoolParam>()->Value()) {
+            out_geo->set_record(comp_treelets_sbt_records_.data(), comp_treelets_sbt_records_.size(),
+                sizeof(SBTRecord<device::QTreeletsGeoData>), sbt_version);
+        } else {
+            out_geo->set_record(treelets_sbt_records_.data(), treelets_sbt_records_.size(),
+                sizeof(SBTRecord<device::TreeletsGeoData>), sbt_version);
+        }
     } else {
         out_geo->set_record(
             sbt_records_.data(), sbt_records_.size(), sizeof(SBTRecord<device::PKDGeoData>), sbt_version);
@@ -177,7 +189,7 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "treelets_closesthit_occlusion"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    /*comp_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
+    comp_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "comp_treelets_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "comp_treelets_closesthit"},
@@ -188,7 +200,7 @@ bool PKDGeometry::init(Context const& ctx) {
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "comp_treelets_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "comp_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
     ++program_version;
 
@@ -442,6 +454,7 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
 
     sbt_records_.clear();
     treelets_sbt_records_.clear();
+    comp_treelets_sbt_records_.clear();
 
     for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
         auto const& particles = call.AccessParticles(pl_idx);
@@ -513,6 +526,40 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
 
         treelets_sbt_record_occlusion.data = treelets_sbt_record.data;
         treelets_sbt_records_.push_back(treelets_sbt_record_occlusion);
+
+
+        SBTRecord<device::QTreeletsGeoData> comp_treelets_sbt_record;
+        OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(comp_treelets_module_, &comp_treelets_sbt_record));
+
+        comp_treelets_sbt_record.data.particleBufferPtr = (device::QPKDParticle*) particle_data_[pl_idx];
+        //comp_treelets_sbt_record.data.radiusBufferPtr = nullptr;
+        comp_treelets_sbt_record.data.colorBufferPtr = nullptr;
+        comp_treelets_sbt_record.data.treeletBufferPtr = (device::PKDlet*) treelets_data_[pl_idx];
+        comp_treelets_sbt_record.data.radius = particles.GetGlobalRadius();
+        //comp_treelets_sbt_record.data.hasGlobalRadius = has_global_radius(particles);
+        comp_treelets_sbt_record.data.hasColorData = has_color(particles);
+        comp_treelets_sbt_record.data.globalColor =
+            glm::vec4(particles.GetGlobalColour()[0] / 255.f, particles.GetGlobalColour()[1] / 255.f,
+                particles.GetGlobalColour()[2] / 255.f, particles.GetGlobalColour()[3] / 255.f);
+        comp_treelets_sbt_record.data.particleCount = p_count;
+        //comp_treelets_sbt_record.data.worldBounds = local_boxes_[pl_idx];
+
+        /*if (!has_global_radius(particles)) {
+            treelets_sbt_record.data.radiusBufferPtr = (float*) radius_data_[pl_idx];
+        }*/
+        //comp_treelets_sbt_record.data.radiusBufferPtr = nullptr;
+        if (has_color(particles)) {
+            comp_treelets_sbt_record.data.colorBufferPtr = (glm::vec4*) color_data_[pl_idx];
+        }
+        comp_treelets_sbt_records_.push_back(comp_treelets_sbt_record);
+
+        // occlusion stuff
+        SBTRecord<device::QTreeletsGeoData> comp_treelets_sbt_record_occlusion;
+        OPTIX_CHECK_ERROR(
+            optixSbtRecordPackHeader(comp_treelets_occlusion_module_, &comp_treelets_sbt_record_occlusion));
+
+        comp_treelets_sbt_record_occlusion.data = comp_treelets_sbt_record.data;
+        comp_treelets_sbt_records_.push_back(comp_treelets_sbt_record_occlusion);
     }
 
     ++sbt_version;

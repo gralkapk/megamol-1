@@ -446,7 +446,7 @@ MM_OPTIX_INTERSECTION_KERNEL(comp_treelets_intersect)
 
             while (1) {
                 // while we can go down
-                _center = bounds.center();
+                _center = bounds.lower;
                 _span = bounds.span();
 
                 const int particleID = nodeID + begin;

@@ -178,7 +178,7 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
 
     int const dim = in_particle[P].dim;
 
-    auto const center = bounds.center();
+    auto const center = bounds.lower;
     auto const span = bounds.span();
 
     auto const coord = encode_coord(in_particle[P].pos, center, span);

@@ -99,7 +99,9 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
 
     if (in_data->FrameID() != frame_id_ || in_data->DataHash() != data_hash_ || mode_slot_.IsDirty() ||
         ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) &&
-            threshold_slot_.IsDirty())) {
+            threshold_slot_.IsDirty()) ||
+        ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) &&
+            compression_slot_.IsDirty())) {
         if (!assert_data(*in_data, *ctx))
             return false;
         createSBTRecords(*in_data, *ctx);
@@ -112,6 +114,7 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
         }
         mode_slot_.ResetDirty();
         threshold_slot_.ResetDirty();
+        compression_slot_.ResetDirty();
     }
 
     if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {

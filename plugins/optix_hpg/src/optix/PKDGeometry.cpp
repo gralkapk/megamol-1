@@ -177,6 +177,19 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "treelets_closesthit_occlusion"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
+    /*comp_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
+        &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "comp_treelets_intersect"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "comp_treelets_closesthit"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+
+    comp_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "comp_treelets_intersect"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "comp_treelets_closesthit_occlusion"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
+
     ++program_version;
 
     return true;
@@ -225,7 +238,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             data[p_idx].pos.z = z_acc->Get_f(p_idx);
         }
 
-        box3f local_box;
+        device::box3f local_box;
 
         std::vector<device::PKDlet> treelets;
         std::vector<device::QPKDParticle> qparticles;
@@ -258,7 +271,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             }
         } else {
             auto const max_threads = omp_get_max_threads();
-            std::vector<box3f> local_boxes(max_threads);
+            std::vector<device::box3f> local_boxes(max_threads);
 #pragma omp parallel for shared(local_boxes)
             for (int64_t p_idx = 0; p_idx < p_count; ++p_idx) {
                 auto const thread_num = omp_get_thread_num();
@@ -304,10 +317,18 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
                 color_data_[pl_idx], color_data.data(), col_count * sizeof(glm::vec4), ctx.GetExecStream()));
         }
-        CUDA_CHECK_ERROR(
-            cuMemAllocAsync(&particle_data_[pl_idx], p_count * sizeof(device::PKDParticle), ctx.GetExecStream()));
-        CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
-            particle_data_[pl_idx], data.data(), p_count * sizeof(device::PKDParticle), ctx.GetExecStream()));
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&
+            compression_slot_.Param<core::param::BoolParam>()->Value()) {
+            CUDA_CHECK_ERROR(
+                cuMemAllocAsync(&particle_data_[pl_idx], p_count * sizeof(device::QPKDParticle), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(particle_data_[pl_idx], qparticles.data(),
+                p_count * sizeof(device::QPKDParticle), ctx.GetExecStream()));
+        } else {
+            CUDA_CHECK_ERROR(
+                cuMemAllocAsync(&particle_data_[pl_idx], p_count * sizeof(device::PKDParticle), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
+                particle_data_[pl_idx], data.data(), p_count * sizeof(device::PKDParticle), ctx.GetExecStream()));
+        }
 
         /*CUDA_CHECK_ERROR(cuMemAllocAsync(&radius_data_[pl_idx], rad_data.size() * sizeof(float), ctx.GetExecStream()));
         CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
@@ -321,8 +342,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
             // TODO set of treelet boxes
             CUDA_CHECK_ERROR(
-                cuMemAllocAsync(&bounds_data[pl_idx], treelets.size() * sizeof(box3f), ctx.GetExecStream()));
-            std::vector<box3f> treelet_boxes;
+                cuMemAllocAsync(&bounds_data[pl_idx], treelets.size() * sizeof(device::box3f), ctx.GetExecStream()));
+            std::vector<device::box3f> treelet_boxes;
             treelet_boxes.reserve(treelets.size());
             for (auto const& el : treelets) {
                 /*box3f box;
@@ -330,10 +351,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 box.upper = el.bounds_upper;*/
                 treelet_boxes.push_back(el.bounds);
             }
-            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
-                bounds_data[pl_idx], treelet_boxes.data(), treelet_boxes.size() * sizeof(box3f), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(bounds_data[pl_idx], treelet_boxes.data(),
+                treelet_boxes.size() * sizeof(device::box3f), ctx.GetExecStream()));
         } else {
-            CUDA_CHECK_ERROR(cuMemAllocAsync(&bounds_data[pl_idx], 1 * sizeof(box3f), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemAllocAsync(&bounds_data[pl_idx], 1 * sizeof(device::box3f), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(
                 cuMemcpyHtoDAsync(bounds_data[pl_idx], &local_box, sizeof(local_box), ctx.GetExecStream()));
         }

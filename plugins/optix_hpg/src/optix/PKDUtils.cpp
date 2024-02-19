@@ -14,7 +14,7 @@ int arg_max(glm::vec3 const& v) {
     return biggestDim;
 }
 
-void recBuild(size_t /* root node */ P, device::PKDParticle* particle, size_t N, box3f bounds) {
+void recBuild(size_t /* root node */ P, device::PKDParticle* particle, size_t N, device::box3f bounds) {
     if (P >= N)
         return;
 
@@ -48,8 +48,8 @@ void recBuild(size_t /* root node */ P, device::PKDParticle* particle, size_t N,
         }
     }
 
-    box3f lBounds = bounds;
-    box3f rBounds = bounds;
+    device::box3f lBounds = bounds;
+    device::box3f rBounds = bounds;
     lBounds.upper[dim] = rBounds.lower[dim] = particle[P].pos[dim];
     particle[P].dim = dim;
 
@@ -62,11 +62,11 @@ void recBuild(size_t /* root node */ P, device::PKDParticle* particle, size_t N,
     });
 }
 
-void makePKD(std::vector<device::PKDParticle>& particles, box3f bounds) {
+void makePKD(std::vector<device::PKDParticle>& particles, device::box3f bounds) {
     recBuild(/*node:*/ 0, particles.data(), particles.size(), bounds);
 }
 
-void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, box3f bounds) {
+void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds) {
     recBuild(/*node:*/ 0, particles.data() + begin, end - begin, bounds);
 }
 
@@ -76,7 +76,7 @@ void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t e
 // BEGIN TREELETS
 
 size_t sort_partition(
-    std::vector<device::PKDParticle>& particles, size_t begin, size_t end, box3f bounds, int& splitDim) {
+    std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds, int& splitDim) {
     // -------------------------------------------------------
     // determine split pos
     // -------------------------------------------------------
@@ -111,8 +111,8 @@ size_t sort_partition(
     return mid;
 }
 
-box3f extendBounds(std::vector<device::PKDParticle> const& particles, size_t begin, size_t end, float radius) {
-    box3f bounds;
+device::box3f extendBounds(std::vector<device::PKDParticle> const& particles, size_t begin, size_t end, float radius) {
+    device::box3f bounds;
     for (int64_t p_idx = begin; p_idx < end; ++p_idx) {
         auto const new_lower = particles[p_idx].pos - radius;
         auto const new_upper = particles[p_idx].pos + radius;
@@ -170,8 +170,9 @@ glm::vec3 decode_coord(glm::uvec3 const& coord, glm::vec3 const& center, glm::ve
     return pos;
 }
 
-void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* out_particle, size_t N, box3f bounds,
-    float radius) {
+void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* out_particle, size_t N,
+    device::box3f bounds,
+    float radius, device::PKDParticle* out_decode) {
     if (P >= N)
         return;
 
@@ -182,6 +183,9 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
 
     auto const coord = encode_coord(in_particle[P].pos, center, span);
     auto const pos = decode_coord(coord, center, span);
+    if (out_decode) {
+        out_decode[P].pos = pos;
+    }
 
     out_particle[P].dim = dim;
     out_particle[P].x = coord.x;
@@ -200,8 +204,8 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
     //const bool rValid = (R < N);
 
     // TODO parallel
-    convert(L, in_particle, out_particle, N, lBounds, radius);
-    convert(R, in_particle, out_particle, N, rBounds, radius);
+    convert(L, in_particle, out_particle, N, lBounds, radius, out_decode);
+    convert(R, in_particle, out_particle, N, rBounds, radius, out_decode);
 }
 
 // END COMPRESSION

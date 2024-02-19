@@ -219,7 +219,8 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
                 cp_input.singleRadius = 0;
             }
         } else {
-            CUDA_CHECK_ERROR(cuMemAllocAsync(&bounds_data[pl_idx], p_count * sizeof(box3f), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(
+                cuMemAllocAsync(&bounds_data[pl_idx], p_count * sizeof(device::box3f), ctx.GetExecStream()));
 
             if (has_global_radius(particles)) {
                 sphere_module_.ComputeBounds(particle_data_[pl_idx], 0, particles.GetGlobalRadius(),

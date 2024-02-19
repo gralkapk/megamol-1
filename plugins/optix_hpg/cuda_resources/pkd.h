@@ -1,5 +1,6 @@
 #pragma once
 
+#include "box.h"
 #include "particle.h"
 #include "perraydata.h"
 
@@ -28,6 +29,15 @@ struct TreeletsGeoData {
     glm::vec4 globalColor;
     unsigned int particleCount;
     box3f worldBounds;
+};
+struct QTreeletsGeoData {
+    QPKDParticle* particleBufferPtr;
+    glm::vec4* colorBufferPtr;
+    PKDlet* treeletBufferPtr;
+    float radius;
+    bool hasColorData;
+    glm::vec4 globalColor;
+    unsigned int particleCount;
 };
 } // namespace device
 } // namespace optix_hpg

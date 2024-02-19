@@ -119,6 +119,8 @@ private:
 
     std::vector<SBTRecord<device::TreeletsGeoData>> treelets_sbt_records_;
 
+    std::vector<SBTRecord<device::QTreeletsGeoData>> comp_treelets_sbt_records_;
+
     std::array<OptixProgramGroup, 2> program_groups_;
 
     std::vector<CUdeviceptr> particle_data_;
@@ -129,7 +131,7 @@ private:
 
     std::vector<CUdeviceptr> treelets_data_;
 
-    std::vector<box3f> local_boxes_;
+    std::vector<device::box3f> local_boxes_;
 
     CUdeviceptr geo_buffer_ = 0;
 
@@ -142,6 +144,10 @@ private:
     MMOptixModule treelets_module_;
 
     MMOptixModule treelets_occlusion_module_;
+
+    MMOptixModule comp_treelets_module_;
+
+    MMOptixModule comp_treelets_occlusion_module_;
 
     uint64_t sbt_version = 0;
 

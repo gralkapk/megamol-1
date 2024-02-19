@@ -7,9 +7,9 @@
 
 namespace megamol::optix_hpg {
 // BEGIN PKD
-void makePKD(std::vector<device::PKDParticle>& particles, box3f bounds);
+void makePKD(std::vector<device::PKDParticle>& particles, device::box3f bounds);
 
-void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, box3f bounds);
+void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds);
 
 std::vector<device::PKDlet> prePartition_inPlace(
     std::vector<device::PKDParticle>& particles, size_t maxSize, float radius);
@@ -17,7 +17,7 @@ std::vector<device::PKDlet> prePartition_inPlace(
 
 // BEGIN TREELETS
 size_t sort_partition(
-    std::vector<device::PKDParticle>& particles, size_t begin, size_t end, box3f bounds, int& splitDim);
+    std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds, int& splitDim);
 
 template<typename MakeLeafLambda>
 void partitionRecursively(
@@ -29,7 +29,7 @@ void partitionRecursively(
     // -------------------------------------------------------
     // parallel bounding box computation
     // -------------------------------------------------------
-    box3f bounds;
+    device::box3f bounds;
 
     for (size_t idx = begin; idx < end; ++idx) {
         bounds.extend(particles[idx].pos);
@@ -91,8 +91,9 @@ void partitionRecursively(
 // END TREELETS
 
 // BEGIN COMPRESS
-void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* out_particle, size_t N, box3f bounds,
-    float radius);
+void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* out_particle, size_t N,
+    device::box3f bounds,
+    float radius, device::PKDParticle* out_decode = nullptr);
 // END COMPRESS
 
 inline size_t parent(size_t C) {

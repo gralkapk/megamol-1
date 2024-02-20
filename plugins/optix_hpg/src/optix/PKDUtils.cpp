@@ -3,6 +3,8 @@
 #include <glm/glm.hpp>
 #include <tbb/parallel_for.h>
 
+#include "pkd_utils.h"
+
 namespace megamol::optix_hpg {
 // BEGIN PKD
 
@@ -151,24 +153,24 @@ std::vector<device::PKDlet> prePartition_inPlace(
 
 // BEGIN COMPRESSION
 
-glm::uvec3 encode_coord(glm::vec3 const& pos, glm::vec3 const& center, glm::vec3 const& span) {
-    constexpr unsigned int digits = 1023u;
-    auto const dir = pos - center;
-    auto const diff = span / static_cast<float>(digits);
-    auto const coord = glm::uvec3(dir.x / diff.x, dir.y / diff.y, dir.z / diff.z);
-
-    return coord;
-}
-
-glm::vec3 decode_coord(glm::uvec3 const& coord, glm::vec3 const& center, glm::vec3 const& span) {
-    constexpr unsigned int digits = 1023u;
-    auto const diff = span / static_cast<float>(digits);
-    auto pos = glm::vec3(static_cast<float>(coord.x) * diff.x, static_cast<float>(coord.y) * diff.y,
-        static_cast<float>(coord.z) * diff.z);
-    pos = pos + center;
-
-    return pos;
-}
+//glm::uvec3 encode_coord(glm::vec3 const& pos, glm::vec3 const& center, glm::vec3 const& span) {
+//    constexpr unsigned int digits = 1023u;
+//    auto const dir = pos - center;
+//    auto const diff = span / static_cast<float>(digits);
+//    auto const coord = glm::uvec3(dir.x / diff.x, dir.y / diff.y, dir.z / diff.z);
+//
+//    return coord;
+//}
+//
+//glm::vec3 decode_coord(glm::uvec3 const& coord, glm::vec3 const& center, glm::vec3 const& span) {
+//    constexpr unsigned int digits = 1023u;
+//    auto const diff = span / static_cast<float>(digits);
+//    auto pos = glm::vec3(static_cast<float>(coord.x) * diff.x, static_cast<float>(coord.y) * diff.y,
+//        static_cast<float>(coord.z) * diff.z);
+//    pos = pos + center;
+//
+//    return pos;
+//}
 
 void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* out_particle, size_t N,
     device::box3f bounds,
@@ -178,7 +180,7 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
 
     int const dim = in_particle[P].dim;
 
-    auto const center = bounds.lower;
+    auto const center = bounds.center();
     auto const span = bounds.span();
 
     auto const coord = encode_coord(in_particle[P].pos, center, span);
@@ -187,10 +189,8 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
         out_decode[P].pos = pos;
     }
 
+    out_particle[P] = coord;
     out_particle[P].dim = dim;
-    out_particle[P].x = coord.x;
-    out_particle[P].y = coord.y;
-    out_particle[P].z = coord.z;
 
     auto lBounds = bounds;
     auto rBounds = bounds;

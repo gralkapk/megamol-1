@@ -22,6 +22,7 @@
 #include "pkd.h"
 
 #include "optix/utils_device.h"
+#include "pkd_utils.h"
 
 namespace megamol {
 namespace optix_hpg {
@@ -380,19 +381,19 @@ MM_OPTIX_BOUNDS_KERNEL(treelets_bounds)
 (const void* geomData, const float* radData, float radius, box3f& primBounds, const unsigned int primID) {}
 
 
-inline __device__ PKDParticle const& decode_coord(QPKDParticle const& coord, glm::vec3 const& center, glm::vec3 const& span) {
-    constexpr unsigned int digits = 1023u;
-    auto const diff = span / static_cast<float>(digits);
-    /*auto pos = glm::vec3(static_cast<float>(coord.x) * span.x, static_cast<float>(coord.y) * span.y,
-        static_cast<float>(coord.z) * span.z);
-    pos = pos + center;*/
-    auto const pos = glm::vec3(fmaf(static_cast<float>(coord.x), diff.x, center.x),
-        fmaf(static_cast<float>(coord.y), diff.y, center.y), fmaf(static_cast<float>(coord.z), diff.z, center.z));
-    PKDParticle p;
-    p.dim = coord.dim;
-    p.pos = pos;
-    return p;
-}
+//inline __device__ PKDParticle const& decode_coord(QPKDParticle const& coord, glm::vec3 const& center, glm::vec3 const& span) {
+//    constexpr unsigned int digits = 1023u;
+//    auto const diff = span / static_cast<float>(digits);
+//    /*auto pos = glm::vec3(static_cast<float>(coord.x) * span.x, static_cast<float>(coord.y) * span.y,
+//        static_cast<float>(coord.z) * span.z);
+//    pos = pos + center;*/
+//    auto const pos = glm::vec3(fmaf(static_cast<float>(coord.x), diff.x, center.x),
+//        fmaf(static_cast<float>(coord.y), diff.y, center.y), fmaf(static_cast<float>(coord.z), diff.z, center.z));
+//    PKDParticle p;
+//    p.dim = coord.dim;
+//    p.pos = pos;
+//    return p;
+//}
 
 struct QStackEntry {
     float t0, t1;
@@ -446,7 +447,7 @@ MM_OPTIX_INTERSECTION_KERNEL(comp_treelets_intersect)
 
             while (1) {
                 // while we can go down
-                _center = bounds.lower;
+                _center = bounds.center();
                 _span = bounds.span();
 
                 const int particleID = nodeID + begin;
@@ -555,9 +556,10 @@ MM_OPTIX_INTERSECTION_KERNEL(comp_treelets_intersect)
                 if (stackPtr == stackBase) {
                     // can't pop any more - done.
                     if (tmp_hit_primID >= 0 && tmp_hit_t < ray.tmax) {
-                        optixReportIntersection(tmp_hit_t, 0, tmp_hit_primID);
-                        PerRayData& prd = getPerRayData<PerRayData>();
-                        prd.pos = tmp_hit_pos;
+                        optixReportIntersection(tmp_hit_t, 0, tmp_hit_primID, __float_as_uint(tmp_hit_pos.x),
+                            __float_as_uint(tmp_hit_pos.y), __float_as_uint(tmp_hit_pos.z));
+                        //PerRayData& prd = getPerRayData<PerRayData>();
+                        //prd.pos = tmp_hit_pos;
                     }
                     return;
                 }
@@ -585,6 +587,9 @@ MM_OPTIX_CLOSESTHIT_KERNEL(comp_treelets_closesthit)
     prd.particleID = primID;
     //const PKDParticle& particle = self.particleBufferPtr[primID];
     //prd.pos = particle.pos;
+    prd.pos.x = __uint_as_float(optixGetAttribute_1());
+    prd.pos.y = __uint_as_float(optixGetAttribute_2());
+    prd.pos.z = __uint_as_float(optixGetAttribute_3());
     glm::vec3 geo_col = glm::vec3(self.globalColor);
     if (self.hasColorData) {
         geo_col = glm::vec3(self.colorBufferPtr[primID]);

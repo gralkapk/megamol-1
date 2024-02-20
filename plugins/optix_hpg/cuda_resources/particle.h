@@ -26,9 +26,12 @@ struct PKDlet {
 
 struct QPKDParticle {
     unsigned int dim : 2;
-    unsigned int x : 10;
-    unsigned int y : 10;
-    unsigned int z : 10;
+    unsigned int sx : 1;
+    unsigned int x : 9;
+    unsigned int sy : 1;
+    unsigned int y : 9;
+    unsigned int sz : 1;
+    unsigned int z : 9;
 };
 } // namespace device
 } // namespace optix_hpg

@@ -10,16 +10,18 @@
 #define CU_CALLABLE __host__ __device__
 #endif
 
+#define PKD_BOUNDS_CENTER bounds.center()
+
 namespace megamol {
 namespace optix_hpg {
 inline device::QPKDParticle encode_coord(glm::vec3 const& pos, glm::vec3 const& center, glm::vec3 const& span) {
-    constexpr unsigned int digits = 511u;
+    constexpr unsigned int digits = 32767u;
     device::QPKDParticle p;
     auto dir = pos - center;
-    p.sx = dir.x < 0.f;
+    /*p.sx = dir.x < 0.f;
     p.sy = dir.y < 0.f;
     p.sz = dir.z < 0.f;
-    dir = glm::abs(dir);
+    dir = glm::abs(dir);*/
     auto const diff = span / static_cast<float>(digits);
     p.x = static_cast<unsigned int>(dir.x / diff.x);
     p.y = static_cast<unsigned int>(dir.y / diff.y);
@@ -29,11 +31,11 @@ inline device::QPKDParticle encode_coord(glm::vec3 const& pos, glm::vec3 const& 
 }
 
 inline CU_CALLABLE glm::vec3 decode_coord(device::QPKDParticle const& coord, glm::vec3 const& center, glm::vec3 const& span) {
-    constexpr unsigned int digits = 511u;
+    constexpr unsigned int digits = 32767u;
     auto diff = span / static_cast<float>(digits);
-    diff.x = coord.sx ? -diff.x : diff.x;
+    /*diff.x = coord.sx ? -diff.x : diff.x;
     diff.y = coord.sy ? -diff.y : diff.y;
-    diff.z = coord.sz ? -diff.z : diff.z;
+    diff.z = coord.sz ? -diff.z : diff.z;*/
 #ifndef __CUDACC__
     auto pos = glm::vec3(static_cast<float>(coord.x) * diff.x, static_cast<float>(coord.y) * diff.y,
         static_cast<float>(coord.z) * diff.z);
@@ -44,6 +46,32 @@ inline CU_CALLABLE glm::vec3 decode_coord(device::QPKDParticle const& coord, glm
 #endif
 
     return pos;
+}
+
+inline void encode_dim(int dim, device::QPKDParticle& coord) {
+    if (dim == 0) {
+        coord.dim_x = 1;
+    } else {
+        coord.dim_x = 0;
+    }
+    if (dim == 1) {
+        coord.dim_y = 1;
+    } else {
+        coord.dim_y = 0;
+    }
+    if (dim == 2) {
+        coord.dim_z = 1;
+    } else {
+        coord.dim_z = 0;
+    }
+}
+
+inline CU_CALLABLE int decode_dim(device::QPKDParticle const& coord) {
+    if (coord.dim_y)
+        return 1;
+    if (coord.dim_z)
+        return 2;
+    return 0;
 }
 
 #ifdef __CUDACC__
@@ -59,7 +87,7 @@ inline __device__ PKDParticle const& decode_coord(
     //auto const pos = glm::vec3(fmaf(static_cast<float>(coord.x), diff.x, center.x),
     //    fmaf(static_cast<float>(coord.y), diff.y, center.y), fmaf(static_cast<float>(coord.z), diff.z, center.z));
     PKDParticle p;
-    p.dim = coord.dim;
+    p.dim = megamol::optix_hpg::decode_dim(coord);
     p.pos = megamol::optix_hpg::decode_coord(coord, center, span);
     return p;
 }

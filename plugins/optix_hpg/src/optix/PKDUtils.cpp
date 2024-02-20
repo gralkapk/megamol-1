@@ -180,17 +180,18 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
 
     int const dim = in_particle[P].dim;
 
-    auto const center = bounds.center();
+    auto const center = PKD_BOUNDS_CENTER;
     auto const span = bounds.span();
 
-    auto const coord = encode_coord(in_particle[P].pos, center, span);
+    auto coord = encode_coord(in_particle[P].pos, center, span);
     auto const pos = decode_coord(coord, center, span);
     if (out_decode) {
         out_decode[P].pos = pos;
     }
 
+    encode_dim(dim, coord);
     out_particle[P] = coord;
-    out_particle[P].dim = dim;
+    //out_particle[P].dim = dim;
 
     auto lBounds = bounds;
     auto rBounds = bounds;

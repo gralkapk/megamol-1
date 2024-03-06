@@ -174,11 +174,9 @@ std::vector<device::PKDlet> prePartition_inPlace(
 
 void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* out_particle, size_t N,
     device::box3f bounds,
-    float radius, device::PKDParticle* out_decode) {
+    float radius, device::PKDParticle* out_decode, glm::uvec3* out_coord) {
     if (P >= N)
         return;
-
-    int const dim = in_particle[P].dim;
 
     auto const center = PKD_BOUNDS_CENTER;
     auto const span = bounds.span();
@@ -186,9 +184,20 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
     auto coord = encode_coord(in_particle[P].pos, center, span);
     auto const pos = decode_coord(coord, center, span);
     if (out_decode) {
-        out_decode[P].pos = pos;
+        auto d = glm::dvec3(in_particle[P].pos) - glm::dvec3(pos);
+        out_decode[P].pos = d;
+    }
+    if (out_coord) {
+        constexpr unsigned int digits = 32767u;
+        auto dir = pos - center;
+        auto const diff = span / static_cast<float>(digits);
+        auto const x = static_cast<unsigned int>(dir.x / diff.x);
+        auto const y = static_cast<unsigned int>(dir.y / diff.y);
+        auto const z = static_cast<unsigned int>(dir.z / diff.z);
+        out_coord[P] = glm::uvec3(x, y, z);
     }
 
+    int const dim = in_particle[P].dim;
     encode_dim(dim, coord);
     out_particle[P] = coord;
     //out_particle[P].dim = dim;
@@ -205,8 +214,8 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
     //const bool rValid = (R < N);
 
     // TODO parallel
-    convert(L, in_particle, out_particle, N, lBounds, radius, out_decode);
-    convert(R, in_particle, out_particle, N, rBounds, radius, out_decode);
+    convert(L, in_particle, out_particle, N, lBounds, radius, out_decode, out_coord);
+    convert(R, in_particle, out_particle, N, rBounds, radius, out_decode, out_coord);
 }
 
 // END COMPRESSION

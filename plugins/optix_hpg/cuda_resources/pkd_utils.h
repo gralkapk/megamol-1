@@ -10,7 +10,7 @@
 #define CU_CALLABLE __host__ __device__
 #endif
 
-#define PKD_BOUNDS_CENTER bounds.center()
+#define PKD_BOUNDS_CENTER bounds.lower
 
 namespace megamol {
 namespace optix_hpg {

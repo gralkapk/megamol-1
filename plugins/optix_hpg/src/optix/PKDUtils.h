@@ -93,7 +93,7 @@ void partitionRecursively(
 // BEGIN COMPRESS
 void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* out_particle, size_t N,
     device::box3f bounds,
-    float radius, device::PKDParticle* out_decode = nullptr);
+    float radius, device::PKDParticle* out_decode = nullptr, glm::uvec3* out_coord = nullptr);
 // END COMPRESS
 
 inline size_t parent(size_t C) {

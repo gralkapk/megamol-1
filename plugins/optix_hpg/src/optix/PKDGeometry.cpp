@@ -1,5 +1,7 @@
 #include "PKDGeometry.h"
 
+#include <fstream>
+
 #include "mmcore/param/BoolParam.h"
 #include "mmcore/param/EnumParam.h"
 #include "mmcore/param/IntParam.h"
@@ -277,12 +279,26 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             // TODO compress data if requested
             // for debugging without parallel
             if (compression_slot_.Param<core::param::BoolParam>()->Value()) {
+                std::ofstream coord_file = std::ofstream("./coord.csv", std::ios::app);
+                coord_file << "x,y,z,dx,dy,dz\n";
                 qparticles.resize(data.size());
                 for (size_t tID = 0; tID < treelets.size(); ++tID) {
                     auto const& treelet = treelets[tID];
+                    std::vector<glm::uvec3> out_coord(treelet.end - treelet.begin);
+                    std::vector<device::PKDParticle> out_decode(treelet.end - treelet.begin);
                     convert(0, &data[treelet.begin], &qparticles[treelet.begin], treelet.end - treelet.begin,
-                        treelet.bounds, global_rad);
+                        treelet.bounds, global_rad, out_decode.data(), out_coord.data());
+                    /*for (auto const& coord : out_coord) {
+                        coord_file << coord.x << "," << coord.y << "," << coord.z << "\n";
+                    }*/
+                    for (auto i = 0; i < (treelet.end - treelet.begin); ++i) {
+                        coord_file << out_decode[i].pos.x << "," << out_decode[i].pos.y << "," << out_decode[i].pos.z
+                                   << "," << out_coord[i].x << ","
+                                   << out_coord[i].y << ","
+                                   << out_coord[i].z << "\n";
+                    }
                 }
+                coord_file.close();
             }
         } else {
             auto const max_threads = omp_get_max_threads();

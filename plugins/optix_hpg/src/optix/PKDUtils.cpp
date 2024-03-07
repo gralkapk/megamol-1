@@ -5,6 +5,8 @@
 
 #include "pkd_utils.h"
 
+#include "FixedPoint.h"
+
 namespace megamol::optix_hpg {
 // BEGIN PKD
 
@@ -173,13 +175,19 @@ std::vector<device::PKDlet> prePartition_inPlace(
 //}
 
 void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* out_particle, size_t N,
-    device::box3f bounds,
-    float radius, device::PKDParticle* out_decode, glm::uvec3* out_coord) {
+    device::box3f bounds, float radius, device::PKDParticle* out_decode, glm::uvec3* out_coord) {
     if (P >= N)
         return;
 
+    decvec3 test = in_particle[P].pos;
+    glm::vec3 ret_test = test;
+
+    constexpr float target_prec = 1.0e-5f;
+
     auto const center = PKD_BOUNDS_CENTER;
     auto const span = bounds.span();
+    /*auto dig = span / target_prec;
+    dig = glm::log2(dig);*/
 
     auto coord = encode_coord(in_particle[P].pos, center, span);
     auto const pos = decode_coord(coord, center, span);
@@ -188,13 +196,17 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
         out_decode[P].pos = d;
     }
     if (out_coord) {
-        constexpr unsigned int digits = 32767u;
+        /*constexpr unsigned int digits = 32767u;
         auto dir = pos - center;
         auto const diff = span / static_cast<float>(digits);
         auto const x = static_cast<unsigned int>(dir.x / diff.x);
         auto const y = static_cast<unsigned int>(dir.y / diff.y);
         auto const z = static_cast<unsigned int>(dir.z / diff.z);
-        out_coord[P] = glm::uvec3(x, y, z);
+        out_coord[P] = glm::uvec3(x, y, z);*/
+        auto dir = in_particle[P].pos - in_particle[parent(P)].pos;
+        //auto const diff = glm::log2(dir / target_prec);
+        auto const diff = glm::uvec3(glm::abs(dir / target_prec));
+        out_coord[P] = glm::uvec3(diff.x, diff.y, diff.z);
     }
 
     int const dim = in_particle[P].dim;

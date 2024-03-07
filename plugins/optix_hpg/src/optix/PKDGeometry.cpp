@@ -225,6 +225,12 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     std::vector<CUdeviceptr> bounds_data(pl_count);
     std::vector<OptixBuildInput> build_inputs;
 
+    {
+        std::ofstream coord_file = std::ofstream("./coord.csv");
+        coord_file << "x,y,z,dx,dy,dz\n";
+        coord_file.close();
+    }
+
     for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
         auto const& particles = call.AccessParticles(pl_idx);
 
@@ -280,7 +286,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             // for debugging without parallel
             if (compression_slot_.Param<core::param::BoolParam>()->Value()) {
                 std::ofstream coord_file = std::ofstream("./coord.csv", std::ios::app);
-                coord_file << "x,y,z,dx,dy,dz\n";
+                //coord_file << "x,y,z,dx,dy,dz\n";
                 qparticles.resize(data.size());
                 for (size_t tID = 0; tID < treelets.size(); ++tID) {
                     auto const& treelet = treelets[tID];
@@ -292,9 +298,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                         coord_file << coord.x << "," << coord.y << "," << coord.z << "\n";
                     }*/
                     for (auto i = 0; i < (treelet.end - treelet.begin); ++i) {
-                        coord_file << out_decode[i].pos.x << "," << out_decode[i].pos.y << "," << out_decode[i].pos.z
-                                   << "," << out_coord[i].x << ","
-                                   << out_coord[i].y << ","
+                        coord_file << std::scientific << out_decode[i].pos.x << "," << out_decode[i].pos.y << ","
+                                   << out_decode[i].pos.z << "," << out_coord[i].x << "," << out_coord[i].y << ","
                                    << out_coord[i].z << "\n";
                     }
                 }

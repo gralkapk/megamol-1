@@ -16,6 +16,9 @@
 
 #include "PKDUtils.h"
 
+#include "FixedPoint.h"
+
+
 namespace megamol::optix_hpg {
 extern "C" const char embedded_pkd_programs[];
 

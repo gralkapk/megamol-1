@@ -179,9 +179,6 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
     if (P >= N)
         return;
 
-    decvec3 test = in_particle[P].pos;
-    glm::vec3 ret_test = test;
-
     constexpr float target_prec = 1.0e-5f;
 
     auto const center = PKD_BOUNDS_CENTER;
@@ -191,10 +188,10 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
 
     auto coord = encode_coord(in_particle[P].pos, center, span);
     auto const pos = decode_coord(coord, center, span);
-    if (out_decode) {
+    /*if (out_decode) {
         auto d = glm::dvec3(in_particle[P].pos) - glm::dvec3(pos);
         out_decode[P].pos = d;
-    }
+    }*/
     if (out_coord) {
         /*constexpr unsigned int digits = 32767u;
         auto dir = pos - center;
@@ -203,10 +200,21 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
         auto const y = static_cast<unsigned int>(dir.y / diff.y);
         auto const z = static_cast<unsigned int>(dir.z / diff.z);
         out_coord[P] = glm::uvec3(x, y, z);*/
-        auto dir = in_particle[P].pos - in_particle[parent(P)].pos;
-        //auto const diff = glm::log2(dir / target_prec);
-        auto const diff = glm::uvec3(glm::abs(dir / target_prec));
+        //auto dir = in_particle[P].pos - in_particle[parent(P)].pos;
+        ////auto const diff = glm::log2(dir / target_prec);
+        //auto const diff = glm::uvec3(glm::abs(dir / target_prec));
+        //out_coord[P] = glm::uvec3(diff.x, diff.y, diff.z);
+
+        decvec3 dec_pos = in_particle[P].pos;
+        decvec3 dec_parent = in_particle[parent(P)].pos;
+        decvec3 dec_span = span;
+        auto const diff = (dec_pos - dec_parent);
         out_coord[P] = glm::uvec3(diff.x, diff.y, diff.z);
+        if (out_decode) {
+            glm::vec3 tmp = (diff + dec_parent);
+            auto const d = glm::dvec3(in_particle[P].pos) - glm::dvec3(tmp);
+            out_decode[P].pos = d;
+        }
     }
 
     int const dim = in_particle[P].dim;

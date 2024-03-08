@@ -34,12 +34,12 @@ struct QPKDParticle {
     unsigned int sz : 1;
     unsigned int z : 9;
     #endif
-    unsigned short dim_x : 1;
-    unsigned short x : 15;
-    unsigned short dim_y : 1;
-    unsigned short y : 15;
-    unsigned short dim_z : 1;
-    unsigned short z : 15;
+    unsigned int dim_x : 1;
+    unsigned int x : 31;
+    unsigned int dim_y : 1;
+    unsigned int y : 31;
+    unsigned int dim_z : 1;
+    unsigned int z : 31;
 };
 } // namespace device
 } // namespace optix_hpg

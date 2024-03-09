@@ -18,6 +18,10 @@
 
 #include "FixedPoint.h"
 
+#include "nvcomp/lz4.hpp"
+#include "nvcomp.hpp"
+#include "nvcomp/nvcompManagerFactory.hpp"
+
 
 namespace megamol::optix_hpg {
 extern "C" const char embedded_pkd_programs[];
@@ -240,7 +244,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         auto const p_count = particles.GetCount();
         if (p_count == 0 || !has_global_radius(particles)) {
             if (!has_global_radius(particles)) {
-                core::utility::log::Log::DefaultLog.WriteWarn("[PKDGeometry]: Per-particle radius not supported");
+                megamol::core::utility::log::Log::DefaultLog.WriteWarn("[PKDGeometry]: Per-particle radius not supported");
             }
             continue;
         }
@@ -288,6 +292,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             // TODO compress data if requested
             // for debugging without parallel
             if (compression_slot_.Param<core::param::BoolParam>()->Value()) {
+                size_t total_size = 0;
+                nvcompBatchedLZ4Opts_t format_opts{NVCOMP_TYPE_CHAR};
+                nvcomp::LZ4Manager nvcomp_manager{1 << 16, format_opts, ctx.GetExecStream()};
+
                 std::ofstream coord_file = std::ofstream("./coord.csv", std::ios::app);
                 //coord_file << "x,y,z,dx,dy,dz\n";
                 qparticles.resize(data.size());
@@ -305,8 +313,38 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                                    << out_decode[i].pos.z << "," << out_coord[i].x << "," << out_coord[i].y << ","
                                    << out_coord[i].z << "\n";
                     }
+
+                    // compression
+                    {
+                        auto comp_config = nvcomp_manager.configure_compression(out_coord.size() * sizeof(glm::uvec3));
+                        CUdeviceptr input_d;
+                        CUdeviceptr output_d;
+                        CUDA_CHECK_ERROR(
+                            cuMemAllocAsync(&input_d, out_coord.size() * sizeof(glm::uvec3), ctx.GetExecStream()));
+                        CUDA_CHECK_ERROR(
+                            cuMemAllocAsync(&output_d, comp_config.max_compressed_buffer_size, ctx.GetExecStream()));
+                        CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
+                            input_d, out_coord.data(), out_coord.size() * sizeof(glm::uvec3), ctx.GetExecStream()));
+                        nvcomp_manager.compress((uint8_t*) input_d, (uint8_t*) output_d, comp_config);
+                        auto const local_size = nvcomp_manager.get_compressed_output_size((uint8_t*) output_d);
+                        total_size += local_size;
+                    }
                 }
                 coord_file.close();
+                // compression
+                {
+                    auto comp_config = nvcomp_manager.configure_compression(data.size() * sizeof(device::PKDParticle));
+                    CUdeviceptr input_d;
+                    CUdeviceptr output_d;
+                    CUDA_CHECK_ERROR(cuMemAllocAsync(&input_d, data.size() * sizeof(device::PKDParticle), ctx.GetExecStream()));
+                    CUDA_CHECK_ERROR(
+                        cuMemAllocAsync(&output_d, comp_config.max_compressed_buffer_size, ctx.GetExecStream()));
+                    CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
+                        input_d, data.data(), data.size() * sizeof(device::PKDParticle), ctx.GetExecStream()));
+                    nvcomp_manager.compress((uint8_t*) input_d, (uint8_t*) output_d, comp_config);
+                    auto const local_size = nvcomp_manager.get_compressed_output_size((uint8_t*) output_d);
+                    total_size += local_size;
+                }
             }
         } else {
             auto const max_threads = omp_get_max_threads();

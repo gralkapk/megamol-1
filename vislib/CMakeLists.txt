@@ -13,7 +13,7 @@ add_library(vislib STATIC ${public_header_files} ${header_files} ${source_files}
 
 target_link_libraries(vislib
   PRIVATE ${CMAKE_THREAD_LIBS_INIT} PNG::PNG
-  PUBLIC spdlog::spdlog)
+  PUBLIC spdlog::spdlog_header_only)
 
 # Word size
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)

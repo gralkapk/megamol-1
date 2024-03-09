@@ -14,10 +14,12 @@ megamol_plugin(optix_hpg
     geometry_calls)
 
 if (optix_hpg_PLUGIN_ENABLED)
+  find_package(nvcomp CONFIG REQUIRED)
   find_package(glm CONFIG REQUIRED)
   target_link_libraries(optix_hpg
     PRIVATE
-      glm::glm)
+      glm::glm
+      nvcomp::nvcomp)
 
   set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
@@ -53,5 +55,17 @@ if (optix_hpg_PLUGIN_ENABLED)
   target_sources(optix_hpg PRIVATE ${cuda_resource_include_files} ${embedded_raygen_programs} ${embedded_miss_programs} ${embedded_miss_occlusion_programs} ${embedded_sphere_programs} ${embedded_sphere_occlusion_programs} ${embedded_mesh_programs} ${embedded_transitioncalculator_programs} ${embedded_pkd_programs})
 
   target_include_directories(optix_hpg PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/cuda_resources/")
-  target_link_libraries(optix_hpg PRIVATE CUDA::cuda_driver)
+  target_link_libraries(optix_hpg PRIVATE CUDA::cudart CUDA::cuda_driver)
+
+  if (WIN32)
+    get_target_property(NVCOMP_DLL nvcomp::nvcomp IMPORTED_LOCATION_RELEASE)
+    message(INFO " ${NVCOMP_DLL}")
+    if (NVCOMP_DLL MATCHES ".dll$")
+      get_filename_component(NVCOMP_DLL_PATH ${NVCOMP_DLL} DIRECTORY)
+      message(INFO " ${NVCOMP_DLL_PATH}")
+      file(GLOB NVCOMP_DLLS "${NVCOMP_DLL_PATH}/*.dll")
+      message(INFO " ${NVCOMP_DLLS}")
+      install(FILES ${NVCOMP_DLLS} DESTINATION bin)
+    endif ()
+  endif ()
 endif ()

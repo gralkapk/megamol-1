@@ -5,8 +5,6 @@
 
 #include "pkd_utils.h"
 
-#include "FixedPoint.h"
-
 namespace megamol::optix_hpg {
 // BEGIN PKD
 
@@ -234,8 +232,8 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
     //const bool rValid = (R < N);
 
     // TODO parallel
-    convert(L, in_particle, out_particle, N, lBounds, radius, out_decode, out_coord);
-    convert(R, in_particle, out_particle, N, rBounds, radius, out_decode, out_coord);
+    convert(L, in_particle, out_particle, N, bounds, radius, out_decode, out_coord);
+    convert(R, in_particle, out_particle, N, bounds, radius, out_decode, out_coord);
 }
 
 // END COMPRESSION

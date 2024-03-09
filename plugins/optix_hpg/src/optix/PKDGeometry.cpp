@@ -16,8 +16,6 @@
 
 #include "PKDUtils.h"
 
-#include "FixedPoint.h"
-
 #include "nvcomp/lz4.hpp"
 #include "nvcomp.hpp"
 #include "nvcomp/nvcompManagerFactory.hpp"
@@ -292,9 +290,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             // TODO compress data if requested
             // for debugging without parallel
             if (compression_slot_.Param<core::param::BoolParam>()->Value()) {
-                size_t total_size = 0;
+                /*size_t total_size = 0;
                 nvcompBatchedLZ4Opts_t format_opts{NVCOMP_TYPE_CHAR};
-                nvcomp::LZ4Manager nvcomp_manager{1 << 16, format_opts, ctx.GetExecStream()};
+                nvcomp::LZ4Manager nvcomp_manager{1 << 16, format_opts, ctx.GetExecStream()};*/
 
                 std::ofstream coord_file = std::ofstream("./coord.csv", std::ios::app);
                 //coord_file << "x,y,z,dx,dy,dz\n";
@@ -315,7 +313,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                     }
 
                     // compression
-                    {
+                    /*{
                         auto comp_config = nvcomp_manager.configure_compression(out_coord.size() * sizeof(glm::uvec3));
                         CUdeviceptr input_d;
                         CUdeviceptr output_d;
@@ -328,11 +326,11 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                         nvcomp_manager.compress((uint8_t*) input_d, (uint8_t*) output_d, comp_config);
                         auto const local_size = nvcomp_manager.get_compressed_output_size((uint8_t*) output_d);
                         total_size += local_size;
-                    }
+                    }*/
                 }
                 coord_file.close();
                 // compression
-                {
+                /*{
                     auto comp_config = nvcomp_manager.configure_compression(data.size() * sizeof(device::PKDParticle));
                     CUdeviceptr input_d;
                     CUdeviceptr output_d;
@@ -344,7 +342,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                     nvcomp_manager.compress((uint8_t*) input_d, (uint8_t*) output_d, comp_config);
                     auto const local_size = nvcomp_manager.get_compressed_output_size((uint8_t*) output_d);
                     total_size += local_size;
-                }
+                }*/
             }
         } else {
             auto const max_threads = omp_get_max_threads();

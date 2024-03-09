@@ -4,6 +4,8 @@
 
 #include "particle.h"
 
+#include "FixedPoint.h"
+
 #ifndef __CUDACC__
 #define CU_CALLABLE
 #else
@@ -15,6 +17,7 @@
 namespace megamol {
 namespace optix_hpg {
 inline device::QPKDParticle encode_coord(glm::vec3 const& pos, glm::vec3 const& center, glm::vec3 const& span) {
+    #if 0
     constexpr unsigned int digits = 32767u;
     device::QPKDParticle p;
     auto dir = pos - center;
@@ -28,9 +31,19 @@ inline device::QPKDParticle encode_coord(glm::vec3 const& pos, glm::vec3 const& 
     p.z = static_cast<unsigned int>(dir.z / diff.z);
 
     return p;
+    #endif
+    decvec3 dec_pos = pos;
+    decvec3 dec_center = center;
+    auto const diff = dec_pos - dec_center;
+    device::QPKDParticle p;
+    p.x = diff.x;
+    p.y = diff.y;
+    p.z = diff.z;
+    return p;
 }
 
 inline CU_CALLABLE glm::vec3 decode_coord(device::QPKDParticle const& coord, glm::vec3 const& center, glm::vec3 const& span) {
+    #if 0
     constexpr unsigned int digits = 32767u;
     auto diff = span / static_cast<float>(digits);
     /*diff.x = coord.sx ? -diff.x : diff.x;
@@ -46,9 +59,17 @@ inline CU_CALLABLE glm::vec3 decode_coord(device::QPKDParticle const& coord, glm
 #endif
 
     return pos;
+    #endif
+
+    decvec3 org = decvec3(coord.x, coord.y, coord.z);
+    decvec3 dec_center = center;
+    auto const pos = org + dec_center;
+    glm::vec3 res = pos;
+    return res;
 }
 
 inline void encode_dim(int dim, device::QPKDParticle& coord) {
+    #if 0
     if (dim == 0) {
         coord.dim_x = 1;
     } else {
@@ -64,14 +85,19 @@ inline void encode_dim(int dim, device::QPKDParticle& coord) {
     } else {
         coord.dim_z = 0;
     }
+    #endif
+    coord.dim = dim;
 }
 
 inline CU_CALLABLE int decode_dim(device::QPKDParticle const& coord) {
+    #if 0
     if (coord.dim_y)
         return 1;
     if (coord.dim_z)
         return 2;
     return 0;
+    #endif
+    return coord.dim;
 }
 
 #ifdef __CUDACC__

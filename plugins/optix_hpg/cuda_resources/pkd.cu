@@ -398,7 +398,7 @@ MM_OPTIX_BOUNDS_KERNEL(treelets_bounds)
 struct QStackEntry {
     float t0, t1;
     unsigned int nodeID;
-    box3f bounds;
+    //box3f bounds;
 };
 
 MM_OPTIX_INTERSECTION_KERNEL(comp_treelets_intersect)
@@ -442,13 +442,15 @@ MM_OPTIX_INTERSECTION_KERNEL(comp_treelets_intersect)
 
         glm::vec3 tmp_hit_pos;
 
+        _center = PKD_BOUNDS_CENTER;
+        _span = bounds.span();
+
         while (1) {
             // while we have anything to traverse ...
 
             while (1) {
                 // while we can go down
-                _center = PKD_BOUNDS_CENTER;
-                _span = bounds.span();
+                
 
                 const int particleID = nodeID + begin;
                 const PKDParticle& particle = decode_coord(self.particleBufferPtr[particleID], _center, _span);
@@ -505,49 +507,49 @@ MM_OPTIX_INTERSECTION_KERNEL(comp_treelets_intersect)
                     stackPtr->nodeID = farSide_nodeID;
                     stackPtr->t0 = farSide_t0;
                     stackPtr->t1 = farSide_t1;
-                    stackPtr->bounds = bounds;
-                    if (dir_sign[dim]) {
-                        // left
-                        bounds.upper[dim] = particle.pos[dim] + self.radius;
-                    } else {
-                        // right
-                        bounds.lower[dim] = particle.pos[dim] - self.radius;
-                    }
+                    //stackPtr->bounds = bounds;
+                    //if (dir_sign[dim]) {
+                    //    // left
+                    //    bounds.upper[dim] = particle.pos[dim] + self.radius;
+                    //} else {
+                    //    // right
+                    //    bounds.lower[dim] = particle.pos[dim] - self.radius;
+                    //}
                     ++stackPtr;
 
                     nodeID = nearSide_nodeID;
                     t0 = nearSide_t0;
                     t1 = nearSide_t1;
-                    if (dir_sign[dim]) {
-                        // right
-                        bounds.lower[dim] = particle.pos[dim] - self.radius;
-                    } else {
-                        // left
-                        bounds.upper[dim] = particle.pos[dim] + self.radius;
-                    }
+                    //if (dir_sign[dim]) {
+                    //    // right
+                    //    bounds.lower[dim] = particle.pos[dim] - self.radius;
+                    //} else {
+                    //    // left
+                    //    bounds.upper[dim] = particle.pos[dim] + self.radius;
+                    //}
                     continue;
                 }
 
                 nodeID = need_nearSide ? nearSide_nodeID : farSide_nodeID;
                 t0 = need_nearSide ? nearSide_t0 : farSide_t0;
                 t1 = need_nearSide ? nearSide_t1 : farSide_t1;
-                if (need_nearSide) {
-                    if (dir_sign[dim]) {
-                        // right
-                        bounds.lower[dim] = particle.pos[dim] - self.radius;
-                    } else {
-                        // left
-                        bounds.upper[dim] = particle.pos[dim] + self.radius;
-                    }
-                } else {
-                    if (dir_sign[dim]) {
-                        // left
-                        bounds.upper[dim] = particle.pos[dim] + self.radius;
-                    } else {
-                        // right
-                        bounds.lower[dim] = particle.pos[dim] - self.radius;
-                    }
-                }
+                //if (need_nearSide) {
+                //    if (dir_sign[dim]) {
+                //        // right
+                //        bounds.lower[dim] = particle.pos[dim] - self.radius;
+                //    } else {
+                //        // left
+                //        bounds.upper[dim] = particle.pos[dim] + self.radius;
+                //    }
+                //} else {
+                //    if (dir_sign[dim]) {
+                //        // left
+                //        bounds.upper[dim] = particle.pos[dim] + self.radius;
+                //    } else {
+                //        // right
+                //        bounds.lower[dim] = particle.pos[dim] - self.radius;
+                //    }
+                //}
             }
             // -------------------------------------------------------
             // pop
@@ -568,7 +570,7 @@ MM_OPTIX_INTERSECTION_KERNEL(comp_treelets_intersect)
                 t1 = stackPtr->t1;
                 nodeID = stackPtr->nodeID;
                 t1 = fminf(t1, tmp_hit_t);
-                bounds = stackPtr->bounds;
+                //bounds = stackPtr->bounds;
                 if (t1 <= t0)
                     continue;
                 break;

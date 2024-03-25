@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <tuple>
 
 #include "mmstd/data/AbstractGetData3DCall.h"
@@ -80,6 +81,14 @@ public:
         return get_program_update < set_program_update;
     }
 
+    std::function<void()> get_on_launch_func() const {
+        return on_launch_func_;
+    }
+
+    void set_on_launch_func(std::function<void()> const& func) {
+        on_launch_func_ = func;
+    }
+
 private:
     Context const* _ctx;
 
@@ -103,6 +112,8 @@ private:
 
     uint64_t set_geo_update;
     mutable uint64_t get_geo_update;
+
+    std::function<void()> on_launch_func_;
 };
 
 using CallGeometryDescription = megamol::core::factories::CallAutoDescription<CallGeometry>;

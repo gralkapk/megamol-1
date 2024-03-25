@@ -15,6 +15,7 @@
 #include "CallGeometry.h"
 
 #include "PKDUtils.h"
+#include "TreeletCache.h"
 
 #include "nvcomp/lz4.hpp"
 #include "nvcomp.hpp"
@@ -38,7 +39,8 @@ PKDGeometry::PKDGeometry()
         , in_data_slot_("inData", "")
         , mode_slot_("mode", "")
         , compression_slot_("compression", "")
-        , threshold_slot_("threshold", "") {
+        , threshold_slot_("threshold", "")
+        , entropy_slot_("entropy", "") {
     out_geo_slot_.SetCallback(CallGeometry::ClassName(), CallGeometry::FunctionName(0), &PKDGeometry::get_data_cb);
     out_geo_slot_.SetCallback(CallGeometry::ClassName(), CallGeometry::FunctionName(1), &PKDGeometry::get_extents_cb);
     MakeSlotAvailable(&out_geo_slot_);
@@ -57,6 +59,9 @@ PKDGeometry::PKDGeometry()
 
     threshold_slot_ << new core::param::IntParam(256, 16);
     MakeSlotAvailable(&threshold_slot_);
+
+    entropy_slot_ << new core::param::BoolParam(false);
+    MakeSlotAvailable(&entropy_slot_);
 }
 
 PKDGeometry::~PKDGeometry() {
@@ -70,6 +75,11 @@ bool PKDGeometry::create() {
 void PKDGeometry::release() {
     for (auto& el : particle_data_) {
         CUDA_CHECK_ERROR(cuMemFree(el));
+    }
+    for (auto& pel : comp_particle_data_) {
+        for (auto& el : pel) {
+            CUDA_CHECK_ERROR(cuMemFree(el));
+        }
     }
     /*for (auto& el : radius_data_) {
         CUDA_CHECK_ERROR(cuMemFree(el));
@@ -223,6 +233,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     auto const pl_count = call.GetParticleListCount();
 
     particle_data_.resize(pl_count, 0);
+    comp_particle_data_.resize(pl_count);
     //radius_data_.resize(pl_count, 0);
     color_data_.resize(pl_count, 0);
     treelets_data_.resize(pl_count, 0);
@@ -230,11 +241,11 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     std::vector<CUdeviceptr> bounds_data(pl_count);
     std::vector<OptixBuildInput> build_inputs;
 
-    {
+    /*{
         std::ofstream coord_file = std::ofstream("./coord.csv");
         coord_file << "x,y,z,dx,dy,dz\n";
         coord_file.close();
-    }
+    }*/
 
     for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
         auto const& particles = call.AccessParticles(pl_idx);
@@ -290,13 +301,17 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             // TODO compress data if requested
             // for debugging without parallel
             if (compression_slot_.Param<core::param::BoolParam>()->Value()) {
+                auto const use_entropy = entropy_slot_.Param<core::param::BoolParam>()->Value();
                 /*size_t total_size = 0;
                 nvcompBatchedLZ4Opts_t format_opts{NVCOMP_TYPE_CHAR};
                 nvcomp::LZ4Manager nvcomp_manager{1 << 16, format_opts, ctx.GetExecStream()};*/
+                nvcompBatchedGdeflateOpts_t format_opts;
+                nvcomp::GdeflateManager nvcomp_manager{1 << 16, format_opts, ctx.GetExecStream()};
 
-                std::ofstream coord_file = std::ofstream("./coord.csv", std::ios::app);
+                //std::ofstream coord_file = std::ofstream("./coord.csv", std::ios::app);
                 //coord_file << "x,y,z,dx,dy,dz\n";
                 qparticles.resize(data.size());
+                comp_particle_data_[pl_idx].resize(treelets.size());
                 for (size_t tID = 0; tID < treelets.size(); ++tID) {
                     auto const& treelet = treelets[tID];
                     std::vector<glm::uvec3> out_coord(treelet.end - treelet.begin);
@@ -306,29 +321,33 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                     /*for (auto const& coord : out_coord) {
                         coord_file << coord.x << "," << coord.y << "," << coord.z << "\n";
                     }*/
-                    for (auto i = 0; i < (treelet.end - treelet.begin); ++i) {
+                    /*for (auto i = 0; i < (treelet.end - treelet.begin); ++i) {
                         coord_file << std::scientific << out_decode[i].pos.x << "," << out_decode[i].pos.y << ","
                                    << out_decode[i].pos.z << "," << out_coord[i].x << "," << out_coord[i].y << ","
                                    << out_coord[i].z << "\n";
-                    }
+                    }*/
 
                     // compression
-                    /*{
-                        auto comp_config = nvcomp_manager.configure_compression(out_coord.size() * sizeof(glm::uvec3));
+                    if (use_entropy) {
+                        auto comp_config = nvcomp_manager.configure_compression(
+                            (treelet.end - treelet.begin) * sizeof(device::QPKDParticle));
                         CUdeviceptr input_d;
                         CUdeviceptr output_d;
-                        CUDA_CHECK_ERROR(
-                            cuMemAllocAsync(&input_d, out_coord.size() * sizeof(glm::uvec3), ctx.GetExecStream()));
+                        CUDA_CHECK_ERROR(cuMemAllocAsync(&input_d,
+                            (treelet.end - treelet.begin) * sizeof(device::QPKDParticle), ctx.GetExecStream()));
                         CUDA_CHECK_ERROR(
                             cuMemAllocAsync(&output_d, comp_config.max_compressed_buffer_size, ctx.GetExecStream()));
-                        CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
-                            input_d, out_coord.data(), out_coord.size() * sizeof(glm::uvec3), ctx.GetExecStream()));
+                        CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(input_d, out_coord.data(),
+                            (treelet.end - treelet.begin) * sizeof(device::QPKDParticle), ctx.GetExecStream()));
                         nvcomp_manager.compress((uint8_t*) input_d, (uint8_t*) output_d, comp_config);
-                        auto const local_size = nvcomp_manager.get_compressed_output_size((uint8_t*) output_d);
-                        total_size += local_size;
-                    }*/
+                        CUDA_CHECK_ERROR(cuMemFreeAsync(input_d, ctx.GetExecStream()));
+                        comp_particle_data_[pl_idx][tID] = output_d;
+                        /*auto const local_size = nvcomp_manager.get_compressed_output_size((uint8_t*) output_d);
+                        total_size += local_size;*/
+                    }
                 }
-                coord_file.close();
+                TreeletCache(0, treelets);
+                //coord_file.close();
                 // compression
                 /*{
                     auto comp_config = nvcomp_manager.configure_compression(data.size() * sizeof(device::PKDParticle));
@@ -394,10 +413,12 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         }
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&
             compression_slot_.Param<core::param::BoolParam>()->Value()) {
-            CUDA_CHECK_ERROR(
-                cuMemAllocAsync(&particle_data_[pl_idx], p_count * sizeof(device::QPKDParticle), ctx.GetExecStream()));
-            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(particle_data_[pl_idx], qparticles.data(),
-                p_count * sizeof(device::QPKDParticle), ctx.GetExecStream()));
+            if (!entropy_slot_.Param<core::param::BoolParam>()->Value()) {
+                CUDA_CHECK_ERROR(cuMemAllocAsync(
+                    &particle_data_[pl_idx], p_count * sizeof(device::QPKDParticle), ctx.GetExecStream()));
+                CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(particle_data_[pl_idx], qparticles.data(),
+                    p_count * sizeof(device::QPKDParticle), ctx.GetExecStream()));
+            }
         } else {
             CUDA_CHECK_ERROR(
                 cuMemAllocAsync(&particle_data_[pl_idx], p_count * sizeof(device::PKDParticle), ctx.GetExecStream()));
@@ -628,6 +649,18 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
     ++sbt_version;
 
     return true;
+}
+
+void PKDGeometry::process_treelet_requests(int pl_idx, std::vector<int> const& treelet_reqs) {
+    for (auto const tID : treelet_reqs) {
+        if (tID < 0)
+            continue;
+        auto target = treelet_cache_->Alloc(tID);
+        if (target == 0) {
+            auto const decomp_config = coder_->configure_decompression((uint8_t*) comp_particle_data_[pl_idx][tID]);
+            coder_->decompress((uint8_t*) target, (uint8_t*) comp_particle_data_[pl_idx][tID], decomp_config);
+        }
+    }
 }
 
 } // namespace megamol::optix_hpg

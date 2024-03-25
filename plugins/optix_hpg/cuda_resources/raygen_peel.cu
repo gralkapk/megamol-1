@@ -172,6 +172,11 @@ MM_OPTIX_RAYGEN_KERNEL(raygen_program)() {
         }
         col += traceRay(self, ray, seed /*, rnd*/, prd, bg, fs->maxBounces);
         depth = fminf(depth, prd.ray_depth);
+        fs->rayBuffer[pixelIdx] = ray;
+        if (prd.tID_req > -1) {
+            fs->treeletRequests[pixelIdx].x = prd.pl_idx;
+            fs->treeletRequests[pixelIdx].y = prd.tID_req;
+        }
     } while (--i);
 
     col /= (float) fs->samplesPerPixel;

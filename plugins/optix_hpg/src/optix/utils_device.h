@@ -8,6 +8,8 @@
 #include "random.h"
 #include "utils_host.h"
 
+#include "Ray.h"
+
 #ifndef __CUDACC__
 #error "CUDA device-only include"
 #endif
@@ -51,23 +53,23 @@
 namespace megamol {
 namespace optix_hpg {
 namespace device {
-typedef struct Ray {
-    __device__ Ray(float3 const& org, float3 const& dir, float tmin, float tmax)
-            : origin(org.x, org.y, org.z)
-            , direction(dir.x, dir.y, dir.z)
-            , tmin(tmin)
-            , tmax(tmax) {}
-    __device__ Ray(glm::vec3 const& org, glm::vec3 const& dir, float tmin, float tmax)
-            : origin(org)
-            , direction(dir)
-            , tmin(tmin)
-            , tmax(tmax) {}
-
-    glm::vec3 origin;
-    glm::vec3 direction;
-    float tmin;
-    float tmax;
-} Ray;
+//typedef struct Ray {
+//    __device__ Ray(float3 const& org, float3 const& dir, float tmin, float tmax)
+//            : origin(org.x, org.y, org.z)
+//            , direction(dir.x, dir.y, dir.z)
+//            , tmin(tmin)
+//            , tmax(tmax) {}
+//    __device__ Ray(glm::vec3 const& org, glm::vec3 const& dir, float tmin, float tmax)
+//            : origin(org)
+//            , direction(dir)
+//            , tmin(tmin)
+//            , tmax(tmax) {}
+//
+//    glm::vec3 origin;
+//    glm::vec3 direction;
+//    float tmin;
+//    float tmax;
+//} Ray;
 
 // OptiX SDK
 

@@ -44,6 +44,17 @@ struct PerRayData {
     float ray_depth;
 #endif
 };
+
+struct PerRayData_Peel {
+    int particleID;
+    float t;
+    glm::vec3 pos;
+    glm::vec3 albedo;
+    bool countDepth;
+    float ray_depth;
+    int pl_idx;
+    int tID_req;
+};
 } // namespace device
 } // namespace optix_hpg
 } // namespace megamol

@@ -41,6 +41,11 @@
 
 #include "pkd.h"
 
+#include "TreeletCache.h"
+
+#include "nvcomp.hpp"
+#include "nvcomp/nvcompManagerFactory.hpp"
+
 namespace megamol::optix_hpg {
 class PKDGeometry : public core::Module {
 public:
@@ -94,6 +99,11 @@ private:
         for (auto& el : particle_data_) {
             CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
         }
+        for (auto& pel : comp_particle_data_) {
+            for (auto& el : pel) {
+                CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
+            }
+        }
         /*for (auto& el : radius_data_) {
             CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
         }*/
@@ -105,6 +115,11 @@ private:
         }
     }
 
+    void process_treelet_requests(int pl_idx, std::vector<int> const& treelet_reqs);
+
+    std::shared_ptr<TreeletCache> treelet_cache_;
+    std::shared_ptr<nvcomp::GdeflateManager> coder_;
+
     core::CalleeSlot out_geo_slot_;
 
     core::CallerSlot in_data_slot_;
@@ -115,6 +130,8 @@ private:
 
     core::param::ParamSlot threshold_slot_;
 
+    core::param::ParamSlot entropy_slot_;
+
     std::vector<SBTRecord<device::PKDGeoData>> sbt_records_;
 
     std::vector<SBTRecord<device::TreeletsGeoData>> treelets_sbt_records_;
@@ -124,6 +141,8 @@ private:
     std::array<OptixProgramGroup, 2> program_groups_;
 
     std::vector<CUdeviceptr> particle_data_;
+
+    std::vector<std::vector<CUdeviceptr>> comp_particle_data_;
 
     //std::vector<CUdeviceptr> radius_data_;
 

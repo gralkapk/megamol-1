@@ -156,9 +156,10 @@ MM_OPTIX_RAYGEN_KERNEL(raygen_program)() {
     float depth = FLT_MAX;
 
     PerRayData prd;
-    do {
+    /*do*/ {
         prd.countDepth = true;
         prd.ray_depth = FLT_MAX;
+        prd.canceled = false;
         Ray ray;
         if (fs->frameIdx == 0) {
             float u = -fs->rw + (fs->rw + fs->rw) * float(pixelID.x + rnd(seed)) / self.fbSize.x;
@@ -177,9 +178,12 @@ MM_OPTIX_RAYGEN_KERNEL(raygen_program)() {
             fs->treeletRequests[pixelIdx].x = prd.pl_idx;
             fs->treeletRequests[pixelIdx].y = prd.tID_req;
         }
-    } while (--i);
+    } /*while (--i);*/
 
-    col /= (float) fs->samplesPerPixel;
+    if (prd.canceled)
+        return;
+
+    //col /= (float) fs->samplesPerPixel;
     // col.w = frame_idx + 1;
     //++col.w;
 

@@ -38,6 +38,8 @@ struct QTreeletsGeoData {
     bool hasColorData;
     glm::vec4 globalColor;
     unsigned int particleCount;
+    char* decoderList;
+    char* treeletRequests;
 };
 } // namespace device
 } // namespace optix_hpg

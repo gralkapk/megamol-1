@@ -12,11 +12,13 @@ namespace megamol {
 namespace optix_hpg {
 namespace device {
 typedef struct Ray {
+#ifdef __CUDACC__
     CU_CALLABLE Ray(float3 const& org, float3 const& dir, float tmin, float tmax)
             : origin(org.x, org.y, org.z)
             , direction(dir.x, dir.y, dir.z)
             , tmin(tmin)
             , tmax(tmax) {}
+#endif
     CU_CALLABLE Ray(glm::vec3 const& org, glm::vec3 const& dir, float tmin, float tmax)
             : origin(org)
             , direction(dir)

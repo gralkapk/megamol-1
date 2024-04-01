@@ -81,7 +81,7 @@ private:
 
     virtual void on_change_sbt(std::tuple<void const*, uint32_t, uint64_t> const& records) = 0;
 
-    virtual void on_launch_func() = 0;
+    virtual void on_launch_func(){};
 
     core::CallerSlot in_geo_slot_;
 

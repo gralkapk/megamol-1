@@ -85,15 +85,20 @@ MM_OPTIX_INTERSECTION_KERNEL(comp_treelets_intersect)
     const int treeletID = optixGetPrimitiveIndex();
     const auto& self = getProgramData<QTreeletsGeoData>();
 
+    // check if treelet is available
     auto const decoded = self.decoderList[treeletID];
     if (decoded == 0) {
-        auto& prd = getPerRayData<PerRayData_Peel>();
+        /*auto& prd = getPerRayData<PerRayData_Peel>();
         if (prd.tID_req > -1)
             return;
         prd.pl_idx = optixGetSbtGASIndex();
-        prd.tID_req = treeletID;
+        prd.tID_req = treeletID;*/
+        auto& prd = getPerRayData<PerRayData_Peel>();
+        prd.canceled = true;
+        self.treeletRequests[treeletID] = 1;
         return;
     }
+    // if available, fetch the correct memory address of the treelet
 
     const auto treelet = self.treeletBufferPtr[treeletID];
 

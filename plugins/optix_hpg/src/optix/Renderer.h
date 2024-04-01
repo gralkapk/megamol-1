@@ -25,7 +25,7 @@
 #include "vislib/math/Rectangle.h"
 
 namespace megamol::optix_hpg {
-class Renderer : public AbstractRenderer {
+class Renderer : public AbstractRenderer<device::FrameState> {
 public:
     static const char* ClassName(void) {
         return "OptixRenderer";

@@ -132,6 +132,8 @@ private:
 
     core::param::ParamSlot entropy_slot_;
 
+    core::param::ParamSlot partition_slot_;
+
     std::vector<SBTRecord<device::PKDGeoData>> sbt_records_;
 
     std::vector<SBTRecord<device::TreeletsGeoData>> treelets_sbt_records_;
@@ -144,11 +146,19 @@ private:
 
     std::vector<std::vector<CUdeviceptr>> comp_particle_data_;
 
+    std::vector<char*> hp_decoded_treelets_;
+    std::vector<CUdeviceptr> d_decoded_treelets_;
+
+    std::vector<char*> hp_requested_treelets_;
+    std::vector<CUdeviceptr> d_requested_treelets_;
+
     //std::vector<CUdeviceptr> radius_data_;
 
     std::vector<CUdeviceptr> color_data_;
 
+    std::vector<std::vector<device::PKDlet>> treelets_;
     std::vector<CUdeviceptr> treelets_data_;
+    std::vector<std::shared_ptr<TreeletCache>> treelet_caches_;
 
     std::vector<device::box3f> local_boxes_;
 

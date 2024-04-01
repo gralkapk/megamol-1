@@ -40,7 +40,7 @@ PKDGeometry::PKDGeometry()
         , mode_slot_("mode", "")
         , compression_slot_("compression", "")
         , threshold_slot_("threshold", "")
-        , entropy_slot_("entropy", "") {
+        , entropy_slot_("entropy", ""), partition_slot_("partitions", "") {
     out_geo_slot_.SetCallback(CallGeometry::ClassName(), CallGeometry::FunctionName(0), &PKDGeometry::get_data_cb);
     out_geo_slot_.SetCallback(CallGeometry::ClassName(), CallGeometry::FunctionName(1), &PKDGeometry::get_extents_cb);
     MakeSlotAvailable(&out_geo_slot_);
@@ -62,6 +62,9 @@ PKDGeometry::PKDGeometry()
 
     entropy_slot_ << new core::param::BoolParam(false);
     MakeSlotAvailable(&entropy_slot_);
+
+    partition_slot_ << new core::param::IntParam(2, 1);
+    MakeSlotAvailable(&partition_slot_);
 }
 
 PKDGeometry::~PKDGeometry() {
@@ -80,6 +83,9 @@ void PKDGeometry::release() {
         for (auto& el : pel) {
             CUDA_CHECK_ERROR(cuMemFree(el));
         }
+    }
+    for (auto& pel : hp_decoded_treelets_) {
+        CUDA_CHECK_ERROR(cuMemFreeHost(pel));
     }
     /*for (auto& el : radius_data_) {
         CUDA_CHECK_ERROR(cuMemFree(el));
@@ -234,9 +240,20 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 
     particle_data_.resize(pl_count, 0);
     comp_particle_data_.resize(pl_count);
+
+    hp_decoded_treelets_.resize(pl_count);
+    d_decoded_treelets_.resize(pl_count);
+
+    hp_requested_treelets_.resize(pl_count);
+    d_requested_treelets_.resize(pl_count);
+
     //radius_data_.resize(pl_count, 0);
     color_data_.resize(pl_count, 0);
+
+    treelets_.resize(pl_count);
     treelets_data_.resize(pl_count, 0);
+    treelet_caches_.resize(pl_count, nullptr);
+
     local_boxes_.resize(pl_count);
     std::vector<CUdeviceptr> bounds_data(pl_count);
     std::vector<OptixBuildInput> build_inputs;
@@ -297,6 +314,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 &treelets_data_[pl_idx], treelets.size() * sizeof(device::PKDlet), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(treelets_data_[pl_idx], treelets.data(),
                 treelets.size() * sizeof(device::PKDlet), ctx.GetExecStream()));
+            treelets_[pl_idx] = treelets;
+            treelet_caches_[pl_idx] = std::make_shared<TreeletCache>(0, treelets);
 
             // TODO compress data if requested
             // for debugging without parallel
@@ -312,6 +331,17 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 //coord_file << "x,y,z,dx,dy,dz\n";
                 qparticles.resize(data.size());
                 comp_particle_data_[pl_idx].resize(treelets.size());
+
+                CUDA_CHECK_ERROR(cuMemHostAlloc(
+                    (void**) &hp_decoded_treelets_[pl_idx], sizeof(char) * treelets.size(), CU_MEMHOSTALLOC_DEVICEMAP));
+                ZeroMemory(hp_decoded_treelets_[pl_idx], sizeof(char) * treelets.size());
+                CUDA_CHECK_ERROR(cuMemHostGetDevicePointer(&d_decoded_treelets_[pl_idx], hp_decoded_treelets_[pl_idx], 0));
+
+                CUDA_CHECK_ERROR(cuMemHostAlloc((void**) &hp_requested_treelets_[pl_idx],
+                    sizeof(char) * treelets.size(), CU_MEMHOSTALLOC_DEVICEMAP));
+                std::fill(hp_requested_treelets_[pl_idx], hp_requested_treelets_[pl_idx] +  treelets.size(), -1);
+                CUDA_CHECK_ERROR(cuMemHostGetDevicePointer(&d_requested_treelets_[pl_idx], hp_requested_treelets_[pl_idx], 0));
+
                 for (size_t tID = 0; tID < treelets.size(); ++tID) {
                     auto const& treelet = treelets[tID];
                     std::vector<glm::uvec3> out_coord(treelet.end - treelet.begin);
@@ -626,6 +656,8 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
             glm::vec4(particles.GetGlobalColour()[0] / 255.f, particles.GetGlobalColour()[1] / 255.f,
                 particles.GetGlobalColour()[2] / 255.f, particles.GetGlobalColour()[3] / 255.f);
         comp_treelets_sbt_record.data.particleCount = p_count;
+        comp_treelets_sbt_record.data.decoderList = (char*) d_decoded_treelets_[pl_idx];
+        comp_treelets_sbt_record.data.treeletRequests = (char*) d_requested_treelets_[pl_idx];
         //comp_treelets_sbt_record.data.worldBounds = local_boxes_[pl_idx];
 
         /*if (!has_global_radius(particles)) {
@@ -652,14 +684,20 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
 }
 
 void PKDGeometry::process_treelet_requests(int pl_idx, std::vector<int> const& treelet_reqs) {
-    for (auto const tID : treelet_reqs) {
-        if (tID < 0)
+    for (int pl_idx = 0; pl_idx < treelets_.size(); ++pl_idx) {
+        if (treelets_[pl_idx].size() == 0)
             continue;
-        auto target = treelet_cache_->Alloc(tID);
-        if (target == 0) {
-            auto const decomp_config = coder_->configure_decompression((uint8_t*) comp_particle_data_[pl_idx][tID]);
-            coder_->decompress((uint8_t*) target, (uint8_t*) comp_particle_data_[pl_idx][tID], decomp_config);
+        for (int tID = 0; tID < treelets_[pl_idx].size(); ++tID) {
+            if (hp_requested_treelets_[pl_idx][tID] == 0)
+                continue;
+            auto const target = treelet_cache_->Alloc(tID);
+            hp_decoded_treelets_[pl_idx][tID] = 1;
+            if (target == 0) {
+                auto const decomp_config = coder_->configure_decompression((uint8_t*) comp_particle_data_[pl_idx][tID]);
+                coder_->decompress((uint8_t*) target, (uint8_t*) comp_particle_data_[pl_idx][tID], decomp_config);
+            }
         }
+        std::fill(hp_requested_treelets_[pl_idx], hp_requested_treelets_[pl_idx] + treelets_[pl_idx].size(), -1);
     }
 }
 

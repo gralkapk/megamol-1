@@ -3,8 +3,9 @@
 #include <cstddef>
 #include <queue>
 #include <tuple>
-#include <vector>
+#include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include "particle.h"
 
@@ -26,9 +27,9 @@ public:
     void Free(int treeletID);
 
 private:
-    std::priority_queue<std::tuple<int /*frame id*/, int /*treelet id*/>, std::vector<std::tuple<int, int>>,
-        decltype(tc_comp)>
-        lru;
+    //std::priority_queue<std::tuple<int /*frame id*/, int /*treelet id*/>, std::vector<std::tuple<int, int>>,
+    //    decltype(tc_comp)>
+    //    lru;
 
     CUdeviceptr vptr_ = 0;
 
@@ -43,5 +44,15 @@ private:
     std::vector<CUdeviceptr> treelet_ptrs_;
 
     std::unordered_set<int> committed_treelets_;
+
+    std::unordered_set<int> committed_chunks_;
+
+    std::unordered_map<int, std::vector<int>> treelets_to_chunks_;
+
+    std::unordered_map<int, std::vector<int>> chunks_to_treelets_;
+
+    std::unordered_map<int, std::pair<std::size_t, std::size_t>> chunk_descs_;
+
+    std::unordered_map<int, CUdeviceptr> chunk_ptrs_;
 };
 } // namespace megamol::optix_hpg

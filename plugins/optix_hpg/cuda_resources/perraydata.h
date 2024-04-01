@@ -52,8 +52,7 @@ struct PerRayData_Peel {
     glm::vec3 albedo;
     bool countDepth;
     float ray_depth;
-    int pl_idx;
-    int tID_req;
+    bool canceled;
 };
 } // namespace device
 } // namespace optix_hpg

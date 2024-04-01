@@ -69,6 +69,35 @@ inline __device__ bool intersectSphere(
     return false;
 }
 
+inline __device__ bool intersectSphere(
+    const glm::vec3& pos, const float particleRadius, const Ray& ray, float& hit_t) {
+    // Raytracing Gems Intersection Code (Chapter 7)
+    //const glm::vec3 pos = glm::vec3(particle.x, particle.y, particle.z);
+    const glm::vec3 oc = ray.origin - pos;
+    const float sqrRad = particleRadius * particleRadius;
+
+    // const float  a = dot(ray.direction, ray.direction);
+    const float b = glm::dot(-oc, ray.direction);
+    const glm::vec3 temp = oc + b * ray.direction;
+    const float delta = sqrRad - glm::dot(temp, temp);
+
+    if (delta < 0.0f)
+        return false;
+
+    const float c = glm::dot(oc, oc) - sqrRad;
+    const float q = b + copysignf(sqrtf(delta), b);
+
+    {
+        float temp = fminf(c / q, q);
+        if (temp < hit_t && temp > ray.tmin) {
+            hit_t = temp;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 struct StackEntry {
     float t0, t1;
     unsigned int nodeID;
@@ -453,7 +482,7 @@ MM_OPTIX_INTERSECTION_KERNEL(comp_treelets_intersect)
                 
 
                 const int particleID = nodeID + begin;
-                const PKDParticle& particle = decode_coord(self.particleBufferPtr[particleID], _center, _span);
+                const PKDParticle& particle = decode_coord(self.particleBufferPtr[particleID] /*, _center, _span*/);
                 int const dim = particle.dim;
 
                 const float t_slab_lo = (particle.pos[dim] - self.radius - org[dim]) * rdir[dim];
@@ -609,22 +638,21 @@ MM_OPTIX_CLOSESTHIT_KERNEL(comp_treelets_closesthit_occlusion)
 
 
 
-inline __device__ PKDParticle decode_spart(SPKDParticle const& part, SPKDlet const& treelet) {
-    QPKDParticle qp;
-    byte_cast bc;
-    bc.parts.a = part.x;
-    bc.parts.b = treelet.sx;
-    bc.parts.c = 0;
-    bc.parts.d = 0;
-    qp.x = bc.ui;
-    bc.parts.a = part.y;
-    bc.parts.b = treelet.sy;
-    qp.y = bc.ui;
-    bc.parts.a = part.z;
-    bc.parts.b = treelet.sz;
-    qp.z = bc.ui;
-    return decode_coord(qp, glm::vec3(), glm::vec3());
-}
+//inline __device__ glm::vec3 decode_spart(SPKDParticle const& part, SPKDlet const& treelet) {
+//    QPKDParticle qp;
+//    byte_cast bc;
+//    bc.ui = 0;
+//    bc.parts.a = part.x;
+//    bc.parts.b = treelet.sx;
+//    qp.x = bc.ui;
+//    bc.parts.a = part.y;
+//    bc.parts.b = treelet.sy;
+//    qp.y = bc.ui;
+//    bc.parts.a = part.z;
+//    bc.parts.b = treelet.sz;
+//    qp.z = bc.ui;
+//    return megamol::optix_hpg::decode_coord(qp /*, glm::vec3(), glm::vec3()*/);
+//}
 
 MM_OPTIX_INTERSECTION_KERNEL(s_comp_treelets_intersect)
 () {
@@ -640,12 +668,14 @@ MM_OPTIX_INTERSECTION_KERNEL(s_comp_treelets_intersect)
     float tmp_hit_t = ray.tmax;
     int tmp_hit_primID = -1;
     glm::vec3 tmp_hit_pos;
+    glm::vec3 pos;
     for (int particleID = begin; particleID < treelet.end; ++particleID) {
-        auto particle = decode_spart(self.particleBufferPtr[particleID], treelet);
-        particle.pos = particle.pos + treelet.lower;
-        if (intersectSphere(particle, self.radius, ray, tmp_hit_t)) {
+        /*auto particle = decode_spart(self.particleBufferPtr[particleID], treelet);
+        particle.pos = particle.pos + treelet.lower;*/
+        pos = decode_spart(self.particleBufferPtr[particleID], treelet) + treelet.lower;
+        if (intersectSphere(pos, self.radius, ray, tmp_hit_t)) {
             tmp_hit_primID = particleID;
-            tmp_hit_pos = particle.pos;
+            tmp_hit_pos = pos;
         }
     }
     if (tmp_hit_primID >= 0 && tmp_hit_t < ray.tmax)

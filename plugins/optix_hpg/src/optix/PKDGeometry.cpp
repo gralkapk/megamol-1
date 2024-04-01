@@ -330,6 +330,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 for (auto& el : tmp_s_treelets) {
                     el.lower = box.lower;
                 }
+                // make PKD
+                for (auto const& s_t : tmp_s_treelets) {
+                    makePKD(tmp_s_particles, s_t, c.first);
+                }
                 s_treelets.insert(s_treelets.end(), tmp_s_treelets.begin(), tmp_s_treelets.end());
                 s_particles.insert(s_particles.end(), tmp_s_particles.begin(), tmp_s_particles.end());
             }

@@ -72,6 +72,62 @@ void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t e
     recBuild(/*node:*/ 0, particles.data() + begin, end - begin, bounds);
 }
 
+
+
+void recBuild(size_t /* root node */ P, device::SPKDParticle* particle, size_t N, device::box3f const& bounds, device::SPKDlet const& treelet) {
+    if (P >= N)
+        return;
+
+    int dim = arg_max(bounds.upper - bounds.lower);
+
+    const size_t L = lChild(P);
+    const size_t R = rChild(P);
+    const bool lValid = (L < N);
+    const bool rValid = (R < N);
+    makeHeap(std::greater<float>(), L, particle, N, dim, treelet);
+    makeHeap(std::less<float>(), R, particle, N, dim, treelet);
+
+    auto const P_pos = decode_spart(particle[P], treelet);
+
+    if (rValid) {
+        while (decode_spart(particle[L], treelet)[dim] > decode_spart(particle[R], treelet)[dim]) {
+            std::swap(particle[L], particle[R]);
+            trickle(std::greater<float>(), L, particle, N, dim, treelet);
+            trickle(std::less<float>(), R, particle, N, dim, treelet);
+        }
+        if (decode_spart(particle[L], treelet)[dim] > P_pos[dim]) {
+            std::swap(particle[L], particle[P]);
+            particle[L].dim = dim;
+        } else if (decode_spart(particle[R], treelet)[dim] < P_pos[dim]) {
+            std::swap(particle[R], particle[P]);
+            particle[R].dim = dim;
+        } else
+            /* nothing, root fits */;
+    } else if (lValid) {
+        if (decode_spart(particle[L], treelet)[dim] > P_pos[dim]) {
+            std::swap(particle[L], particle[P]);
+            particle[L].dim = dim;
+        }
+    }
+
+    device::box3f lBounds = bounds;
+    device::box3f rBounds = bounds;
+    lBounds.upper[dim] = rBounds.lower[dim] = P_pos[dim];
+    particle[P].dim = dim;
+
+    tbb::parallel_for(0, 2, [&](int childID) {
+        if (childID) {
+            recBuild(L, particle, N, lBounds, treelet);
+        } else {
+            recBuild(R, particle, N, rBounds, treelet);
+        }
+    });
+}
+
+void makePKD(std::vector<device::SPKDParticle>& particles, device::SPKDlet const& treelet, size_t begin) {
+    recBuild(/*node:*/ 0, particles.data() + treelet.begin - begin, treelet.end - treelet.begin, treelet.bounds, treelet);
+}
+
 // END PKD
 
 
@@ -315,8 +371,8 @@ std::vector<glm::vec3> compute_diffs(std::vector<device::SPKDlet> const& treelet
             bc.parts.a = sparticles[i - begin].z;
             bc.parts.b = treelet.sz;
             qp.z = bc.ui;
-            glm::dvec3 pos = decode_coord(qp, glm::vec3(), glm::vec3()) + lower;
-            glm::dvec3 qpos = decode_coord(qparticles[i - begin].second, glm::vec3(), glm::vec3()) + lower;
+            glm::dvec3 pos = decode_coord(qp /*, glm::vec3(), glm::vec3()*/) + lower;
+            glm::dvec3 qpos = decode_coord(qparticles[i - begin].second /*, glm::vec3(), glm::vec3()*/) + lower;
             glm::dvec3 org_pos = org_data[qparticles[i - begin].first].pos;
             diffs[i - begin] = pos - org_pos;
         }
@@ -375,7 +431,7 @@ void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* o
     dig = glm::log2(dig);*/
 
     auto coord = encode_coord(in_particle[P].pos, center, span);
-    auto const pos = decode_coord(coord, center, span);
+    auto const pos = decode_coord(coord /*, center, span*/);
     /*if (out_decode) {
         auto d = glm::dvec3(in_particle[P].pos) - glm::dvec3(pos);
         out_decode[P].pos = d;

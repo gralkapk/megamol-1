@@ -43,7 +43,8 @@ inline device::QPKDParticle encode_coord(glm::vec3 const& pos, glm::vec3 const& 
     return p;
 }
 
-inline CU_CALLABLE glm::vec3 decode_coord(device::QPKDParticle const& coord, glm::vec3 const& center, glm::vec3 const& span) {
+inline CU_CALLABLE glm::vec3 decode_coord(
+    device::QPKDParticle const& coord /*, glm::vec3 const& center, glm::vec3 const& span*/) {
     #if 0
     constexpr unsigned int digits = 32767u;
     auto diff = span / static_cast<float>(digits);
@@ -63,11 +64,11 @@ inline CU_CALLABLE glm::vec3 decode_coord(device::QPKDParticle const& coord, glm
     #endif
 
     decvec3 org = decvec3(coord.x, coord.y, coord.z);
-    decvec3 dec_center = center;
-    auto const pos = org;
-    //+dec_center;
-    glm::vec3 res = pos;
-    return res;
+    //decvec3 dec_center = center;
+    //auto const pos = org;
+    ////+dec_center;
+    //glm::vec3 res = pos;
+    return org;
 }
 
 inline void encode_dim(int dim, device::QPKDParticle& coord) {
@@ -106,7 +107,7 @@ inline CU_CALLABLE int decode_dim(device::QPKDParticle const& coord) {
 namespace device {
 
 inline __device__ PKDParticle const& decode_coord(
-    QPKDParticle const& coord, glm::vec3 const& center, glm::vec3 const& span) {
+    QPKDParticle const& coord /*, glm::vec3 const& center, glm::vec3 const& span*/) {
     //constexpr unsigned int digits = 1023u;
     //auto const diff = span / static_cast<float>(digits);
     ///*auto pos = glm::vec3(static_cast<float>(coord.x) * span.x, static_cast<float>(coord.y) * span.y,
@@ -116,10 +117,28 @@ inline __device__ PKDParticle const& decode_coord(
     //    fmaf(static_cast<float>(coord.y), diff.y, center.y), fmaf(static_cast<float>(coord.z), diff.z, center.z));
     PKDParticle p;
     p.dim = megamol::optix_hpg::decode_dim(coord);
-    p.pos = megamol::optix_hpg::decode_coord(coord, center, span);
+    p.pos = megamol::optix_hpg::decode_coord(coord /*, center, span*/);
     return p;
 }
 } // namespace device
 #endif
+
+
+inline CU_CALLABLE glm::vec3 decode_spart(device::SPKDParticle const& part, device::SPKDlet const& treelet) {
+    device::QPKDParticle qp;
+    byte_cast bc;
+    bc.ui = 0;
+    bc.parts.a = part.x;
+    bc.parts.b = treelet.sx;
+    qp.x = bc.ui;
+    bc.parts.a = part.y;
+    bc.parts.b = treelet.sy;
+    qp.y = bc.ui;
+    bc.parts.a = part.z;
+    bc.parts.b = treelet.sz;
+    qp.z = bc.ui;
+    return megamol::optix_hpg::decode_coord(qp /*, glm::vec3(), glm::vec3()*/);
+}
+
 } // namespace optix_hpg
 } // namespace megamol

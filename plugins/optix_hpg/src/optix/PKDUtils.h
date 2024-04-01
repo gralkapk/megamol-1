@@ -11,6 +11,8 @@ void makePKD(std::vector<device::PKDParticle>& particles, device::box3f bounds);
 
 void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds);
 
+void makePKD(std::vector<device::SPKDParticle>& particles, device::SPKDlet const& treelet, size_t begin);
+
 std::vector<device::PKDlet> prePartition_inPlace(
     std::vector<device::PKDParticle>& particles, size_t maxSize, float radius);
 // END PKD
@@ -158,5 +160,42 @@ inline void makeHeap(const Comp& comp, size_t P, device::PKDParticle* particle, 
     makeHeap(comp, L, particle, N, dim);
     makeHeap(comp, R, particle, N, dim);
     trickle(comp, P, particle, N, dim);
+}
+
+
+template<class Comp>
+inline void trickle(const Comp& worse, size_t P, device::SPKDParticle* particle, size_t N, int dim, device::SPKDlet const& treelet) {
+    if (P >= N)
+        return;
+
+    while (1) {
+        const size_t L = lChild(P);
+        const size_t R = rChild(P);
+        const bool lValid = (L < N);
+        const bool rValid = (R < N);
+
+        if (!lValid)
+            return;
+        size_t C = L;
+        if (rValid && worse(decode_spart(particle[R], treelet)[dim], decode_spart(particle[L], treelet)[dim]))
+            C = R;
+
+        if (!worse(decode_spart(particle[C], treelet)[dim], decode_spart(particle[P], treelet)[dim]))
+            return;
+
+        std::swap(particle[C], particle[P]);
+        P = C;
+    }
+}
+
+template<class Comp>
+inline void makeHeap(const Comp& comp, size_t P, device::SPKDParticle* particle, size_t N, int dim, device::SPKDlet const& treelet) {
+    if (P >= N)
+        return;
+    const size_t L = lChild(P);
+    const size_t R = rChild(P);
+    makeHeap(comp, L, particle, N, dim, treelet);
+    makeHeap(comp, R, particle, N, dim, treelet);
+    trickle(comp, P, particle, N, dim, treelet);
 }
 } // namespace megamol::optix_hpg

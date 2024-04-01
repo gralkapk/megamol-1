@@ -34,7 +34,8 @@ inline device::QPKDParticle encode_coord(glm::vec3 const& pos, glm::vec3 const& 
     #endif
     decvec3 dec_pos = pos;
     decvec3 dec_center = center;
-    auto const diff = dec_pos - dec_center;
+    auto const diff = dec_pos;
+    //-dec_center;
     device::QPKDParticle p;
     p.x = diff.x;
     p.y = diff.y;
@@ -63,7 +64,8 @@ inline CU_CALLABLE glm::vec3 decode_coord(device::QPKDParticle const& coord, glm
 
     decvec3 org = decvec3(coord.x, coord.y, coord.z);
     decvec3 dec_center = center;
-    auto const pos = org + dec_center;
+    auto const pos = org;
+    //+dec_center;
     glm::vec3 res = pos;
     return res;
 }

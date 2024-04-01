@@ -607,6 +607,80 @@ MM_OPTIX_CLOSESTHIT_KERNEL(comp_treelets_closesthit_occlusion)
     optixSetPayload_0(1);
 }
 
+
+
+inline __device__ PKDParticle decode_spart(SPKDParticle const& part, SPKDlet const& treelet) {
+    QPKDParticle qp;
+    byte_cast bc;
+    bc.parts.a = part.x;
+    bc.parts.b = treelet.sx;
+    bc.parts.c = 0;
+    bc.parts.d = 0;
+    qp.x = bc.ui;
+    bc.parts.a = part.y;
+    bc.parts.b = treelet.sy;
+    qp.y = bc.ui;
+    bc.parts.a = part.z;
+    bc.parts.b = treelet.sz;
+    qp.z = bc.ui;
+    return decode_coord(qp, glm::vec3(), glm::vec3());
+}
+
+MM_OPTIX_INTERSECTION_KERNEL(s_comp_treelets_intersect)
+() {
+    const int treeletID = optixGetPrimitiveIndex();
+    const auto& self = getProgramData<STreeletsGeoData>();
+    const auto treelet = self.treeletBufferPtr[treeletID];
+
+    auto const ray = Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), optixGetRayTmin(), optixGetRayTmax());
+
+    const int begin = treelet.begin;
+    const int size = treelet.end - begin;
+
+    float tmp_hit_t = ray.tmax;
+    int tmp_hit_primID = -1;
+    glm::vec3 tmp_hit_pos;
+    for (int particleID = begin; particleID < treelet.end; ++particleID) {
+        auto particle = decode_spart(self.particleBufferPtr[particleID], treelet);
+        particle.pos = particle.pos + treelet.lower;
+        if (intersectSphere(particle, self.radius, ray, tmp_hit_t)) {
+            tmp_hit_primID = particleID;
+            tmp_hit_pos = particle.pos;
+        }
+    }
+    if (tmp_hit_primID >= 0 && tmp_hit_t < ray.tmax)
+        optixReportIntersection(tmp_hit_t, 0, tmp_hit_primID, __float_as_uint(tmp_hit_pos.x),
+            __float_as_uint(tmp_hit_pos.y), __float_as_uint(tmp_hit_pos.z));
+}
+
+MM_OPTIX_CLOSESTHIT_KERNEL(s_comp_treelets_closesthit)
+() {
+    const unsigned int primID = optixGetAttribute_0();
+    PerRayData& prd = getPerRayData<PerRayData>();
+
+    const auto& self = getProgramData<STreeletsGeoData>();
+
+    prd.particleID = primID;
+    //const PKDParticle& particle = self.particleBufferPtr[primID];
+    //prd.pos = particle.pos;
+    prd.pos.x = __uint_as_float(optixGetAttribute_1());
+    prd.pos.y = __uint_as_float(optixGetAttribute_2());
+    prd.pos.z = __uint_as_float(optixGetAttribute_3());
+    glm::vec3 geo_col = glm::vec3(self.globalColor);
+    if (self.hasColorData) {
+        geo_col = glm::vec3(self.colorBufferPtr[primID]);
+    }
+    prd.albedo = geo_col;
+    prd.t = optixGetRayTmax();
+    set_depth(prd, optixGetRayTmax());
+}
+
+
+MM_OPTIX_CLOSESTHIT_KERNEL(s_comp_treelets_closesthit_occlusion)
+() {
+    optixSetPayload_0(1);
+}
+
 } // namespace device
 } // namespace optix_hpg
 } // namespace megamol

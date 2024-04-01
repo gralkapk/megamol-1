@@ -112,6 +112,7 @@ private:
     core::param::ParamSlot mode_slot_;
 
     core::param::ParamSlot compression_slot_;
+    core::param::ParamSlot grid_slot_;
 
     core::param::ParamSlot threshold_slot_;
 
@@ -120,6 +121,8 @@ private:
     std::vector<SBTRecord<device::TreeletsGeoData>> treelets_sbt_records_;
 
     std::vector<SBTRecord<device::QTreeletsGeoData>> comp_treelets_sbt_records_;
+
+    std::vector<SBTRecord<device::STreeletsGeoData>> s_comp_treelets_sbt_records_;
 
     std::array<OptixProgramGroup, 2> program_groups_;
 
@@ -148,6 +151,10 @@ private:
     MMOptixModule comp_treelets_module_;
 
     MMOptixModule comp_treelets_occlusion_module_;
+
+    MMOptixModule s_comp_treelets_module_;
+
+    MMOptixModule s_comp_treelets_occlusion_module_;
 
     uint64_t sbt_version = 0;
 

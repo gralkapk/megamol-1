@@ -39,6 +39,15 @@ struct QTreeletsGeoData {
     glm::vec4 globalColor;
     unsigned int particleCount;
 };
+struct STreeletsGeoData {
+    SPKDParticle* particleBufferPtr;
+    glm::vec4* colorBufferPtr;
+    SPKDlet* treeletBufferPtr;
+    float radius;
+    bool hasColorData;
+    glm::vec4 globalColor;
+    unsigned int particleCount;
+};
 } // namespace device
 } // namespace optix_hpg
 } // namespace megamol

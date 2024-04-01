@@ -91,6 +91,21 @@ void partitionRecursively(
 // END TREELETS
 
 // BEGIN COMPRESS
+
+std::vector<std::pair<size_t, size_t>> gridify(
+    std::vector<device::PKDParticle>& data, glm::vec3 const& lower, glm::vec3 const& upper);
+device::box3f extendBounds(std::vector<device::PKDParticle> const& particles, size_t begin, size_t end, float radius);
+std::tuple<std::vector<device::PKDlet>, std::vector<std::pair<unsigned int, device::QPKDParticle>>> makeSpartition(
+    std::vector<device::QPKDParticle> const& data, size_t begin, size_t end, float radius);
+std::tuple<std::vector<device::SPKDlet>, std::vector<device::SPKDParticle>> slice_qparticles(
+    std::vector<device::PKDlet> const& treelets,
+    std::vector<std::pair<unsigned int, device::QPKDParticle>> const& particles,
+    std::vector<device::PKDParticle> const& org_data, size_t begin, size_t end, float radius);
+std::vector<glm::vec3> compute_diffs(std::vector<device::SPKDlet> const& treelets,
+    std::vector<device::SPKDParticle> const& sparticles,
+    std::vector<std::pair<unsigned int, device::QPKDParticle>> const& qparticles,
+    std::vector<device::PKDParticle> const& org_data, size_t begin, size_t end, glm::vec3 const& lower);
+
 void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* out_particle, size_t N,
     device::box3f bounds,
     float radius, device::PKDParticle* out_decode = nullptr, glm::uvec3* out_coord = nullptr);

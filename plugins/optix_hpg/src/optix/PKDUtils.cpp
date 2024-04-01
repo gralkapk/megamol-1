@@ -172,6 +172,196 @@ std::vector<device::PKDlet> prePartition_inPlace(
 //    return pos;
 //}
 
+std::tuple<std::vector<device::PKDlet>, std::vector<std::pair<unsigned int, device::QPKDParticle>>> makeSpartition(
+    std::vector<device::QPKDParticle> const& data, size_t begin, size_t end, float radius) {
+    std::vector<std::pair<unsigned int, device::QPKDParticle>> particles(end - begin);
+    for (size_t i = begin; i < end; ++i) {
+        particles[i - begin] = std::make_pair(i, data[i]);
+    }
+    std::vector<device::PKDlet> treelets;
+    treelets.reserve(particles.size() / 256);
+    // divide in x axis
+    std::sort(particles.begin(), particles.end(),
+        [](auto const& lhs, auto const& rhs) { return lhs.second.x < rhs.second.x; });
+    auto sec_it = particles.begin();
+    while (sec_it != particles.end()) {
+        byte_cast fbc;
+        fbc.ui = sec_it->second.x;
+        auto sec_begin = sec_it;
+        auto sec_end = std::find_if_not(sec_begin, particles.end(), [&fbc](auto const& el) {
+            byte_cast bc;
+            bc.ui = el.second.x;
+            return fbc.parts.b == bc.parts.b;
+        });
+        // we got the range of equal prefix
+        device::PKDlet treelet;
+        treelet.begin = std::distance(particles.begin(), sec_begin);
+        treelet.end = std::distance(particles.begin(), sec_end);
+        treelets.push_back(treelet);
+        sec_it = sec_end;
+    }
+    // divide in y axis
+    std::vector<device::PKDlet> tmp_treelets;
+    tmp_treelets.reserve(particles.size() / 256);
+    for (auto const& el : treelets) {
+        std::sort(particles.begin() + el.begin, particles.begin() + el.end,
+            [](auto const& lhs, auto const& rhs) { return lhs.second.y < rhs.second.y; });
+        auto sec_it = particles.begin() + el.begin;
+        while (sec_it != (particles.begin() + el.end)) {
+            byte_cast fbc;
+            fbc.ui = sec_it->second.y;
+            auto sec_begin = sec_it;
+            auto sec_end = std::find_if_not(sec_begin, particles.begin() + el.end, [&fbc](auto const& e) {
+                byte_cast bc;
+                bc.ui = e.second.y;
+                return fbc.parts.b == bc.parts.b;
+            });
+            device::PKDlet treelet;
+            treelet.begin = std::distance(particles.begin(), sec_begin);
+            treelet.end = std::distance(particles.begin(), sec_end);
+            tmp_treelets.push_back(treelet);
+            sec_it = sec_end;
+        }
+    }
+    treelets = tmp_treelets;
+    tmp_treelets.clear();
+    tmp_treelets.reserve(particles.size() / 256);
+    // divide in z axis
+    for (auto const& el : treelets) {
+        std::sort(particles.begin() + el.begin, particles.begin() + el.end,
+            [](auto const& lhs, auto const& rhs) { return lhs.second.z < rhs.second.z; });
+        auto sec_it = particles.begin() + el.begin;
+        while (sec_it != (particles.begin() + el.end)) {
+            byte_cast fbc;
+            fbc.ui = sec_it->second.z;
+            auto sec_begin = sec_it;
+            auto sec_end = std::find_if_not(sec_begin, particles.begin() + el.end, [&fbc](auto const& e) {
+                byte_cast bc;
+                bc.ui = e.second.z;
+                return fbc.parts.b == bc.parts.b;
+            });
+            device::PKDlet treelet;
+            treelet.begin = std::distance(particles.begin(), sec_begin);
+            treelet.end = std::distance(particles.begin(), sec_end);
+            tmp_treelets.push_back(treelet);
+            sec_it = sec_end;
+        }
+    }
+    treelets = tmp_treelets;
+    for (auto& el : treelets) {
+        el.begin += begin;
+        el.end += begin;
+    }
+    return std::make_tuple(treelets, particles);
+}
+
+std::tuple<std::vector<device::SPKDlet>, std::vector<device::SPKDParticle>> slice_qparticles(
+    std::vector<device::PKDlet> const& treelets,
+    std::vector<std::pair<unsigned int, device::QPKDParticle>> const& particles,
+    std::vector<device::PKDParticle> const& org_data, size_t begin, size_t end, float radius) {
+    std::vector<device::SPKDlet> streelets;
+    streelets.reserve(treelets.size());
+    std::vector<device::SPKDParticle> sparticles(particles.size());
+    for (auto const& treelet : treelets) {
+        std::vector<device::PKDParticle> tmp_data(treelet.end - treelet.begin);
+        for (size_t i = treelet.begin; i < treelet.end; ++i) {
+            //tmp_data[i - treelet.begin].pos = decode_coord(particles[i], glm::vec3(), glm::vec3());
+            tmp_data[i - treelet.begin].pos = org_data[particles[i - begin].first].pos;
+            byte_cast bcx;
+            bcx.ui = particles[i - begin].second.x;
+            sparticles[i - begin].x = bcx.parts.a;
+            byte_cast bcy;
+            bcy.ui = particles[i - begin].second.y;
+            sparticles[i - begin].y = bcy.parts.a;
+            byte_cast bcz;
+            bcz.ui = particles[i - begin].second.z;
+            sparticles[i - begin].z = bcz.parts.a;
+        }
+        auto const bounds = extendBounds(tmp_data, 0, tmp_data.size(), radius);
+        device::SPKDlet st;
+        st.begin = treelet.begin;
+        st.end = treelet.end;
+        st.bounds = bounds;
+        byte_cast bcx;
+        bcx.ui = particles[treelet.begin - begin].second.x;
+        st.sx = bcx.parts.b;
+        byte_cast bcy;
+        bcy.ui = particles[treelet.begin - begin].second.y;
+        st.sy = bcy.parts.b;
+        byte_cast bcz;
+        bcz.ui = particles[treelet.begin - begin].second.z;
+        st.sz = bcz.parts.b;
+        streelets.push_back(st);
+    }
+    return std::make_tuple(streelets, sparticles);
+}
+
+std::vector<glm::vec3> compute_diffs(std::vector<device::SPKDlet> const& treelets,
+    std::vector<device::SPKDParticle> const& sparticles,
+    std::vector<std::pair<unsigned int, device::QPKDParticle>> const& qparticles,
+    std::vector<device::PKDParticle> const& org_data, size_t begin, size_t end, glm::vec3 const& lower) {
+    std::vector<glm::vec3> diffs(sparticles.size());
+    for (auto const& treelet : treelets) {
+        for (size_t i = treelet.begin; i < treelet.end; ++i) {
+            device::QPKDParticle qp;
+            byte_cast bc;
+            bc.ui = 0;
+            bc.parts.a = sparticles[i - begin].x;
+            bc.parts.b = treelet.sx;
+            qp.x = bc.ui;
+            bc.parts.a = sparticles[i - begin].y;
+            bc.parts.b = treelet.sy;
+            qp.y = bc.ui;
+            bc.parts.a = sparticles[i - begin].z;
+            bc.parts.b = treelet.sz;
+            qp.z = bc.ui;
+            glm::dvec3 pos = decode_coord(qp, glm::vec3(), glm::vec3()) + lower;
+            glm::dvec3 qpos = decode_coord(qparticles[i - begin].second, glm::vec3(), glm::vec3()) + lower;
+            glm::dvec3 org_pos = org_data[qparticles[i - begin].first].pos;
+            diffs[i - begin] = pos - org_pos;
+        }
+    }
+    return diffs;
+}
+
+
+std::vector<std::pair<size_t, size_t>> gridify(
+    std::vector<device::PKDParticle>& data, glm::vec3 const& lower, glm::vec3 const& upper) {
+    auto const span = upper - lower;
+    auto const num_cells = glm::ceil(span / 255.0f);
+    auto const diff = span / num_cells;
+    std::vector<int> cell_idxs(data.size());
+    std::vector<size_t> num_elements(num_cells.x * num_cells.y * num_cells.z, 0);
+    for (size_t i = 0; i < data.size(); ++i) {
+        glm::ivec3 cell_idx = data[i].pos / diff;
+        cell_idx.x = cell_idx.x >= num_cells.x ? num_cells.x - 1 : cell_idx.x;
+        cell_idx.y = cell_idx.y >= num_cells.y ? num_cells.y - 1 : cell_idx.y;
+        cell_idx.z = cell_idx.z >= num_cells.z ? num_cells.z - 1 : cell_idx.z;
+        cell_idxs[i] = cell_idx.x + num_cells.x * (cell_idx.y + num_cells.y * cell_idx.z);
+        ++num_elements[cell_idxs[i]];
+    }
+    std::vector<std::pair<size_t, size_t>> grid_cells(num_elements.size(), std::make_pair(0, 0));
+    grid_cells[0].second = num_elements[0];
+    for (size_t i = 1; i < num_elements.size(); ++i) {
+        num_elements[i] += num_elements[i - 1];
+        grid_cells[i].first = num_elements[i - 1];
+        grid_cells[i].second = num_elements[i];
+    }
+    std::vector<device::PKDParticle> tmp(data.size());
+    for (size_t i = 0; i < data.size(); ++i) {
+        auto const idx = cell_idxs[i];
+        tmp[--num_elements[idx]] = data[i];
+    }
+    data = tmp;
+    /*auto max_x = (*std::max_element(
+        cell_idx.begin(), cell_idx.end(), [](auto const& lhs, auto const& rhs) { return lhs.x < rhs.x; })).x;
+    auto max_y = (*std::max_element(
+        cell_idx.begin(), cell_idx.end(), [](auto const& lhs, auto const& rhs) { return lhs.y < rhs.y; })).y;
+    auto max_z = (*std::max_element(
+        cell_idx.begin(), cell_idx.end(), [](auto const& lhs, auto const& rhs) { return lhs.z < rhs.z; })).z;*/
+    return grid_cells;
+}
+
 void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* out_particle, size_t N,
     device::box3f bounds, float radius, device::PKDParticle* out_decode, glm::uvec3* out_coord) {
     if (P >= N)

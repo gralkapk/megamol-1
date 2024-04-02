@@ -9,7 +9,6 @@ megamol_plugin(optix_hpg
     cuda
   DEPENDS_PLUGINS
     mmstd
-    mmstd_gl
     mesh
     geometry_calls)
 
@@ -67,5 +66,8 @@ if (optix_hpg_PLUGIN_ENABLED)
       message(INFO " ${NVCOMP_DLLS}")
       install(FILES ${NVCOMP_DLLS} DESTINATION bin)
     endif ()
+  endif ()
+  if (MEGAMOL_USE_OPENGL)
+    target_link_libraries(optix_hpg PRIVATE mmstd_gl)
   endif ()
 endif ()

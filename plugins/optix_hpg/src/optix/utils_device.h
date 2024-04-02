@@ -216,10 +216,14 @@ inline __device__ float CosineHemispherePdf(float cosTheta) {
 
 
 inline __device__ void set_depth(PerRayData& prd, float depth) {
+#if 1
     if (prd.countDepth) {
         prd.ray_depth = depth;
         prd.countDepth = false;
     }
+#else
+    prd.ray_depth = depth;
+#endif
 }
 
 // OptiX SDK
@@ -306,7 +310,7 @@ inline __device__ void lighting(PerRayData& prd, glm::vec3 const& geo_col, glm::
             OPTIX_RAY_FLAG_TERMINATE_ON_FIRST_HIT, 1, 2, 1, occluded);
 
         if (!occluded) {
-            weight = nDl /* LnDl*/ / (MMO_PI * Ldist * Ldist);
+            weight = nDl /* LnDl*/; // / (MMO_PI * Ldist * Ldist);
         }
     }
 

@@ -3,8 +3,9 @@ vcpkg_check_linkage(ONLY_DYNAMIC_LIBRARY)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO UniStuttgart-VISUS/power-overwhelming
-    REF "v${VERSION}"
-    SHA512 a9c0baadfddfe69958313e51e13dd72b594e84e3f76e0d841e9a198831b3b4f88757625d35303fd13f2585c0aad13120a25999a04ebcea3364a58982912641c7
+    #REF "v${VERSION}"
+    REF "async"
+    SHA512 bff72ef474c95bd8d659175dff375aad968b6da0b23a76def976eb2b3d686d0ce220be14cbf2046075b0e3db114ca9edf060025d80210e91657234b39c686019
     HEAD_REF master
 )
 
@@ -14,6 +15,7 @@ vcpkg_cmake_configure(
       -DFETCHCONTENT_FULLY_DISCONNECTED=OFF
       -DPWROWG_BuildDumpSensors=OFF
       -DPWROWG_BuildTests=OFF
+      -DPWROWG_CustomTinkerforgeFirmwareMajor=99
 )
 
 vcpkg_cmake_install()

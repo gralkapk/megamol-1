@@ -687,6 +687,7 @@ MM_OPTIX_INTERSECTION_KERNEL(s_comp_treelets_intersect)
         float t0, t1;
         if (!clipToBounds(ray, treelet.bounds, t0, t1))
             return;
+
         int nodeID = 0;
         enum { STACK_DEPTH = 12 };
         QStackEntry stackBase[STACK_DEPTH];

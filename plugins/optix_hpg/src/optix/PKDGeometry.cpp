@@ -318,7 +318,30 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             qparticles.resize(data.size());
             //convert(0, data.data(), qparticles.data(), data.size(), lower, global_rad);
             // separate into 256 grids
-            auto cells = gridify(data, lower, upper);
+            //std::mutex data_add_mtx;
+            auto const cells = gridify(data, lower, upper);
+            //tbb::parallel_for((size_t) 0, cells.size(), [&](size_t cell_idx) {
+            //    auto const& c = cells[cell_idx];
+            //    auto const box = extendBounds(data, c.first, c.second, particles.GetGlobalRadius());
+            //    std::transform(data.begin() + c.first, data.begin() + c.second, qparticles.begin() + c.first,
+            //        [&box](auto const& p) { return encode_coord(p.pos - box.lower, glm::vec3(), glm::vec3()); });
+            //    auto [ps_treelets, ps_particles] =
+            //        makeSpartition(qparticles, c.first, c.second, particles.GetGlobalRadius());
+            //    auto [tmp_s_treelets, tmp_s_particles] =
+            //        slice_qparticles(ps_treelets, ps_particles, data, c.first, c.second, particles.GetGlobalRadius());
+            //    for (auto& el : tmp_s_treelets) {
+            //        el.lower = box.lower;
+            //    }
+            //    // make PKD
+            //    for (auto const& s_t : tmp_s_treelets) {
+            //        makePKD(tmp_s_particles, s_t, c.first);
+            //    }
+            //    {
+            //        std::lock_guard<std::mutex> data_add_guard(data_add_mtx);
+            //        s_treelets.insert(s_treelets.end(), tmp_s_treelets.begin(), tmp_s_treelets.end());
+            //        s_particles.insert(s_particles.end(), tmp_s_particles.begin(), tmp_s_particles.end());
+            //    }
+            //});
             for (auto const& c : cells) {
                 auto const box = extendBounds(data, c.first, c.second, particles.GetGlobalRadius());
                 std::transform(data.begin() + c.first, data.begin() + c.second, qparticles.begin() + c.first,
@@ -331,9 +354,11 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                     el.lower = box.lower;
                 }
                 // make PKD
-                for (auto const& s_t : tmp_s_treelets) {
+                tbb::parallel_for((size_t) 0, tmp_s_treelets.size(),
+                    [&](size_t treeletID) { makePKD(tmp_s_particles, tmp_s_treelets[treeletID], c.first); });
+                /*for (auto const& s_t : tmp_s_treelets) {
                     makePKD(tmp_s_particles, s_t, c.first);
-                }
+                }*/
                 s_treelets.insert(s_treelets.end(), tmp_s_treelets.begin(), tmp_s_treelets.end());
                 s_particles.insert(s_particles.end(), tmp_s_particles.begin(), tmp_s_particles.end());
             }

@@ -366,6 +366,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 &treelets_data_[pl_idx], s_treelets.size() * sizeof(device::SPKDlet), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(treelets_data_[pl_idx], s_treelets.data(),
                 s_treelets.size() * sizeof(device::SPKDlet), ctx.GetExecStream()));
+            megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Num treelets: %d", s_treelets.size());
         }
 
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&
@@ -386,6 +387,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 &treelets_data_[pl_idx], treelets.size() * sizeof(device::PKDlet), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(treelets_data_[pl_idx], treelets.data(),
                 treelets.size() * sizeof(device::PKDlet), ctx.GetExecStream()));
+            megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Num treelets: %d", treelets.size());
 
             // TODO compress data if requested
             // for debugging without parallel
@@ -607,6 +609,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     OPTIX_CHECK_ERROR(optixAccelBuild(ctx.GetOptiXContext(), ctx.GetExecStream(), &accelOptions, build_inputs.data(),
         build_inputs.size(), geo_temp, bufferSizes.tempSizeInBytes, geo_buffer_, bufferSizes.outputSizeInBytes,
         &geo_handle_, &build_prop, 1));
+    CUDA_CHECK_ERROR(cuMemFreeAsync(geo_temp, ctx.GetExecStream()));
 
     std::size_t compSize;
     CUDA_CHECK_ERROR(cuMemcpyDtoHAsync(&compSize, d_compSize, sizeof(std::size_t), ctx.GetExecStream()));
@@ -627,7 +630,6 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     }
     ++geo_version;
 
-    CUDA_CHECK_ERROR(cuMemFreeAsync(geo_temp, ctx.GetExecStream()));
     for (auto const& el : bounds_data) {
         CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
     }

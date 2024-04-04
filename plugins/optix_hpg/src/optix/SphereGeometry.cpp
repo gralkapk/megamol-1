@@ -309,6 +309,7 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
     OPTIX_CHECK_ERROR(optixAccelBuild(ctx.GetOptiXContext(), ctx.GetExecStream(), &accelOptions, build_inputs.data(),
         build_inputs.size(), geo_temp, bufferSizes.tempSizeInBytes, _geo_buffer, bufferSizes.outputSizeInBytes,
         &_geo_handle, &build_prop, 1));
+    CUDA_CHECK_ERROR(cuMemFreeAsync(geo_temp, ctx.GetExecStream()));
 
     std::size_t compSize;
     CUDA_CHECK_ERROR(cuMemcpyDtoHAsync(&compSize, d_compSize, sizeof(std::size_t), ctx.GetExecStream()));
@@ -330,10 +331,11 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
 
     ++geo_version;
 
-    CUDA_CHECK_ERROR(cuMemFreeAsync(geo_temp, ctx.GetExecStream()));
     // CUDA_CHECK_ERROR(cuMemFree(bounds_data));
-    for (auto const& el : bounds_data) {
-        CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
+    if (!built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
+        for (auto const& el : bounds_data) {
+            CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
+        }
     }
 
     //////////////////////////////////////
@@ -415,18 +417,19 @@ bool megamol::optix_hpg::SphereGeometry::get_data_cb(core::Call& c) {
     if (!(*in_data)(0))
         return false;
 
-    if (in_data->FrameID() != _frame_id || in_data->DataHash() != _data_hash) {
+    if (in_data->FrameID() != _frame_id || in_data->DataHash() != _data_hash || built_in_intersector_slot_.IsDirty()) {
         if (!assertData(*in_data, *ctx))
             return false;
+        createSBTRecords(*in_data, *ctx);
+        if (built_in_intersector_slot_.IsDirty()) {
+            ++program_version;
+            built_in_intersector_slot_.ResetDirty();
+        }
         _frame_id = in_data->FrameID();
         _data_hash = in_data->DataHash();
         
     }
-    if (built_in_intersector_slot_.IsDirty()) {
-        createSBTRecords(*in_data, *ctx);
-        ++program_version;
-        built_in_intersector_slot_.ResetDirty();
-    }
+    
     if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
         program_groups_[0] = sphere_module_bi_;
         program_groups_[1] = sphere_occlusion_module_bi_;

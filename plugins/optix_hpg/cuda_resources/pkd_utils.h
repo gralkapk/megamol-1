@@ -125,19 +125,37 @@ inline __device__ PKDParticle const& decode_coord(
 
 
 inline CU_CALLABLE glm::vec3 decode_spart(device::SPKDParticle const& part, device::SPKDlet const& treelet) {
-    device::QPKDParticle qp;
+    constexpr const float factor = 1.0f / static_cast<float>(1 << dec_val);
+    glm::vec3 pos;
+    //device::QPKDParticle qp;
     byte_cast bc;
     bc.ui = 0;
     bc.parts.a = part.x;
-    bc.parts.b = treelet.sx;
-    qp.x = bc.ui;
+    bc.parts.b = treelet.sx[part.sx_idx];
+#ifdef __CUDACC__
+    pos.x = fmaf(static_cast<float>(bc.ui), factor, treelet.lower.x);
+#else
+    pos.x = static_cast<float>(bc.ui) * factor;
+#endif
+    //qp.x = bc.ui;
     bc.parts.a = part.y;
-    bc.parts.b = treelet.sy;
-    qp.y = bc.ui;
+    bc.parts.b = treelet.sy[part.sy_idx];
+#ifdef __CUDACC__
+    pos.y = fmaf(static_cast<float>(bc.ui), factor, treelet.lower.y);
+#else
+    pos.y = static_cast<float>(bc.ui) * factor;
+#endif
+    //qp.y = bc.ui;
     bc.parts.a = part.z;
-    bc.parts.b = treelet.sz;
-    qp.z = bc.ui;
-    return megamol::optix_hpg::decode_coord(qp /*, glm::vec3(), glm::vec3()*/);
+    bc.parts.b = treelet.sz[part.sz_idx];
+#ifdef __CUDACC__
+    pos.z = fmaf(static_cast<float>(bc.ui), factor, treelet.lower.z);
+#else
+    pos.z = static_cast<float>(bc.ui) * factor;
+#endif
+    //qp.z = bc.ui;
+    //return megamol::optix_hpg::decode_coord(qp /*, glm::vec3(), glm::vec3()*/);
+    return pos;
 }
 
 } // namespace optix_hpg

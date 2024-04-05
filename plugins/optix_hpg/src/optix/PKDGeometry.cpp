@@ -21,6 +21,7 @@
 #include "nvcomp.hpp"
 #include "nvcomp/nvcompManagerFactory.hpp"
 
+#include "SPKDGridify.h"
 
 namespace megamol::optix_hpg {
 extern "C" const char embedded_pkd_programs[];
@@ -316,10 +317,63 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             compression_slot_.Param<core::param::BoolParam>()->Value() &&
             grid_slot_.Param<core::param::BoolParam>()->Value()) {
             qparticles.resize(data.size());
+            s_particles.resize(data.size());
+
+            /*= partition_data(
+                data, threshold_slot_.Param<core::param::IntParam>()->Value(), particles.GetGlobalRadius());*/
+
             //convert(0, data.data(), qparticles.data(), data.size(), lower, global_rad);
             // separate into 256 grids
             //std::mutex data_add_mtx;
             auto const cells = gridify(data, lower, upper);
+            for (auto const& c : cells) {
+                auto const box = extendBounds(data, c.first, c.second, particles.GetGlobalRadius());
+                auto tmp_t = partition_data(data, c.first, c.second, box.lower,
+                    threshold_slot_.Param<core::param::IntParam>()->Value(), particles.GetGlobalRadius());
+                for (auto& el : tmp_t) {
+                    el.lower = box.lower;
+                }
+                /*std::transform(data.begin() + c.first, data.begin() + c.second, qparticles.begin() + c.first,
+                    [&box](auto const& p) { return encode_coord(p.pos - box.lower, glm::vec3(), glm::vec3()); });*/
+                //std::vector<device::SPKDParticle> tmp_p(c.second - c.first);
+                for (auto const& el : tmp_t) {
+                    std::transform(data.begin() + el.begin, data.begin() + el.end,
+                        s_particles.begin() + el.begin, [&el, &box](auto const& p) {
+                            auto const qp = encode_coord(p.pos - box.lower, glm::vec3(), glm::vec3());
+                            device::SPKDParticle sp;
+                            byte_cast bc;
+                            bc.ui = 0;
+                            bc.ui = qp.x;
+                            sp.x = bc.parts.a;
+                            auto fit_x = std::find(el.sx, el.sx + 3, bc.parts.b);
+                            if (fit_x == el.sx + 3) {
+                                throw std::runtime_error("did not find propper index");
+                            }
+                            sp.sx_idx = std::distance(el.sx, fit_x);
+                            bc.ui = qp.y;
+                            sp.y = bc.parts.a;
+                            auto fit_y = std::find(el.sy, el.sy + 3, bc.parts.b);
+                            if (fit_y == el.sy + 3) {
+                                throw std::runtime_error("did not find propper index");
+                            }
+                            sp.sy_idx = std::distance(el.sy, fit_y);
+                            bc.ui = qp.z;
+                            sp.z = bc.parts.a;
+                            auto fit_z = std::find(el.sz, el.sz + 3, bc.parts.b);
+                            if (fit_z == el.sz + 3) {
+                                throw std::runtime_error("did not find propper index");
+                            }
+                            sp.sz_idx = std::distance(el.sz, fit_z);
+                            return sp;
+                        });
+                    //el.bounds = extendBounds(data, el.begin, el.end, particles.GetGlobalRadius());
+                }
+                // make PKD
+                tbb::parallel_for(
+                    (size_t) 0, tmp_t.size(), [&](size_t treeletID) { makePKD(s_particles, tmp_t[treeletID], 0); });
+                s_treelets.insert(s_treelets.end(), tmp_t.begin(), tmp_t.end());
+                //s_particles.insert(s_particles.end(), tmp_p.begin(), tmp_p.end());
+            }
             //tbb::parallel_for((size_t) 0, cells.size(), [&](size_t cell_idx) {
             //    auto const& c = cells[cell_idx];
             //    auto const box = extendBounds(data, c.first, c.second, particles.GetGlobalRadius());
@@ -342,26 +396,26 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             //        s_particles.insert(s_particles.end(), tmp_s_particles.begin(), tmp_s_particles.end());
             //    }
             //});
-            for (auto const& c : cells) {
-                auto const box = extendBounds(data, c.first, c.second, particles.GetGlobalRadius());
-                std::transform(data.begin() + c.first, data.begin() + c.second, qparticles.begin() + c.first,
-                    [&box](auto const& p) { return encode_coord(p.pos - box.lower, glm::vec3(), glm::vec3()); });
-                auto [ps_treelets, ps_particles] =
-                    makeSpartition(qparticles, c.first, c.second, particles.GetGlobalRadius());
-                auto [tmp_s_treelets, tmp_s_particles] =
-                    slice_qparticles(ps_treelets, ps_particles, data, c.first, c.second, particles.GetGlobalRadius());
-                for (auto& el : tmp_s_treelets) {
-                    el.lower = box.lower;
-                }
-                // make PKD
-                tbb::parallel_for((size_t) 0, tmp_s_treelets.size(),
-                    [&](size_t treeletID) { makePKD(tmp_s_particles, tmp_s_treelets[treeletID], c.first); });
-                /*for (auto const& s_t : tmp_s_treelets) {
-                    makePKD(tmp_s_particles, s_t, c.first);
-                }*/
-                s_treelets.insert(s_treelets.end(), tmp_s_treelets.begin(), tmp_s_treelets.end());
-                s_particles.insert(s_particles.end(), tmp_s_particles.begin(), tmp_s_particles.end());
-            }
+            //for (auto const& c : cells) {
+            //    auto const box = extendBounds(data, c.first, c.second, particles.GetGlobalRadius());
+            //    std::transform(data.begin() + c.first, data.begin() + c.second, qparticles.begin() + c.first,
+            //        [&box](auto const& p) { return encode_coord(p.pos - box.lower, glm::vec3(), glm::vec3()); });
+            //    auto [ps_treelets, ps_particles] =
+            //        makeSpartition(qparticles, c.first, c.second, particles.GetGlobalRadius());
+            //    auto [tmp_s_treelets, tmp_s_particles] =
+            //        slice_qparticles(ps_treelets, ps_particles, data, c.first, c.second, particles.GetGlobalRadius());
+            //    for (auto& el : tmp_s_treelets) {
+            //        el.lower = box.lower;
+            //    }
+            //    // make PKD
+            //    tbb::parallel_for((size_t) 0, tmp_s_treelets.size(),
+            //        [&](size_t treeletID) { makePKD(tmp_s_particles, tmp_s_treelets[treeletID], c.first); });
+            //    /*for (auto const& s_t : tmp_s_treelets) {
+            //        makePKD(tmp_s_particles, s_t, c.first);
+            //    }*/
+            //    s_treelets.insert(s_treelets.end(), tmp_s_treelets.begin(), tmp_s_treelets.end());
+            //    s_particles.insert(s_particles.end(), tmp_s_particles.begin(), tmp_s_particles.end());
+            //}
             CUDA_CHECK_ERROR(cuMemAllocAsync(
                 &treelets_data_[pl_idx], s_treelets.size() * sizeof(device::SPKDlet), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(treelets_data_[pl_idx], s_treelets.data(),

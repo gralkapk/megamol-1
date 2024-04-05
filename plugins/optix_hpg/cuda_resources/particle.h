@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include <glm/glm.hpp>
 
 #include "optix/utils_host.h"
@@ -35,13 +37,20 @@ struct PKDlet {
     size_t begin, end;
 };
 
+//struct SPKDlet {
+//    //! bounding box of all particles (including the radius)
+//    box3f bounds;
+//    //! begin/end range in the common particles array
+//    size_t begin, end;
+//    unsigned char sx, sy, sz;
+//    glm::vec3 lower;
+//};
+
 struct SPKDlet {
-    //! bounding box of all particles (including the radius)
     box3f bounds;
-    //! begin/end range in the common particles array
     size_t begin, end;
-    unsigned char sx, sy, sz;
     glm::vec3 lower;
+    unsigned char sx[3], sy[3], sz[3];
 };
 
 struct QPKDParticle {
@@ -72,7 +81,10 @@ struct QPKDParticle {
 };
 
 struct SPKDParticle {
-    unsigned char dim;
+    unsigned char dim : 2;
+    unsigned char sx_idx : 2;
+    unsigned char sy_idx : 2;
+    unsigned char sz_idx : 2;
     unsigned char x;
     unsigned char y;
     unsigned char z;

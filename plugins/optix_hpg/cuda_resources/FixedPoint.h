@@ -101,6 +101,7 @@ private:
     BaseType value_;
 };
 
-using decvec3 = glm::vec<3, FixedPoint<float, unsigned, 4>>;
+constexpr char dec_val = 4;
+using decvec3 = glm::vec<3, FixedPoint<float, unsigned, dec_val>>;
 } // namespace optix_hpg
 } // namespace megamol

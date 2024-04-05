@@ -311,74 +311,74 @@ std::tuple<std::vector<device::PKDlet>, std::vector<std::pair<unsigned int, devi
     return std::make_tuple(treelets, particles);
 }
 
-std::tuple<std::vector<device::SPKDlet>, std::vector<device::SPKDParticle>> slice_qparticles(
-    std::vector<device::PKDlet> const& treelets,
-    std::vector<std::pair<unsigned int, device::QPKDParticle>> const& particles,
-    std::vector<device::PKDParticle> const& org_data, size_t begin, size_t end, float radius) {
-    std::vector<device::SPKDlet> streelets;
-    streelets.reserve(treelets.size());
-    std::vector<device::SPKDParticle> sparticles(particles.size());
-    for (auto const& treelet : treelets) {
-        std::vector<device::PKDParticle> tmp_data(treelet.end - treelet.begin);
-        for (size_t i = treelet.begin; i < treelet.end; ++i) {
-            //tmp_data[i - treelet.begin].pos = decode_coord(particles[i], glm::vec3(), glm::vec3());
-            tmp_data[i - treelet.begin].pos = org_data[particles[i - begin].first].pos;
-            byte_cast bcx;
-            bcx.ui = particles[i - begin].second.x;
-            sparticles[i - begin].x = bcx.parts.a;
-            byte_cast bcy;
-            bcy.ui = particles[i - begin].second.y;
-            sparticles[i - begin].y = bcy.parts.a;
-            byte_cast bcz;
-            bcz.ui = particles[i - begin].second.z;
-            sparticles[i - begin].z = bcz.parts.a;
-        }
-        auto const bounds = extendBounds(tmp_data, 0, tmp_data.size(), radius);
-        device::SPKDlet st;
-        st.begin = treelet.begin;
-        st.end = treelet.end;
-        st.bounds = bounds;
-        byte_cast bcx;
-        bcx.ui = particles[treelet.begin - begin].second.x;
-        st.sx = bcx.parts.b;
-        byte_cast bcy;
-        bcy.ui = particles[treelet.begin - begin].second.y;
-        st.sy = bcy.parts.b;
-        byte_cast bcz;
-        bcz.ui = particles[treelet.begin - begin].second.z;
-        st.sz = bcz.parts.b;
-        streelets.push_back(st);
-    }
-    return std::make_tuple(streelets, sparticles);
-}
-
-std::vector<glm::vec3> compute_diffs(std::vector<device::SPKDlet> const& treelets,
-    std::vector<device::SPKDParticle> const& sparticles,
-    std::vector<std::pair<unsigned int, device::QPKDParticle>> const& qparticles,
-    std::vector<device::PKDParticle> const& org_data, size_t begin, size_t end, glm::vec3 const& lower) {
-    std::vector<glm::vec3> diffs(sparticles.size());
-    for (auto const& treelet : treelets) {
-        for (size_t i = treelet.begin; i < treelet.end; ++i) {
-            device::QPKDParticle qp;
-            byte_cast bc;
-            bc.ui = 0;
-            bc.parts.a = sparticles[i - begin].x;
-            bc.parts.b = treelet.sx;
-            qp.x = bc.ui;
-            bc.parts.a = sparticles[i - begin].y;
-            bc.parts.b = treelet.sy;
-            qp.y = bc.ui;
-            bc.parts.a = sparticles[i - begin].z;
-            bc.parts.b = treelet.sz;
-            qp.z = bc.ui;
-            glm::dvec3 pos = decode_coord(qp /*, glm::vec3(), glm::vec3()*/) + lower;
-            glm::dvec3 qpos = decode_coord(qparticles[i - begin].second /*, glm::vec3(), glm::vec3()*/) + lower;
-            glm::dvec3 org_pos = org_data[qparticles[i - begin].first].pos;
-            diffs[i - begin] = pos - org_pos;
-        }
-    }
-    return diffs;
-}
+//std::tuple<std::vector<device::SPKDlet>, std::vector<device::SPKDParticle>> slice_qparticles(
+//    std::vector<device::PKDlet> const& treelets,
+//    std::vector<std::pair<unsigned int, device::QPKDParticle>> const& particles,
+//    std::vector<device::PKDParticle> const& org_data, size_t begin, size_t end, float radius) {
+//    std::vector<device::SPKDlet> streelets;
+//    streelets.reserve(treelets.size());
+//    std::vector<device::SPKDParticle> sparticles(particles.size());
+//    for (auto const& treelet : treelets) {
+//        std::vector<device::PKDParticle> tmp_data(treelet.end - treelet.begin);
+//        for (size_t i = treelet.begin; i < treelet.end; ++i) {
+//            //tmp_data[i - treelet.begin].pos = decode_coord(particles[i], glm::vec3(), glm::vec3());
+//            tmp_data[i - treelet.begin].pos = org_data[particles[i - begin].first].pos;
+//            byte_cast bcx;
+//            bcx.ui = particles[i - begin].second.x;
+//            sparticles[i - begin].x = bcx.parts.a;
+//            byte_cast bcy;
+//            bcy.ui = particles[i - begin].second.y;
+//            sparticles[i - begin].y = bcy.parts.a;
+//            byte_cast bcz;
+//            bcz.ui = particles[i - begin].second.z;
+//            sparticles[i - begin].z = bcz.parts.a;
+//        }
+//        auto const bounds = extendBounds(tmp_data, 0, tmp_data.size(), radius);
+//        device::SPKDlet st;
+//        st.begin = treelet.begin;
+//        st.end = treelet.end;
+//        st.bounds = bounds;
+//        byte_cast bcx;
+//        bcx.ui = particles[treelet.begin - begin].second.x;
+//        st.sx = bcx.parts.b;
+//        byte_cast bcy;
+//        bcy.ui = particles[treelet.begin - begin].second.y;
+//        st.sy = bcy.parts.b;
+//        byte_cast bcz;
+//        bcz.ui = particles[treelet.begin - begin].second.z;
+//        st.sz = bcz.parts.b;
+//        streelets.push_back(st);
+//    }
+//    return std::make_tuple(streelets, sparticles);
+//}
+//
+//std::vector<glm::vec3> compute_diffs(std::vector<device::SPKDlet> const& treelets,
+//    std::vector<device::SPKDParticle> const& sparticles,
+//    std::vector<std::pair<unsigned int, device::QPKDParticle>> const& qparticles,
+//    std::vector<device::PKDParticle> const& org_data, size_t begin, size_t end, glm::vec3 const& lower) {
+//    std::vector<glm::vec3> diffs(sparticles.size());
+//    for (auto const& treelet : treelets) {
+//        for (size_t i = treelet.begin; i < treelet.end; ++i) {
+//            device::QPKDParticle qp;
+//            byte_cast bc;
+//            bc.ui = 0;
+//            bc.parts.a = sparticles[i - begin].x;
+//            bc.parts.b = treelet.sx;
+//            qp.x = bc.ui;
+//            bc.parts.a = sparticles[i - begin].y;
+//            bc.parts.b = treelet.sy;
+//            qp.y = bc.ui;
+//            bc.parts.a = sparticles[i - begin].z;
+//            bc.parts.b = treelet.sz;
+//            qp.z = bc.ui;
+//            glm::dvec3 pos = decode_coord(qp /*, glm::vec3(), glm::vec3()*/) + lower;
+//            glm::dvec3 qpos = decode_coord(qparticles[i - begin].second /*, glm::vec3(), glm::vec3()*/) + lower;
+//            glm::dvec3 org_pos = org_data[qparticles[i - begin].first].pos;
+//            diffs[i - begin] = pos - org_pos;
+//        }
+//    }
+//    return diffs;
+//}
 
 
 std::vector<std::pair<size_t, size_t>> gridify(

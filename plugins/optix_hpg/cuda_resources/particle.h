@@ -46,11 +46,12 @@ struct PKDlet {
 //    glm::vec3 lower;
 //};
 
+static int const spkd_array_size = 3;
 struct SPKDlet {
     box3f bounds;
     size_t begin, end;
     glm::vec3 lower;
-    unsigned char sx[3], sy[3], sz[3];
+    unsigned char sx[spkd_array_size], sy[spkd_array_size], sz[spkd_array_size];
 };
 
 struct QPKDParticle {

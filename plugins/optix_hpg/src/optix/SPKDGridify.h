@@ -99,7 +99,8 @@ inline device::box3f extendBounds2(
 
 inline std::tuple<bool, std::unordered_set<unsigned char>, std::unordered_set<unsigned char>,
     std::unordered_set<unsigned char>>
-prefix_consistency(std::vector<device::PKDParticle> const& particles, glm::vec3 const& lower, size_t begin, size_t end) {
+prefix_consistency(
+    std::vector<device::PKDParticle> const& particles, glm::vec3 const& lower, size_t begin, size_t end) {
     std::unordered_set<unsigned char> sx, sy, sz;
     byte_cast bc;
     bc.ui = 0;
@@ -112,7 +113,9 @@ prefix_consistency(std::vector<device::PKDParticle> const& particles, glm::vec3 
         bc.ui = qpkd.z;
         sz.insert(bc.parts.b);
     }
-    return std::make_tuple(sx.size() < 4 && sy.size() < 4 && sz.size() < 4, sx, sy, sz);
+    return std::make_tuple(sx.size() <= device::spkd_array_size && sy.size() <= device::spkd_array_size &&
+                               sz.size() <= device::spkd_array_size,
+        sx, sy, sz);
 }
 
 inline std::vector<device::SPKDlet> partition_data(

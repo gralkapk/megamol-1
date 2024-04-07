@@ -345,22 +345,22 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                             bc.ui = 0;
                             bc.ui = qp.x;
                             sp.x = bc.parts.a;
-                            auto fit_x = std::find(el.sx, el.sx + 3, bc.parts.b);
-                            if (fit_x == el.sx + 3) {
+                            auto fit_x = std::find(el.sx, el.sx + device::spkd_array_size, bc.parts.b);
+                            if (fit_x == el.sx + device::spkd_array_size) {
                                 throw std::runtime_error("did not find propper index");
                             }
                             sp.sx_idx = std::distance(el.sx, fit_x);
                             bc.ui = qp.y;
                             sp.y = bc.parts.a;
-                            auto fit_y = std::find(el.sy, el.sy + 3, bc.parts.b);
-                            if (fit_y == el.sy + 3) {
+                            auto fit_y = std::find(el.sy, el.sy + device::spkd_array_size, bc.parts.b);
+                            if (fit_y == el.sy + device::spkd_array_size) {
                                 throw std::runtime_error("did not find propper index");
                             }
                             sp.sy_idx = std::distance(el.sy, fit_y);
                             bc.ui = qp.z;
                             sp.z = bc.parts.a;
-                            auto fit_z = std::find(el.sz, el.sz + 3, bc.parts.b);
-                            if (fit_z == el.sz + 3) {
+                            auto fit_z = std::find(el.sz, el.sz + device::spkd_array_size, bc.parts.b);
+                            if (fit_z == el.sz + device::spkd_array_size) {
                                 throw std::runtime_error("did not find propper index");
                             }
                             sp.sz_idx = std::distance(el.sz, fit_z);

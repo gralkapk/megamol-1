@@ -14,5 +14,6 @@ struct MetaData {
     std::unordered_map<std::string, std::string> hardware_software_info;
     std::unordered_map<std::string, std::string> analysis_recipes;
     std::vector<filetime_dur_t> trigger_ts;
+    std::unordered_map<std::string, std::string> additional_info;
 };
 } // namespace megamol::power

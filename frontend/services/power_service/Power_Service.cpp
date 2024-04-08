@@ -113,6 +113,9 @@ bool Power_Service::init(void* configPtr) {
         main_trigger_->GetHandle()->SetBit(7, true);
         main_trigger_->GetHandle()->SetBit(7, false);
     };
+    callbacks_.add_meta_key_value = [&](std::string const& key, std::string const& value) -> void {
+        meta_.additional_info[key] = value;
+    };
 
     m_providedResourceReferences = {{frontend_resources::PowerCallbacks_Req_Name, callbacks_}};
 

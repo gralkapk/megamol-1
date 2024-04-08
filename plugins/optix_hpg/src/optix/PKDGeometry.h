@@ -41,9 +41,16 @@
 
 #include "pkd.h"
 
+#include "PowerCallbacks.h"
+
 namespace megamol::optix_hpg {
 class PKDGeometry : public core::Module {
 public:
+    static void requested_lifetime_resources(frontend_resources::ResourceRequest& req) {
+        core::Module::requested_lifetime_resources(req);
+        req.require<frontend_resources::PowerCallbacks>();
+    }
+
     enum class PKDMode { STANDARD, TREELETS };
 
     static const char* ClassName(void) {

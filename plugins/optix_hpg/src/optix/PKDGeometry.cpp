@@ -254,6 +254,10 @@ bool PKDGeometry::init(Context const& ctx) {
 }
 
 bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Context const& ctx) {
+#ifdef MEGAMOL_USE_POWER
+    auto power_callbacks = this->frontend_resources.get<frontend_resources::PowerCallbacks>();
+#endif
+
     free_data(ctx);
 
     auto const pl_count = call.GetParticleListCount();
@@ -327,6 +331,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             //std::mutex data_add_mtx;
             auto const cells = gridify(data, lower, upper);
             megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Num cells: %d", cells.size());
+#ifdef MEGAMOL_USE_POWER
+            power_callbacks.add_meta_key_value("NumGridCells", std::to_string(cells.size()));
+#endif
             for (auto const& c : cells) {
                 auto const box = extendBounds(data, c.first, c.second, particles.GetGlobalRadius());
                 auto tmp_t = partition_data(data, c.first, c.second, box.lower,
@@ -425,6 +432,12 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Original size: %d; New size: %d",
                 data.size() * sizeof(device::PKDParticle),
                 s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle));
+#ifdef MEGAMOL_USE_POWER
+            power_callbacks.add_meta_key_value("NumTreelets", std::to_string(s_treelets.size()));
+            power_callbacks.add_meta_key_value(
+                "OriginalDataSize", std::to_string(data.size() * sizeof(device::PKDParticle)));
+            power_callbacks.add_meta_key_value("CompressedDataSize", std::to_string(s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle))));
+#endif
         }
 
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&

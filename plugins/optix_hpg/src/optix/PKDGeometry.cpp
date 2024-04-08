@@ -326,6 +326,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             // separate into 256 grids
             //std::mutex data_add_mtx;
             auto const cells = gridify(data, lower, upper);
+            megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Num cells: %d", cells.size());
             for (auto const& c : cells) {
                 auto const box = extendBounds(data, c.first, c.second, particles.GetGlobalRadius());
                 auto tmp_t = partition_data(data, c.first, c.second, box.lower,
@@ -421,6 +422,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(treelets_data_[pl_idx], s_treelets.data(),
                 s_treelets.size() * sizeof(device::SPKDlet), ctx.GetExecStream()));
             megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Num treelets: %d", s_treelets.size());
+            megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Original size: %d; New size: %d",
+                data.size() * sizeof(device::PKDParticle),
+                s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle));
         }
 
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&

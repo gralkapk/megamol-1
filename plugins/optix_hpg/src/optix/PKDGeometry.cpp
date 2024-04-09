@@ -436,7 +436,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             power_callbacks.add_meta_key_value("NumTreelets", std::to_string(s_treelets.size()));
             power_callbacks.add_meta_key_value(
                 "OriginalDataSize", std::to_string(data.size() * sizeof(device::PKDParticle)));
-            power_callbacks.add_meta_key_value("CompressedDataSize", std::to_string(s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle))));
+            power_callbacks.add_meta_key_value("CompressedDataSize",
+                std::to_string(
+                    s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle)));
 #endif
         }
 

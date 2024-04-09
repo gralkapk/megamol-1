@@ -462,6 +462,14 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 treelets.size() * sizeof(device::PKDlet), ctx.GetExecStream()));
             megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Num treelets: %d", treelets.size());
 
+#ifdef MEGAMOL_USE_POWER
+            power_callbacks.add_meta_key_value("NumTreelets", std::to_string(treelets.size()));
+            power_callbacks.add_meta_key_value(
+                "OriginalDataSize", std::to_string(data.size() * sizeof(device::PKDParticle)));
+            power_callbacks.add_meta_key_value("CompressedDataSize",
+                std::to_string(treelets.size() * sizeof(device::PKDlet) + data.size() * sizeof(device::PKDParticle)));
+#endif
+
             // TODO compress data if requested
             // for debugging without parallel
             if (compression_slot_.Param<core::param::BoolParam>()->Value() && !grid_slot_.Param<core::param::BoolParam>()->Value()) {

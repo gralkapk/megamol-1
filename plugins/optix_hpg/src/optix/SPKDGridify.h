@@ -1,10 +1,10 @@
 #pragma once
 
 #include <mutex>
+#include <tuple>
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <tuple>
 
 #include "particle.h"
 #include "pkd_utils.h"
@@ -149,8 +149,8 @@ inline std::vector<device::SPKDlet> partition_data(
     return std::move(result);
 }
 
-inline std::vector<device::SPKDlet> partition_data(
-    std::vector<device::PKDParticle>& particles, size_t tbegin, size_t tend, glm::vec3 const& lower, size_t maxSize, float radius) {
+inline std::vector<device::SPKDlet> partition_data(std::vector<device::PKDParticle>& particles, size_t tbegin,
+    size_t tend, glm::vec3 const& lower, size_t maxSize, float radius) {
     std::mutex resultMutex;
     std::vector<device::SPKDlet> result;
 
@@ -181,18 +181,23 @@ inline std::vector<device::SPKDlet> partition_data(
 }
 
 
-std::vector<glm::vec3> compute_diffs(std::vector<device::SPKDlet> const& treelets,
-    std::vector<device::SPKDParticle> const& sparticles, std::vector<device::PKDParticle> const& org_data) {
-    std::vector<glm::vec3> diffs(sparticles.size());
+std::tuple<std::vector<glm::vec3>, std::vector<glm::vec3>, std::vector<glm::vec3>> compute_diffs(
+    std::vector<device::SPKDlet> const& treelets, std::vector<device::SPKDParticle> const& sparticles,
+    std::vector<device::PKDParticle> const& org_data, size_t gbegin, size_t gend) {
+    std::vector<glm::vec3> diffs(gend - gbegin);
+    std::vector<glm::vec3> ops(gend - gbegin);
+    std::vector<glm::vec3> sps(gend - gbegin);
     for (auto const& treelet : treelets) {
         for (size_t i = treelet.begin; i < treelet.end; ++i) {
             glm::dvec3 const dpos = decode_spart(sparticles[i], treelet);
             glm::dvec3 const org_pos = org_data[i].pos;
             glm::dvec3 const diff = dpos - org_pos;
-            diffs[i] = diff;
+            diffs[i - gbegin] = diff;
+            ops[i - gbegin] = org_pos;
+            sps[i - gbegin] = dpos;
         }
     }
-    return diffs;
+    return std::make_tuple(diffs, ops, sps);
 }
 
 } // namespace megamol::optix_hpg

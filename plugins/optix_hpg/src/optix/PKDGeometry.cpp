@@ -334,6 +334,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 #ifdef MEGAMOL_USE_POWER
             std::vector<glm::vec3> diffs;
             diffs.reserve(data.size());
+            std::vector<glm::vec3> orgpos;
+            orgpos.reserve(data.size());
+            std::vector<glm::vec3> spos;
+            spos.reserve(data.size());
 #endif
 
             /*= partition_data(
@@ -390,8 +394,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                     //el.bounds = extendBounds(data, el.begin, el.end, particles.GetGlobalRadius());
                 }
 #ifdef MEGAMOL_USE_POWER
-                auto const tmp_d = compute_diffs(tmp_t, s_particles, data);
+                auto const [tmp_d, tmp_op, tmp_s] = compute_diffs(tmp_t, s_particles, data, c.first, c.second);
                 diffs.insert(diffs.end(), tmp_d.begin(), tmp_d.end());
+                orgpos.insert(orgpos.end(), tmp_op.begin(), tmp_op.end());
+                spos.insert(spos.end(), tmp_s.begin(), tmp_s.end());
 #endif
                 // make PKD
                 tbb::parallel_for(
@@ -468,10 +474,16 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 
                     // create scheme
                     NodeVector fields;
-                    fields.reserve(3);
+                    fields.reserve(9);
                     fields.push_back(PrimitiveNode::Make("x", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
                     fields.push_back(PrimitiveNode::Make("y", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
                     fields.push_back(PrimitiveNode::Make("z", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                    fields.push_back(PrimitiveNode::Make("sx", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                    fields.push_back(PrimitiveNode::Make("sy", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                    fields.push_back(PrimitiveNode::Make("sz", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                    fields.push_back(PrimitiveNode::Make("dx", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                    fields.push_back(PrimitiveNode::Make("dy", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                    fields.push_back(PrimitiveNode::Make("dz", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
                     auto schema =
                         std::static_pointer_cast<GroupNode>(GroupNode::Make("schema", Repetition::REQUIRED, fields));
 
@@ -490,18 +502,46 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                     // write data
                     auto rg_writer = file_writer->AppendBufferedRowGroup();
 
-                    std::vector<float> x_vals(diffs.size());
-                    std::transform(diffs.begin(), diffs.end(), x_vals.begin(), [](auto const& d) { return d.x; });
-                    std::vector<float> y_vals(diffs.size());
-                    std::transform(diffs.begin(), diffs.end(), y_vals.begin(), [](auto const& d) { return d.y; });
-                    std::vector<float> z_vals(diffs.size());
-                    std::transform(diffs.begin(), diffs.end(), z_vals.begin(), [](auto const& d) { return d.z; });
+                    std::vector<float> x_vals(orgpos.size());
+                    std::transform(orgpos.begin(), orgpos.end(), x_vals.begin(), [](auto const& d) { return d.x; });
+                    std::vector<float> y_vals(orgpos.size());
+                    std::transform(orgpos.begin(), orgpos.end(), y_vals.begin(), [](auto const& d) { return d.y; });
+                    std::vector<float> z_vals(orgpos.size());
+                    std::transform(orgpos.begin(), orgpos.end(), z_vals.begin(), [](auto const& d) { return d.z; });
 
                     auto float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(0));
                     float_writer->WriteBatch(x_vals.size(), nullptr, nullptr, x_vals.data());
                     float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(1));
                     float_writer->WriteBatch(y_vals.size(), nullptr, nullptr, y_vals.data());
                     float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(2));
+                    float_writer->WriteBatch(z_vals.size(), nullptr, nullptr, z_vals.data());
+
+                    x_vals.resize(spos.size());
+                    std::transform(spos.begin(), spos.end(), x_vals.begin(), [](auto const& d) { return d.x; });
+                    y_vals.resize(spos.size());
+                    std::transform(spos.begin(), spos.end(), y_vals.begin(), [](auto const& d) { return d.y; });
+                    z_vals.resize(spos.size());
+                    std::transform(spos.begin(), spos.end(), z_vals.begin(), [](auto const& d) { return d.z; });
+
+                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(3));
+                    float_writer->WriteBatch(x_vals.size(), nullptr, nullptr, x_vals.data());
+                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(4));
+                    float_writer->WriteBatch(y_vals.size(), nullptr, nullptr, y_vals.data());
+                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(5));
+                    float_writer->WriteBatch(z_vals.size(), nullptr, nullptr, z_vals.data());
+
+                    x_vals.resize(diffs.size());
+                    std::transform(diffs.begin(), diffs.end(), x_vals.begin(), [](auto const& d) { return d.x; });
+                    y_vals.resize(diffs.size());
+                    std::transform(diffs.begin(), diffs.end(), y_vals.begin(), [](auto const& d) { return d.y; });
+                    z_vals.resize(diffs.size());
+                    std::transform(diffs.begin(), diffs.end(), z_vals.begin(), [](auto const& d) { return d.z; });
+
+                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(6));
+                    float_writer->WriteBatch(x_vals.size(), nullptr, nullptr, x_vals.data());
+                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(7));
+                    float_writer->WriteBatch(y_vals.size(), nullptr, nullptr, y_vals.data());
+                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(8));
                     float_writer->WriteBatch(z_vals.size(), nullptr, nullptr, z_vals.data());
 
                     // close

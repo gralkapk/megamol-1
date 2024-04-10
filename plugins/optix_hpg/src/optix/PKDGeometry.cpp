@@ -17,11 +17,17 @@
 #include "PKDUtils.h"
 #include "pkd_utils.h"
 
-#include "nvcomp/lz4.hpp"
 #include "nvcomp.hpp"
+#include "nvcomp/lz4.hpp"
 #include "nvcomp/nvcompManagerFactory.hpp"
 
 #include "SPKDGridify.h"
+
+#ifdef MEGAMOL_USE_POWER
+#include <arrow/io/file.h>
+#include <parquet/api/reader.h>
+#include <parquet/api/writer.h>
+#endif
 
 namespace megamol::optix_hpg {
 extern "C" const char embedded_pkd_programs[];
@@ -235,8 +241,9 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "comp_treelets_closesthit_occlusion"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    s_comp_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
-        &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+    s_comp_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "s_comp_treelets_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "s_comp_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
@@ -286,7 +293,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         auto const p_count = particles.GetCount();
         if (p_count == 0 || !has_global_radius(particles)) {
             if (!has_global_radius(particles)) {
-                megamol::core::utility::log::Log::DefaultLog.WriteWarn("[PKDGeometry]: Per-particle radius not supported");
+                megamol::core::utility::log::Log::DefaultLog.WriteWarn(
+                    "[PKDGeometry]: Per-particle radius not supported");
             }
             continue;
         }
@@ -323,6 +331,11 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             qparticles.resize(data.size());
             s_particles.resize(data.size());
 
+#ifdef MEGAMOL_USE_POWER
+            std::vector<glm::vec3> diffs;
+            diffs.reserve(data.size());
+#endif
+
             /*= partition_data(
                 data, threshold_slot_.Param<core::param::IntParam>()->Value(), particles.GetGlobalRadius());*/
 
@@ -345,8 +358,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                     [&box](auto const& p) { return encode_coord(p.pos - box.lower, glm::vec3(), glm::vec3()); });*/
                 //std::vector<device::SPKDParticle> tmp_p(c.second - c.first);
                 for (auto const& el : tmp_t) {
-                    std::transform(data.begin() + el.begin, data.begin() + el.end,
-                        s_particles.begin() + el.begin, [&el, &box](auto const& p) {
+                    std::transform(data.begin() + el.begin, data.begin() + el.end, s_particles.begin() + el.begin,
+                        [&el, &box](auto const& p) {
                             auto const qp = encode_coord(p.pos - box.lower, glm::vec3(), glm::vec3());
                             device::SPKDParticle sp;
                             byte_cast bc;
@@ -376,6 +389,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                         });
                     //el.bounds = extendBounds(data, el.begin, el.end, particles.GetGlobalRadius());
                 }
+#ifdef MEGAMOL_USE_POWER
+                auto const tmp_d = compute_diffs(tmp_t, s_particles, data);
+                diffs.insert(diffs.end(), tmp_d.begin(), tmp_d.end());
+#endif
                 // make PKD
                 tbb::parallel_for(
                     (size_t) 0, tmp_t.size(), [&](size_t treeletID) { makePKD(s_particles, tmp_t[treeletID], 0); });
@@ -439,6 +456,61 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             power_callbacks.add_meta_key_value("CompressedDataSize",
                 std::to_string(
                     s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle)));
+            auto const output_path = power_callbacks.get_output_path();
+            auto const file_path = output_path / "diff.parquet";
+            {
+                using namespace parquet;
+                using namespace parquet::schema;
+
+                try {
+                    std::size_t min_field_size = 0;
+                    bool first_time = true;
+
+                    // create scheme
+                    NodeVector fields;
+                    fields.reserve(3);
+                    fields.push_back(PrimitiveNode::Make("x", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                    fields.push_back(PrimitiveNode::Make("y", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                    fields.push_back(PrimitiveNode::Make("z", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                    auto schema =
+                        std::static_pointer_cast<GroupNode>(GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+                    // open file
+                    std::shared_ptr<::arrow::io::FileOutputStream> file;
+                    PARQUET_ASSIGN_OR_THROW(file, ::arrow::io::FileOutputStream::Open(file_path.string()));
+
+                    // configure
+                    WriterProperties::Builder builder;
+                    builder.compression(Compression::BROTLI);
+                    auto props = builder.build();
+
+                    // create instance
+                    auto file_writer = ParquetFileWriter::Open(file, schema, props);
+
+                    // write data
+                    auto rg_writer = file_writer->AppendBufferedRowGroup();
+
+                    std::vector<float> x_vals(diffs.size());
+                    std::transform(diffs.begin(), diffs.end(), x_vals.begin(), [](auto const& d) { return d.x; });
+                    std::vector<float> y_vals(diffs.size());
+                    std::transform(diffs.begin(), diffs.end(), y_vals.begin(), [](auto const& d) { return d.y; });
+                    std::vector<float> z_vals(diffs.size());
+                    std::transform(diffs.begin(), diffs.end(), z_vals.begin(), [](auto const& d) { return d.z; });
+
+                    auto float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(0));
+                    float_writer->WriteBatch(x_vals.size(), nullptr, nullptr, x_vals.data());
+                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(1));
+                    float_writer->WriteBatch(y_vals.size(), nullptr, nullptr, y_vals.data());
+                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(2));
+                    float_writer->WriteBatch(z_vals.size(), nullptr, nullptr, z_vals.data());
+
+                    // close
+                    rg_writer->Close();
+                    file_writer->Close();
+                } catch (std::exception const& ex) {
+                    core::utility::log::Log::DefaultLog.WriteError("[ParquetWriter]: %s", ex.what());
+                }
+            }
 #endif
         }
 
@@ -472,7 +544,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 
             // TODO compress data if requested
             // for debugging without parallel
-            if (compression_slot_.Param<core::param::BoolParam>()->Value() && !grid_slot_.Param<core::param::BoolParam>()->Value()) {
+            if (compression_slot_.Param<core::param::BoolParam>()->Value() &&
+                !grid_slot_.Param<core::param::BoolParam>()->Value()) {
                 /*size_t total_size = 0;
                 nvcompBatchedLZ4Opts_t format_opts{NVCOMP_TYPE_CHAR};
                 nvcomp::LZ4Manager nvcomp_manager{1 << 16, format_opts, ctx.GetExecStream()};*/

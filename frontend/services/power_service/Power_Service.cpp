@@ -116,6 +116,7 @@ bool Power_Service::init(void* configPtr) {
     callbacks_.add_meta_key_value = [&](std::string const& key, std::string const& value) -> void {
         meta_.additional_info[key] = value;
     };
+    callbacks_.get_output_path = [&]() -> std::filesystem::path { return write_folder_; };
 
     m_providedResourceReferences = {{frontend_resources::PowerCallbacks_Req_Name, callbacks_}};
 

@@ -180,4 +180,19 @@ inline std::vector<device::SPKDlet> partition_data(
     return std::move(result);
 }
 
+
+std::vector<glm::vec3> compute_diffs(std::vector<device::SPKDlet> const& treelets,
+    std::vector<device::SPKDParticle> const& sparticles, std::vector<device::PKDParticle> const& org_data) {
+    std::vector<glm::vec3> diffs(sparticles.size());
+    for (auto const& treelet : treelets) {
+        for (size_t i = treelet.begin; i < treelet.end; ++i) {
+            glm::dvec3 const dpos = decode_spart(sparticles[i], treelet);
+            glm::dvec3 const org_pos = org_data[i].pos;
+            glm::dvec3 const diff = dpos - org_pos;
+            diffs[i] = diff;
+        }
+    }
+    return diffs;
+}
+
 } // namespace megamol::optix_hpg

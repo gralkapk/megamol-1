@@ -135,7 +135,7 @@ inline CU_CALLABLE glm::vec3 decode_spart(device::SPKDParticle const& part, devi
 #ifdef __CUDACC__
     pos.x = fmaf(static_cast<float>(bc.ui), factor, treelet.lower.x);
 #else
-    pos.x = static_cast<float>(bc.ui) * factor;
+    pos.x = static_cast<float>(bc.ui) * factor + treelet.lower.x;
 #endif
     //qp.x = bc.ui;
     bc.parts.a = part.y;
@@ -143,7 +143,7 @@ inline CU_CALLABLE glm::vec3 decode_spart(device::SPKDParticle const& part, devi
 #ifdef __CUDACC__
     pos.y = fmaf(static_cast<float>(bc.ui), factor, treelet.lower.y);
 #else
-    pos.y = static_cast<float>(bc.ui) * factor;
+    pos.y = static_cast<float>(bc.ui) * factor + treelet.lower.y;
 #endif
     //qp.y = bc.ui;
     bc.parts.a = part.z;
@@ -151,7 +151,7 @@ inline CU_CALLABLE glm::vec3 decode_spart(device::SPKDParticle const& part, devi
 #ifdef __CUDACC__
     pos.z = fmaf(static_cast<float>(bc.ui), factor, treelet.lower.z);
 #else
-    pos.z = static_cast<float>(bc.ui) * factor;
+    pos.z = static_cast<float>(bc.ui) * factor + treelet.lower.z;
 #endif
     //qp.z = bc.ui;
     //return megamol::optix_hpg::decode_coord(qp /*, glm::vec3(), glm::vec3()*/);

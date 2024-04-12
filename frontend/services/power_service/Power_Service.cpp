@@ -356,6 +356,12 @@ void Power_Service::fill_lua_callbacks() {
             return frontend_resources::LuaCallbacksCollection::VoidResult{};
         }});
 
+    callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, std::string>("mmPowerOutput", "(string path)",
+        {[&](std::string path) -> frontend_resources::LuaCallbacksCollection::VoidResult {
+            write_folder_ = path;
+            return frontend_resources::LuaCallbacksCollection::VoidResult{};
+        }});
+
     callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, std::string>("mmPowerMeasure",
         "(string path)", {[&](std::string path) -> frontend_resources::LuaCallbacksCollection::VoidResult {
             //start_measurement();

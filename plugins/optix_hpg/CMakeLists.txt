@@ -33,6 +33,10 @@ if (optix_hpg_PLUGIN_ENABLED)
     set(CMAKE_CUDA_ARCHITECTURES 80)
   endif ()
 
+  set(OPTIX_POWER_DEC_VAL "4" CACHE STRING "Fixed Point Prec")
+  target_compile_definitions(optix_hpg PRIVATE MM_OPTIX_POWER_DEC_VAL=${OPTIX_POWER_DEC_VAL})
+  add_definitions(-DMM_OPTIX_POWER_DEC_VAL=${OPTIX_POWER_DEC_VAL})
+
   include(configure_optix)
   find_package(CUDAToolkit)
 

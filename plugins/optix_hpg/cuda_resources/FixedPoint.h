@@ -101,7 +101,7 @@ private:
     BaseType value_;
 };
 
-constexpr char dec_val = 4;
+constexpr char dec_val = MM_OPTIX_POWER_DEC_VAL;
 using decvec3 = glm::vec<3, FixedPoint<float, unsigned, dec_val>>;
 } // namespace optix_hpg
 } // namespace megamol

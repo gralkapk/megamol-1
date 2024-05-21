@@ -114,6 +114,10 @@ bool Power_Service::init(void* configPtr) {
         main_trigger_->GetHandle()->SetBit(7, true);
         main_trigger_->GetHandle()->SetBit(7, false);
     };
+    callbacks_.add_meta_key_value = [&](std::string const& key, std::string const& value) -> void {
+        meta_.additional_info[key] = value;
+    };
+    callbacks_.get_output_path = [&]() -> std::filesystem::path { return write_folder_; };
 
     m_providedResourceReferences = {{frontend_resources::PowerCallbacks_Req_Name, callbacks_}};
 
@@ -352,6 +356,12 @@ void Power_Service::fill_lua_callbacks() {
                 rtx_->ApplyConfigs(&meta_);
             }
         });
+
+    luaApi->RegisterCallback("mmPowerOutput", "(string path)",
+        {[&](std::string path) -> void {
+            write_folder_ = path;
+            return;
+        }});
 
     luaApi->RegisterCallback("mmPowerMeasure",
         "(string path)", [&](std::string path) -> void {

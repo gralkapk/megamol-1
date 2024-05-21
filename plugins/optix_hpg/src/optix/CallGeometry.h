@@ -36,11 +36,17 @@ public:
     }
 
     OptixTraversableHandle const* get_handle() const {
+        get_geo_update = set_geo_update;
         return _geo_handle;
     }
 
-    void set_handle(OptixTraversableHandle const* handle) {
+    void set_handle(OptixTraversableHandle const* handle, uint64_t version) {
         _geo_handle = handle;
+        set_geo_update = version;
+    }
+
+    bool has_geo_update() const {
+        return get_geo_update < set_geo_update;
     }
 
     std::tuple<void const*, uint32_t, uint64_t> get_record() const {
@@ -94,6 +100,9 @@ private:
 
     uint64_t set_sbt_update;
     mutable uint64_t get_sbt_update;
+
+    uint64_t set_geo_update;
+    mutable uint64_t get_geo_update;
 };
 
 using CallGeometryDescription = megamol::core::factories::CallAutoDescription<CallGeometry>;

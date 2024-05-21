@@ -46,6 +46,9 @@ void WriteMetaData(std::unique_ptr<parquet::ParquetFileWriter>& file_writer, Met
     if (!str.empty())
         str.pop_back();
     md->Append(std::string("trigger_ts"), str);
+    for (auto const& [key, value] : meta->additional_info) {
+        md->Append(key, value);
+    }
     file_writer->AddKeyValueMetadata(md);
 }
 

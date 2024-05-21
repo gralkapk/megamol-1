@@ -1,5 +1,7 @@
 #pragma once
 
+#include "box.h"
+
 #include <glm/glm.hpp>
 
 #define MM_OPTIX_RAYGEN_ANNOTATION __raygen__
@@ -41,10 +43,6 @@
 
 namespace megamol {
 namespace optix_hpg {
-typedef struct box3f {
-    glm::vec3 lower;
-    glm::vec3 upper;
-} box3f;
 
 typedef struct RayH {
     RayH(glm::vec3 const& org, glm::vec3 const& dir, float tmin, float tmax)

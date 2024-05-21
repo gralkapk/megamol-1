@@ -54,7 +54,7 @@ macro(cuda_compile_and_embed output_var cuda_file)
   else()
     cuda_compile_ptx(ptx_files
       ${cuda_file}
-      OPTIONS -arch=compute_${CMAKE_CUDA_ARCHITECTURES}
+      OPTIONS -lineinfo -arch=compute_${CMAKE_CUDA_ARCHITECTURES}
       )
   endif()
   list(GET ptx_files 0 ptx_file)

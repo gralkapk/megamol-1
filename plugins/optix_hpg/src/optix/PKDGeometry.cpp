@@ -808,6 +808,13 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     std::size_t compSize;
     CUDA_CHECK_ERROR(cuMemcpyDtoHAsync(&compSize, d_compSize, sizeof(std::size_t), ctx.GetExecStream()));
     CUDA_CHECK_ERROR(cuMemFreeAsync(d_compSize, ctx.GetExecStream()));
+#ifdef MEGAMOL_USE_POWER
+    if (compSize < bufferSizes.outputSizeInBytes) {
+        power_callbacks.add_meta_key_value("GeoSize", std::to_string(compSize));
+    } else {
+        power_callbacks.add_meta_key_value("GeoSize", std::to_string(bufferSizes.outputSizeInBytes));
+    }
+#endif
     if (compSize < bufferSizes.outputSizeInBytes) {
         CUdeviceptr comp_geo_buffer;
         CUDA_CHECK_ERROR(cuMemAllocAsync(&comp_geo_buffer, compSize, ctx.GetExecStream()));

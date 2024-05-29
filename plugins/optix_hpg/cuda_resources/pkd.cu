@@ -866,6 +866,8 @@ MM_OPTIX_CLOSESTHIT_KERNEL(s_comp_treelets_closesthit_occlusion)
     optixSetPayload_0(1);
 }
 
+#include "qpkd.h"
+
 } // namespace device
 } // namespace optix_hpg
 } // namespace megamol

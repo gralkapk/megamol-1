@@ -6,6 +6,8 @@
 
 #include "optix/utils_host.h"
 
+#include "qtreeletparticle.h"
+
 namespace megamol {
 namespace optix_hpg {
 

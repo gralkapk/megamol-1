@@ -110,6 +110,16 @@ private:
         for (auto& el : treelets_data_) {
             CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
         }
+
+        for (auto& el : exp_x_data_) {
+            CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
+        }
+        for (auto& el : exp_y_data_) {
+            CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
+        }
+        for (auto& el : exp_z_data_) {
+            CUDA_CHECK_ERROR(cuMemFreeAsync(el, ctx.GetExecStream()));
+        }
     }
 
     core::CalleeSlot out_geo_slot_;
@@ -125,6 +135,8 @@ private:
 
     core::param::ParamSlot dump_debug_info_slot_;
 
+    core::param::ParamSlot qtreelet_type_slot_;
+
     std::vector<SBTRecord<device::PKDGeoData>> sbt_records_;
 
     std::vector<SBTRecord<device::TreeletsGeoData>> treelets_sbt_records_;
@@ -132,6 +144,8 @@ private:
     std::vector<SBTRecord<device::QTreeletsGeoData>> comp_treelets_sbt_records_;
 
     std::vector<SBTRecord<device::STreeletsGeoData>> s_comp_treelets_sbt_records_;
+
+    std::vector<SBTRecord<device::QPKDTreeletsGeoData>> qpkd_treelets_sbt_records_;
 
     std::array<OptixProgramGroup, 2> program_groups_;
 
@@ -142,6 +156,10 @@ private:
     std::vector<CUdeviceptr> color_data_;
 
     std::vector<CUdeviceptr> treelets_data_;
+
+    std::vector<CUdeviceptr> exp_x_data_;
+    std::vector<CUdeviceptr> exp_y_data_;
+    std::vector<CUdeviceptr> exp_z_data_;
 
     std::vector<device::box3f> local_boxes_;
 
@@ -164,6 +182,10 @@ private:
     MMOptixModule s_comp_treelets_module_;
 
     MMOptixModule s_comp_treelets_occlusion_module_;
+
+    MMOptixModule qpkd_treelets_module_;
+
+    MMOptixModule qpkd_treelets_occlusion_module_;
 
     uint64_t sbt_version = 0;
 

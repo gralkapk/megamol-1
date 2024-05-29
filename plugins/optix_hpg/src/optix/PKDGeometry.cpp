@@ -17,9 +17,9 @@
 #include "PKDUtils.h"
 #include "pkd_utils.h"
 
-#include "nvcomp.hpp"
-#include "nvcomp/lz4.hpp"
-#include "nvcomp/nvcompManagerFactory.hpp"
+//#include "nvcomp.hpp"
+//#include "nvcomp/lz4.hpp"
+//#include "nvcomp/nvcompManagerFactory.hpp"
 
 #include "SPKDGridify.h"
 
@@ -47,7 +47,8 @@ PKDGeometry::PKDGeometry()
         , mode_slot_("mode", "")
         , compression_slot_("compression", "")
         , grid_slot_("grid", "")
-        , threshold_slot_("threshold", "") {
+        , threshold_slot_("threshold", "")
+        , dump_debug_info_slot_("dumpDebugInfo", "") {
     out_geo_slot_.SetCallback(CallGeometry::ClassName(), CallGeometry::FunctionName(0), &PKDGeometry::get_data_cb);
     out_geo_slot_.SetCallback(CallGeometry::ClassName(), CallGeometry::FunctionName(1), &PKDGeometry::get_extents_cb);
     MakeSlotAvailable(&out_geo_slot_);
@@ -69,6 +70,9 @@ PKDGeometry::PKDGeometry()
 
     threshold_slot_ << new core::param::IntParam(256, 16);
     MakeSlotAvailable(&threshold_slot_);
+
+    dump_debug_info_slot_ << new core::param::BoolParam(false);
+    MakeSlotAvailable(&dump_debug_info_slot_);
 }
 
 PKDGeometry::~PKDGeometry() {
@@ -455,6 +459,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Original size: %d; New size: %d",
                 data.size() * sizeof(device::PKDParticle),
                 s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle));
+
 #ifdef MEGAMOL_USE_POWER
             power_callbacks.add_meta_key_value("NumTreelets", std::to_string(s_treelets.size()));
             power_callbacks.add_meta_key_value(
@@ -462,93 +467,104 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             power_callbacks.add_meta_key_value("CompressedDataSize",
                 std::to_string(
                     s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle)));
-            auto const output_path = power_callbacks.get_output_path();
-            auto const file_path = output_path / "diff.parquet";
-            {
-                using namespace parquet;
-                using namespace parquet::schema;
+            if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
+                auto const output_path = power_callbacks.get_output_path();
+                auto const file_path = output_path / "diff.parquet";
+                {
+                    using namespace parquet;
+                    using namespace parquet::schema;
 
-                try {
-                    std::size_t min_field_size = 0;
-                    bool first_time = true;
+                    try {
+                        std::size_t min_field_size = 0;
+                        bool first_time = true;
 
-                    // create scheme
-                    NodeVector fields;
-                    fields.reserve(9);
-                    fields.push_back(PrimitiveNode::Make("x", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
-                    fields.push_back(PrimitiveNode::Make("y", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
-                    fields.push_back(PrimitiveNode::Make("z", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
-                    fields.push_back(PrimitiveNode::Make("sx", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
-                    fields.push_back(PrimitiveNode::Make("sy", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
-                    fields.push_back(PrimitiveNode::Make("sz", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
-                    fields.push_back(PrimitiveNode::Make("dx", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
-                    fields.push_back(PrimitiveNode::Make("dy", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
-                    fields.push_back(PrimitiveNode::Make("dz", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
-                    auto schema =
-                        std::static_pointer_cast<GroupNode>(GroupNode::Make("schema", Repetition::REQUIRED, fields));
+                        // create scheme
+                        NodeVector fields;
+                        fields.reserve(9);
+                        fields.push_back(
+                            PrimitiveNode::Make("x", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                        fields.push_back(
+                            PrimitiveNode::Make("y", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                        fields.push_back(
+                            PrimitiveNode::Make("z", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                        fields.push_back(
+                            PrimitiveNode::Make("sx", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                        fields.push_back(
+                            PrimitiveNode::Make("sy", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                        fields.push_back(
+                            PrimitiveNode::Make("sz", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                        fields.push_back(
+                            PrimitiveNode::Make("dx", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                        fields.push_back(
+                            PrimitiveNode::Make("dy", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                        fields.push_back(
+                            PrimitiveNode::Make("dz", Repetition::REQUIRED, Type::FLOAT, ConvertedType::NONE));
+                        auto schema = std::static_pointer_cast<GroupNode>(
+                            GroupNode::Make("schema", Repetition::REQUIRED, fields));
 
-                    // open file
-                    std::shared_ptr<::arrow::io::FileOutputStream> file;
-                    PARQUET_ASSIGN_OR_THROW(file, ::arrow::io::FileOutputStream::Open(file_path.string()));
+                        // open file
+                        std::shared_ptr<::arrow::io::FileOutputStream> file;
+                        PARQUET_ASSIGN_OR_THROW(file, ::arrow::io::FileOutputStream::Open(file_path.string()));
 
-                    // configure
-                    WriterProperties::Builder builder;
-                    builder.compression(Compression::BROTLI);
-                    auto props = builder.build();
+                        // configure
+                        WriterProperties::Builder builder;
+                        builder.compression(Compression::BROTLI);
+                        auto props = builder.build();
 
-                    // create instance
-                    auto file_writer = ParquetFileWriter::Open(file, schema, props);
+                        // create instance
+                        auto file_writer = ParquetFileWriter::Open(file, schema, props);
 
-                    // write data
-                    auto rg_writer = file_writer->AppendBufferedRowGroup();
+                        // write data
+                        auto rg_writer = file_writer->AppendBufferedRowGroup();
 
-                    std::vector<float> x_vals(orgpos.size());
-                    std::transform(orgpos.begin(), orgpos.end(), x_vals.begin(), [](auto const& d) { return d.x; });
-                    std::vector<float> y_vals(orgpos.size());
-                    std::transform(orgpos.begin(), orgpos.end(), y_vals.begin(), [](auto const& d) { return d.y; });
-                    std::vector<float> z_vals(orgpos.size());
-                    std::transform(orgpos.begin(), orgpos.end(), z_vals.begin(), [](auto const& d) { return d.z; });
+                        std::vector<float> x_vals(orgpos.size());
+                        std::transform(orgpos.begin(), orgpos.end(), x_vals.begin(), [](auto const& d) { return d.x; });
+                        std::vector<float> y_vals(orgpos.size());
+                        std::transform(orgpos.begin(), orgpos.end(), y_vals.begin(), [](auto const& d) { return d.y; });
+                        std::vector<float> z_vals(orgpos.size());
+                        std::transform(orgpos.begin(), orgpos.end(), z_vals.begin(), [](auto const& d) { return d.z; });
 
-                    auto float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(0));
-                    float_writer->WriteBatch(x_vals.size(), nullptr, nullptr, x_vals.data());
-                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(1));
-                    float_writer->WriteBatch(y_vals.size(), nullptr, nullptr, y_vals.data());
-                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(2));
-                    float_writer->WriteBatch(z_vals.size(), nullptr, nullptr, z_vals.data());
+                        auto float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(0));
+                        float_writer->WriteBatch(x_vals.size(), nullptr, nullptr, x_vals.data());
+                        float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(1));
+                        float_writer->WriteBatch(y_vals.size(), nullptr, nullptr, y_vals.data());
+                        float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(2));
+                        float_writer->WriteBatch(z_vals.size(), nullptr, nullptr, z_vals.data());
 
-                    x_vals.resize(spos.size());
-                    std::transform(spos.begin(), spos.end(), x_vals.begin(), [](auto const& d) { return d.x; });
-                    y_vals.resize(spos.size());
-                    std::transform(spos.begin(), spos.end(), y_vals.begin(), [](auto const& d) { return d.y; });
-                    z_vals.resize(spos.size());
-                    std::transform(spos.begin(), spos.end(), z_vals.begin(), [](auto const& d) { return d.z; });
+                        x_vals.resize(spos.size());
+                        std::transform(spos.begin(), spos.end(), x_vals.begin(), [](auto const& d) { return d.x; });
+                        y_vals.resize(spos.size());
+                        std::transform(spos.begin(), spos.end(), y_vals.begin(), [](auto const& d) { return d.y; });
+                        z_vals.resize(spos.size());
+                        std::transform(spos.begin(), spos.end(), z_vals.begin(), [](auto const& d) { return d.z; });
 
-                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(3));
-                    float_writer->WriteBatch(x_vals.size(), nullptr, nullptr, x_vals.data());
-                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(4));
-                    float_writer->WriteBatch(y_vals.size(), nullptr, nullptr, y_vals.data());
-                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(5));
-                    float_writer->WriteBatch(z_vals.size(), nullptr, nullptr, z_vals.data());
+                        float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(3));
+                        float_writer->WriteBatch(x_vals.size(), nullptr, nullptr, x_vals.data());
+                        float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(4));
+                        float_writer->WriteBatch(y_vals.size(), nullptr, nullptr, y_vals.data());
+                        float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(5));
+                        float_writer->WriteBatch(z_vals.size(), nullptr, nullptr, z_vals.data());
 
-                    x_vals.resize(diffs.size());
-                    std::transform(diffs.begin(), diffs.end(), x_vals.begin(), [](auto const& d) { return d.x; });
-                    y_vals.resize(diffs.size());
-                    std::transform(diffs.begin(), diffs.end(), y_vals.begin(), [](auto const& d) { return d.y; });
-                    z_vals.resize(diffs.size());
-                    std::transform(diffs.begin(), diffs.end(), z_vals.begin(), [](auto const& d) { return d.z; });
+                        x_vals.resize(diffs.size());
+                        std::transform(diffs.begin(), diffs.end(), x_vals.begin(), [](auto const& d) { return d.x; });
+                        y_vals.resize(diffs.size());
+                        std::transform(diffs.begin(), diffs.end(), y_vals.begin(), [](auto const& d) { return d.y; });
+                        z_vals.resize(diffs.size());
+                        std::transform(diffs.begin(), diffs.end(), z_vals.begin(), [](auto const& d) { return d.z; });
 
-                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(6));
-                    float_writer->WriteBatch(x_vals.size(), nullptr, nullptr, x_vals.data());
-                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(7));
-                    float_writer->WriteBatch(y_vals.size(), nullptr, nullptr, y_vals.data());
-                    float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(8));
-                    float_writer->WriteBatch(z_vals.size(), nullptr, nullptr, z_vals.data());
+                        float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(6));
+                        float_writer->WriteBatch(x_vals.size(), nullptr, nullptr, x_vals.data());
+                        float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(7));
+                        float_writer->WriteBatch(y_vals.size(), nullptr, nullptr, y_vals.data());
+                        float_writer = static_cast<parquet::FloatWriter*>(rg_writer->column(8));
+                        float_writer->WriteBatch(z_vals.size(), nullptr, nullptr, z_vals.data());
 
-                    // close
-                    rg_writer->Close();
-                    file_writer->Close();
-                } catch (std::exception const& ex) {
-                    core::utility::log::Log::DefaultLog.WriteError("[ParquetWriter]: %s", ex.what());
+                        // close
+                        rg_writer->Close();
+                        file_writer->Close();
+                    } catch (std::exception const& ex) {
+                        core::utility::log::Log::DefaultLog.WriteError("[ParquetWriter]: %s", ex.what());
+                    }
                 }
             }
 #endif

@@ -123,6 +123,8 @@ private:
 
     core::param::ParamSlot threshold_slot_;
 
+    core::param::ParamSlot dump_debug_info_slot_;
+
     std::vector<SBTRecord<device::PKDGeoData>> sbt_records_;
 
     std::vector<SBTRecord<device::TreeletsGeoData>> treelets_sbt_records_;

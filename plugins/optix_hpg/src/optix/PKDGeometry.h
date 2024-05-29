@@ -51,7 +51,7 @@ public:
         req.require<frontend_resources::PowerCallbacks>();
     }
 
-    enum class PKDMode { STANDARD, TREELETS };
+    enum class PKDMode { STANDARD, TREELETS, QTREELETS };
 
     static const char* ClassName(void) {
         return "PKDGeometry";

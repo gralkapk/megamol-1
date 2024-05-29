@@ -59,6 +59,7 @@ PKDGeometry::PKDGeometry()
     auto ep = new core::param::EnumParam(static_cast<int>(PKDMode::STANDARD));
     ep->SetTypePair(static_cast<int>(PKDMode::STANDARD), "Standard");
     ep->SetTypePair(static_cast<int>(PKDMode::TREELETS), "Treelets");
+    ep->SetTypePair(static_cast<int>(PKDMode::QTREELETS), "QTreelets");
     mode_slot_ << ep;
     MakeSlotAvailable(&mode_slot_);
 

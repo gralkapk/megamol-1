@@ -234,13 +234,13 @@ void __device__ traverse_dep(BUF_TYPE const* buffer) {
         StackEntryDep stackBase[STACK_DEPTH];
         StackEntryDep* stackPtr = stackBase;
 
-        const int dir_sign[3] = {ray.direction.x < 0.f, ray.direction.y < 0.f, ray.direction.z < 0.f};
+        /*const int dir_sign[3] = {ray.direction.x < 0.f, ray.direction.y < 0.f, ray.direction.z < 0.f};
         const float org[3] = {ray.origin.x, ray.origin.y, ray.origin.z};
         const float rdir[3] = {
             (fabsf(ray.direction.x) <= 1e-8f) ? 1e8f : 1.f / ray.direction.x,
             (fabsf(ray.direction.y) <= 1e-8f) ? 1e8f : 1.f / ray.direction.y,
             (fabsf(ray.direction.z) <= 1e-8f) ? 1e8f : 1.f / ray.direction.z,
-        };
+        };*/
 
 
         glm::vec3 pos;
@@ -250,9 +250,9 @@ void __device__ traverse_dep(BUF_TYPE const* buffer) {
 
         glm::vec3 tmp_hit_pos;
 
-        const float radius = self.radius;
+        //const float radius = self.radius;
 
-        unsigned int baseOffset = 0;
+        //unsigned int baseOffset = 0;
         /*if (localTables) {
             baseOffset = 1;
         }*/
@@ -277,9 +277,9 @@ void __device__ traverse_dep(BUF_TYPE const* buffer) {
                 {
                     auto const parentID = parent(nodeID) + begin;
 
-                    unsigned int offset = treeletID * num_idx * baseOffset;
+                    //unsigned int offset = treeletID * num_idx * baseOffset;
                     pos = getParticle(buffer[particleID], nodeID % 2 == 1, getDim(buffer[parentID]), dim,
-                              exp_x_lu + offset, exp_y_lu + offset, exp_z_lu + offset) +
+                              exp_x_lu /*+ offset*/, exp_y_lu /*+ offset*/, exp_z_lu /*+ offset*/) +
                           refPos;
 
                     /*pos = getParticle(buffer[particleID], nodeID % 2 == 1,
@@ -297,8 +297,8 @@ void __device__ traverse_dep(BUF_TYPE const* buffer) {
                 int const dim = particle.dim;*/
                 //pos = pos * refPos;
 
-                const float t_slab_lo = (pos[dim] - radius - org[dim]) * rdir[dim];
-                const float t_slab_hi = (pos[dim] + radius - org[dim]) * rdir[dim];
+                const float t_slab_lo = (pos[dim] - self.radius - ray.origin[dim]) / ray.direction[dim];
+                const float t_slab_hi = (pos[dim] + self.radius - ray.origin[dim]) / ray.direction[dim];
 
                 const float t_slab_nr = fminf(t_slab_lo, t_slab_hi);
                 const float t_slab_fr = fmaxf(t_slab_lo, t_slab_hi);
@@ -309,13 +309,13 @@ void __device__ traverse_dep(BUF_TYPE const* buffer) {
                 const float sphere_t0 = fmaxf(t0, t_slab_nr);
                 const float sphere_t1 = fminf(fminf(t_slab_fr, t1), tmp_hit_t);
 
-                if (sphere_t0 < sphere_t1) {
-                    if (intersectSphere(pos, radius, ray, tmp_hit_t)) {
+                //if (sphere_t0 < sphere_t1) {
+                    if (intersectSphere(pos, self.radius, ray, tmp_hit_t)) {
                         tmp_hit_primID = particleID;
 
                         tmp_hit_pos = pos;
                     }
-                }
+                //}
 
                 // -------------------------------------------------------
                 // compute near and far side intervals
@@ -329,8 +329,8 @@ void __device__ traverse_dep(BUF_TYPE const* buffer) {
                 // -------------------------------------------------------
                 // logic
                 // -------------------------------------------------------
-                const int nearSide_nodeID = 2 * nodeID + 1 + dir_sign[dim];
-                const int farSide_nodeID = 2 * nodeID + 2 - dir_sign[dim];
+                const int nearSide_nodeID = 2 * nodeID + 1 + (ray.direction[dim] < 0.f);
+                const int farSide_nodeID = 2 * nodeID + 2 - (ray.direction[dim] < 0.f);
 
                 const bool nearSide_valid = nearSide_nodeID < size;
                 const bool farSide_valid = farSide_nodeID < size;
@@ -444,13 +444,13 @@ void __device__ traverse(BUF_TYPE const* buffer) {
         StackEntry stackBase[STACK_DEPTH];
         StackEntry* stackPtr = stackBase;
 
-        const int dir_sign[3] = {ray.direction.x < 0.f, ray.direction.y < 0.f, ray.direction.z < 0.f};
+        /*const int dir_sign[3] = {ray.direction.x < 0.f, ray.direction.y < 0.f, ray.direction.z < 0.f};
         const float org[3] = {ray.origin.x, ray.origin.y, ray.origin.z};
         const float rdir[3] = {
             (fabsf(ray.direction.x) <= 1e-8f) ? 1e8f : 1.f / ray.direction.x,
             (fabsf(ray.direction.y) <= 1e-8f) ? 1e8f : 1.f / ray.direction.y,
             (fabsf(ray.direction.z) <= 1e-8f) ? 1e8f : 1.f / ray.direction.z,
-        };
+        };*/
 
 
         glm::vec3 pos;
@@ -460,9 +460,9 @@ void __device__ traverse(BUF_TYPE const* buffer) {
         glm::vec3 tmp_hit_pos;
 
 
-        const float radius = self.radius;
+        //const float radius = self.radius;
 
-        unsigned int baseOffset = 0;
+        //unsigned int baseOffset = 0;
         /*if (localTables) {
             baseOffset = 1;
         }*/
@@ -480,8 +480,8 @@ void __device__ traverse(BUF_TYPE const* buffer) {
 
                 //getParticle(treelet, self.qtpBuffer[particleID], dim, pos, exp_x_lu, exp_y_lu, exp_z_lu);
 
-                unsigned int offset = treeletID * num_idx * baseOffset;
-                pos = getParticle(buffer[particleID], dim, exp_x_lu + offset, exp_y_lu + offset, exp_z_lu + offset) +
+                //unsigned int offset = treeletID * num_idx * baseOffset;
+                pos = getParticle(buffer[particleID], dim, exp_x_lu /*+ offset*/, exp_y_lu /*+ offset*/, exp_z_lu /*+ offset*/) +
                       refPos;
 
 
@@ -490,8 +490,8 @@ void __device__ traverse(BUF_TYPE const* buffer) {
                 int const dim = particle.dim;*/
                 //pos = pos * refPos;
 
-                const float t_slab_lo = (pos[dim] - radius - org[dim]) * rdir[dim];
-                const float t_slab_hi = (pos[dim] + radius - org[dim]) * rdir[dim];
+                const float t_slab_lo = (pos[dim] - self.radius - ray.origin[dim]) / ray.direction[dim];
+                const float t_slab_hi = (pos[dim] + self.radius - ray.origin[dim]) / ray.direction[dim];
 
                 const float t_slab_nr = fminf(t_slab_lo, t_slab_hi);
                 const float t_slab_fr = fmaxf(t_slab_lo, t_slab_hi);
@@ -502,12 +502,12 @@ void __device__ traverse(BUF_TYPE const* buffer) {
                 const float sphere_t0 = fmaxf(t0, t_slab_nr);
                 const float sphere_t1 = fminf(fminf(t_slab_fr, t1), tmp_hit_t);
 
-                if (sphere_t0 < sphere_t1) {
-                    if (intersectSphere(pos, radius, ray, tmp_hit_t)) {
+                //if (sphere_t0 < sphere_t1) {
+                    if (intersectSphere(pos, self.radius, ray, tmp_hit_t)) {
                         tmp_hit_primID = particleID;
                         tmp_hit_pos = pos;
                     }
-                }
+                //}
 
                 // -------------------------------------------------------
                 // compute near and far side intervals
@@ -521,8 +521,8 @@ void __device__ traverse(BUF_TYPE const* buffer) {
                 // -------------------------------------------------------
                 // logic
                 // -------------------------------------------------------
-                const int nearSide_nodeID = 2 * nodeID + 1 + dir_sign[dim];
-                const int farSide_nodeID = 2 * nodeID + 2 - dir_sign[dim];
+                const int nearSide_nodeID = 2 * nodeID + 1 + (ray.direction[dim] < 0.f);
+                const int farSide_nodeID = 2 * nodeID + 2 - (ray.direction[dim] < 0.f);
 
                 const bool nearSide_valid = nearSide_nodeID < size;
                 const bool farSide_valid = farSide_nodeID < size;

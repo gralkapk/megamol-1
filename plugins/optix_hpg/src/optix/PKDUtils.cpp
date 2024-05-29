@@ -383,7 +383,7 @@ std::tuple<std::vector<device::PKDlet>, std::vector<std::pair<unsigned int, devi
 
 std::vector<std::pair<size_t, size_t>> gridify(
     std::vector<device::PKDParticle>& data, glm::vec3 const& lower, glm::vec3 const& upper) {
-    constexpr float const split_size = (1 << (16 - dec_val)) - 1.0f;
+    constexpr float const split_size = (1 << (16 - dec_val));//    -1.0f;
     auto const span = upper - lower;
     auto const num_cells = glm::ceil(span / split_size);
     auto const diff = span / num_cells;

@@ -776,6 +776,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         std::vector<char> exp_vec_x;
         std::vector<char> exp_vec_y;
         std::vector<char> exp_vec_z;
+        bool qt_exp_overflow = false;
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) {
             // QTreelets
             auto const selected_type =
@@ -849,6 +850,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             exp_vec_x = std::vector<char>(exponents_x.begin(), exponents_x.end());
             exp_vec_y = std::vector<char>(exponents_y.begin(), exponents_y.end());
             exp_vec_z = std::vector<char>(exponents_z.begin(), exponents_z.end());
+
+            if (exponents_x.size() > num_idx || exponents_y.size() > num_idx || exponents_z.size() > num_idx) {
+                qt_exp_overflow = true;
+            }
 
             // 4 convert to qlets
             switch (selected_type) {
@@ -940,6 +945,14 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 }
 
                 dump_analysis_data(output_path, orgpos, newpos, diffs, pl_idx, particles.GetGlobalRadius());
+
+                {
+                    if (qt_exp_overflow) {
+                        auto f = std::ofstream(output_path / "overflow.txt");
+                        f << "overflow\n";
+                        f.close();
+                    }
+                }
             }
 
 #ifdef MEGAMOL_USE_POWER

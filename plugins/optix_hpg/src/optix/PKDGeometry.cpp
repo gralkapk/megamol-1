@@ -452,6 +452,12 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         coord_file.close();
     }*/
 
+#ifdef MEGAMOL_USE_POWER
+    size_t total_num_treelets = 0;
+    size_t total_original_data_size = 0;
+    size_t total_compressed_data_size = 0;
+#endif
+
     for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
         auto const& particles = call.AccessParticles(pl_idx);
 
@@ -584,12 +590,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle));
 
 #ifdef MEGAMOL_USE_POWER
-            power_callbacks.add_meta_key_value("NumTreelets", std::to_string(s_treelets.size()));
-            power_callbacks.add_meta_key_value(
-                "OriginalDataSize", std::to_string(data.size() * sizeof(device::PKDParticle)));
-            power_callbacks.add_meta_key_value("CompressedDataSize",
-                std::to_string(
-                    s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle)));
+            total_num_treelets += s_treelets.size();
+            total_original_data_size += data.size() * sizeof(glm::vec3);
+            total_compressed_data_size +=
+                s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle);
 
             if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
                 auto const output_path = power_callbacks.get_output_path();
@@ -913,6 +917,13 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                     newpos->insert(newpos->end(), newpos_t.begin(), newpos_t.end());
                 }
             }
+
+#ifdef MEGAMOL_USE_POWER
+            total_num_treelets += qtreelets.size();
+            total_original_data_size += data.size() * sizeof(glm::vec3);
+            total_compressed_data_size +=
+                qtreelets.size() * sizeof(device::QPKDlet) + data.size() * sizeof(device::QTParticle_e5m15);
+#endif
         }
 
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&
@@ -937,11 +948,15 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Num treelets: %d", treelets.size());
 
 #ifdef MEGAMOL_USE_POWER
-            power_callbacks.add_meta_key_value("NumTreelets", std::to_string(treelets.size()));
+            total_num_treelets += treelets.size();
+            total_original_data_size += data.size() * sizeof(glm::vec3);
+            total_compressed_data_size +=
+                treelets.size() * sizeof(device::PKDlet) + data.size() * sizeof(device::PKDParticle);
+            /*power_callbacks.add_meta_key_value("NumTreelets", std::to_string(treelets.size()));
             power_callbacks.add_meta_key_value(
                 "OriginalDataSize", std::to_string(data.size() * sizeof(device::PKDParticle)));
             power_callbacks.add_meta_key_value("CompressedDataSize",
-                std::to_string(treelets.size() * sizeof(device::PKDlet) + data.size() * sizeof(device::PKDParticle)));
+                std::to_string(treelets.size() * sizeof(device::PKDlet) + data.size() * sizeof(device::PKDParticle)));*/
 #endif
 
             // TODO compress data if requested
@@ -1190,6 +1205,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     } else {
         power_callbacks.add_meta_key_value("GeoSize", std::to_string(bufferSizes.outputSizeInBytes));
     }
+    power_callbacks.add_meta_key_value("NumTreelets", std::to_string(total_num_treelets));
+    power_callbacks.add_meta_key_value("OriginalDataSize", std::to_string(total_original_data_size));
+    power_callbacks.add_meta_key_value("CompressedDataSize", std::to_string(total_compressed_data_size));
 #endif
     if (compSize < bufferSizes.outputSizeInBytes) {
         CUdeviceptr comp_geo_buffer;

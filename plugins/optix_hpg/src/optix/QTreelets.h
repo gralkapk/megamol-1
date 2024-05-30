@@ -20,9 +20,10 @@
 
 #pragma once
 
-#include <vector>
 #include <iostream>
 #include <unordered_set>
+#include <vector>
+#include <tuple>
 
 #include <glm/glm.hpp>
 
@@ -64,8 +65,8 @@ struct QTPBuffer_e5m15d : public QTPBufferBase {
 };
 
 template<typename QTP, int BEXP = QTP::exp, int BOFFSET = QTP::offset>
-inline void convert_qlet(device::QPKDlet const& treelet, std::vector<device::QTParticle> const& input, std::vector<QTP>& output,
-    char const* exponents_x, char const* exponents_y, char const* exponents_z) {
+inline void convert_qlet(device::QPKDlet const& treelet, std::vector<device::QTParticle> const& input,
+    std::vector<QTP>& output, char const* exponents_x, char const* exponents_y, char const* exponents_z) {
     auto num_idx = static_cast<unsigned int>(std::pow(2, BEXP));
     for (size_t i = treelet.begin; i < treelet.end; ++i) {
         auto const& in = input[i];
@@ -94,8 +95,8 @@ inline void convert_qlet(device::QPKDlet const& treelet, std::vector<device::QTP
 }
 
 template<typename QTP, int BEXP = QTP::exp, int BOFFSET = QTP::offset, bool BSIGN = QTP::e_sign>
-inline void convert_qlet_dep(device::QPKDlet const& treelet, std::vector<device::QTParticle> const& input, std::vector<QTP>& output,
-    char const* exponents_x, char const* exponents_y, char const* exponents_z) {
+inline void convert_qlet_dep(device::QPKDlet const& treelet, std::vector<device::QTParticle> const& input,
+    std::vector<QTP>& output, char const* exponents_x, char const* exponents_y, char const* exponents_z) {
     auto num_idx = static_cast<unsigned int>(std::pow(2, BEXP));
     for (size_t i = treelet.begin; i < treelet.end; ++i) {
         auto const& in = input[i];
@@ -163,8 +164,8 @@ inline void create_exp_maps(std::vector<device::QTParticle> const& input, std::u
     }
 }
 
-inline void create_exp_maps(device::QPKDlet& treelet, std::vector<device::QTParticle> const& input, char* out_exponents_x,
-    char* out_exponents_y, char* out_exponents_z, unsigned int num_idx) {
+inline void create_exp_maps(device::QPKDlet& treelet, std::vector<device::QTParticle> const& input,
+    char* out_exponents_x, char* out_exponents_y, char* out_exponents_z, unsigned int num_idx) {
     std::unordered_set<char> exponents_x;
     std::unordered_set<char> exponents_y;
     std::unordered_set<char> exponents_z;
@@ -320,4 +321,116 @@ inline std::tuple<std::vector<unsigned int>, std::vector<unsigned int>, std::vec
 
     return std::make_tuple(histo_x, histo_y, histo_z);
 }
+
+template<typename QTP, bool BDEP = QTP::dep, int BOFFSET = QTP::offset>
+inline void sub_print(std::vector<glm::vec3>& diffs, std::vector<glm::vec3>& orgpos, std::vector<glm::vec3>& newpos,
+    size_t P, glm::vec3 refPos,
+    device::PKDParticle const* particles,
+    QTP const* qparticles, size_t N, device::QPKDlet const& treelet, char const* exp_x_vec, char const* exp_y_vec,
+    char const* exp_z_vec) {
+    if (P >= N)
+        return;
+
+    auto const& base = particles[P];
+
+    device::QTParticle current;
+    if constexpr (std::is_same_v<QTP, device::QTParticle_e4m16> || std::is_same_v<QTP, device::QTParticle_e5m15>) {
+        current = qparticles[P].getParticle();
+    } else {
+        current = qparticles[P].getParticle(P % 2 == 1, P == 0 ? 0 : particles[parent(P)].dim);
+    }
+
+    glm::vec3 pos;
+
+    int dim = current.dim;
+
+    unsigned int x = 0;
+    unsigned int sign_x = current.sign_x;
+    x += (sign_x) << 31;
+    char exp_x = exp_x_vec[current.exp_x];
+    x += ((int) exp_x + 127u) << 23;
+    x += (((unsigned int) current.m_x) << BOFFSET);
+
+    float fx = *reinterpret_cast<float*>(&x);
+
+    unsigned int y = 0;
+    unsigned int sign_y = current.sign_y;
+    y += (sign_y) << 31;
+    char exp_y = exp_y_vec[current.exp_y];
+    y += ((int) exp_y + 127u) << 23;
+    y += (((unsigned int) current.m_y) << BOFFSET);
+
+    float fy = *reinterpret_cast<float*>(&y);
+
+    unsigned int z = 0;
+    unsigned int sign_z = current.sign_z;
+    z += (sign_z) << 31;
+    char exp_z = exp_z_vec[current.exp_z];
+    z += ((int) exp_z + 127u) << 23;
+    z += (((unsigned int) current.m_z) << BOFFSET);
+
+    float fz = *reinterpret_cast<float*>(&z);
+
+    pos = glm::vec3(fx, fy, fz);
+    pos += refPos;
+
+    glm::dvec3 diff;
+    diff.x = static_cast<double>(base.pos.x) - static_cast<double>(pos.x);
+    diff.y = static_cast<double>(base.pos.y) - static_cast<double>(pos.y);
+    diff.z = static_cast<double>(base.pos.z) - static_cast<double>(pos.z);
+
+    diffs[P] = glm::vec3(diff);
+    orgpos[P] = base.pos;
+    newpos[P] = pos;
+
+    if constexpr (BDEP) {
+        sub_print<QTP>(
+            diffs, orgpos, newpos, lChild(P), pos, particles, qparticles, N, treelet, exp_x_vec, exp_y_vec, exp_z_vec);
+        sub_print<QTP>(
+            diffs, orgpos, newpos, rChild(P), pos, particles, qparticles, N, treelet, exp_x_vec, exp_y_vec, exp_z_vec);
+    } else {
+        sub_print<QTP>(diffs, orgpos, newpos, lChild(P), refPos, particles, qparticles, N, treelet, exp_x_vec,
+            exp_y_vec, exp_z_vec);
+        sub_print<QTP>(diffs, orgpos, newpos, rChild(P), refPos, particles, qparticles, N, treelet, exp_x_vec,
+            exp_y_vec, exp_z_vec);
+    }
+}
+
+inline std::tuple < std::vector<glm::vec3>, std::vector<glm::vec3>,
+    std::vector<glm::vec3>> unified_sub_print(QTreeletType selected_type, size_t P, glm::vec3 refPos,
+    device::PKDParticle const* particles, std::shared_ptr<QTPBufferBase> const& qparticles,
+    device::QPKDlet const& treelet, char const* exp_x_vec, char const* exp_y_vec, char const* exp_z_vec) {
+    std::vector<glm::vec3> diffs(treelet.end - treelet.begin);
+    std::vector<glm::vec3> orgpos(treelet.end - treelet.begin);
+    std::vector<glm::vec3> newpos(treelet.end - treelet.begin);
+    switch (selected_type) {
+    case QTreeletType::E5M15: {
+        auto buf = std::dynamic_pointer_cast<QTPBuffer_e5m15>(qparticles);
+        sub_print<device::QTParticle_e5m15>(diffs, orgpos, newpos, 0, treelet.basePos, particles + treelet.begin,
+            buf->buffer.data() + treelet.begin, treelet.end - treelet.begin, treelet, exp_x_vec, exp_y_vec, exp_z_vec);
+    } break;
+    case QTreeletType::E4M16: {
+        auto buf = std::dynamic_pointer_cast<QTPBuffer_e4m16>(qparticles);
+        sub_print<device::QTParticle_e4m16>(diffs, orgpos, newpos, 0, treelet.basePos, particles + treelet.begin,
+            buf->buffer.data() + treelet.begin, treelet.end - treelet.begin, treelet, exp_x_vec, exp_y_vec, exp_z_vec);
+    } break;
+    case QTreeletType::E5M15D: {
+        auto buf = std::dynamic_pointer_cast<QTPBuffer_e5m15d>(qparticles);
+        sub_print<device::QTParticle_e5m15d>(diffs, orgpos, newpos, 0, treelet.basePos, particles + treelet.begin,
+            buf->buffer.data() + treelet.begin, treelet.end - treelet.begin, treelet, exp_x_vec, exp_y_vec, exp_z_vec);
+    } break;
+    case QTreeletType::E4M16D: {
+        auto buf = std::dynamic_pointer_cast<QTPBuffer_e4m16d>(qparticles);
+        sub_print<device::QTParticle_e4m16d>(diffs, orgpos, newpos, 0, treelet.basePos, particles + treelet.begin,
+            buf->buffer.data() + treelet.begin, treelet.end - treelet.begin, treelet, exp_x_vec, exp_y_vec, exp_z_vec);
+    } break;
+    default: {
+        auto buf = std::dynamic_pointer_cast<QTPBuffer_e4m16>(qparticles);
+        sub_print<device::QTParticle_e4m16>(diffs, orgpos, newpos, 0, treelet.basePos, particles + treelet.begin,
+            buf->buffer.data() + treelet.begin, treelet.end - treelet.begin, treelet, exp_x_vec, exp_y_vec, exp_z_vec);
+    } break;
+    }
+    return std::make_tuple(diffs, orgpos, newpos);
+}
+
 } // namespace megamol::optix_hpg

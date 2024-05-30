@@ -373,6 +373,54 @@ bool PKDGeometry::init(Context const& ctx) {
     return true;
 }
 
+void dump_analysis_data(std::filesystem::path const& output_path, std::shared_ptr<std::vector<glm::vec3>> op_s,
+    std::shared_ptr<std::vector<glm::vec3>> sp_s, std::shared_ptr<std::vector<glm::vec3>> diffs, unsigned int pl_idx,
+    float radius) {
+    auto rdf = moldyn::RDF(op_s, sp_s);
+    auto const [org_rdf, new_rdf] = rdf.BuildHistogram(4.0f * radius, 100);
+
+    {
+        auto f = std::ofstream(output_path / ("org_rdf_" + std::to_string(pl_idx) + ".blobb"));
+        f.write(reinterpret_cast<char const*>(org_rdf.data()), org_rdf.size() * sizeof(decltype(org_rdf)::value_type));
+        f.close();
+    }
+
+    {
+        auto f = std::ofstream(output_path / ("new_rdf_" + std::to_string(pl_idx) + ".blobb"));
+        f.write(reinterpret_cast<char const*>(new_rdf.data()), new_rdf.size() * sizeof(decltype(new_rdf)::value_type));
+        f.close();
+    }
+
+    {
+        auto const dx_minmax = std::minmax_element(
+            diffs->begin(), diffs->end(), [](auto const& lhs, auto const& rhs) { return lhs.x < rhs.x; });
+        auto const dy_minmax = std::minmax_element(
+            diffs->begin(), diffs->end(), [](auto const& lhs, auto const& rhs) { return lhs.y < rhs.y; });
+        auto const dz_minmax = std::minmax_element(
+            diffs->begin(), diffs->end(), [](auto const& lhs, auto const& rhs) { return lhs.z < rhs.z; });
+        auto const d_acc = std::accumulate(diffs->begin(), diffs->end(), glm::vec3(0));
+        auto const csv_file_path = output_path / "comp_stats.csv";
+        if (std::filesystem::exists(csv_file_path)) {
+            // already exists ... append stats
+            auto f = std::ofstream(csv_file_path, std::ios::app);
+            f << dx_minmax.first->x << "," << dx_minmax.second->x << "," << dy_minmax.first->y << ","
+              << dy_minmax.second->y << "," << dz_minmax.first->z << "," << dz_minmax.second->z << ","
+              << d_acc.x / static_cast<float>(diffs->size()) << "," << d_acc.y / static_cast<float>(diffs->size())
+              << "," << d_acc.z / static_cast<float>(diffs->size()) << "\n";
+            f.close();
+        } else {
+            // create file
+            auto f = std::ofstream(csv_file_path);
+            f << "dx_min,dx_max,dy_min,dy_max,dz_min,dz_max,dx_mean,dy_mean,dz_mean\n";
+            f << dx_minmax.first->x << "," << dx_minmax.second->x << "," << dy_minmax.first->y << ","
+              << dy_minmax.second->y << "," << dz_minmax.first->z << "," << dz_minmax.second->z << ","
+              << d_acc.x / static_cast<float>(diffs->size()) << "," << d_acc.y / static_cast<float>(diffs->size())
+              << "," << d_acc.z / static_cast<float>(diffs->size()) << "\n";
+            f.close();
+        }
+    }
+}
+
 bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Context const& ctx) {
 #ifdef MEGAMOL_USE_POWER
     auto power_callbacks = this->frontend_resources.get<frontend_resources::PowerCallbacks>();
@@ -450,12 +498,12 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             s_particles.resize(data.size());
 
 #ifdef MEGAMOL_USE_POWER
-            std::vector<glm::vec3> diffs;
-            diffs.reserve(data.size());
-            std::vector<glm::vec3> orgpos;
-            orgpos.reserve(data.size());
-            std::vector<glm::vec3> spos;
-            spos.reserve(data.size());
+            auto diffs = std::make_shared<std::vector<glm::vec3>>();
+            diffs->reserve(data.size());
+            auto orgpos = std::make_shared<std::vector<glm::vec3>>();
+            orgpos->reserve(data.size());
+            auto spos = std::make_shared<std::vector<glm::vec3>>();
+            spos->reserve(data.size());
 #endif
 
             /*= partition_data(
@@ -514,9 +562,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 #ifdef MEGAMOL_USE_POWER
                 if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
                     auto const [tmp_d, tmp_op, tmp_s] = compute_diffs(tmp_t, s_particles, data, c.first, c.second);
-                    diffs.insert(diffs.end(), tmp_d.begin(), tmp_d.end());
-                    orgpos.insert(orgpos.end(), tmp_op.begin(), tmp_op.end());
-                    spos.insert(spos.end(), tmp_s.begin(), tmp_s.end());
+                    diffs->insert(diffs->end(), tmp_d.begin(), tmp_d.end());
+                    orgpos->insert(orgpos->end(), tmp_op.begin(), tmp_op.end());
+                    spos->insert(spos->end(), tmp_s.begin(), tmp_s.end());
                 }
 #endif
                 // make PKD
@@ -545,7 +593,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 
             if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
                 auto const output_path = power_callbacks.get_output_path();
+                dump_analysis_data(output_path, orgpos, spos, diffs, pl_idx, particles.GetGlobalRadius());
 
+#if 0
                 auto op_s = std::make_shared<std::vector<glm::vec3>>(orgpos.begin(), orgpos.end());
                 auto sp_s = std::make_shared<std::vector<glm::vec3>>(spos.begin(), spos.end());
                 auto rdf = moldyn::RDF(op_s, sp_s);
@@ -595,6 +645,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                         f.close();
                     }
                 }
+#endif
 
 #if 0
                 auto const file_path = output_path / "diff.parquet";
@@ -837,6 +888,31 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 &treelets_data_[pl_idx], qtreelets.size() * sizeof(device::QPKDlet), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(treelets_data_[pl_idx], qtreelets.data(),
                 qtreelets.size() * sizeof(device::QPKDlet), ctx.GetExecStream()));
+
+            if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
+                auto diffs = std::make_shared<std::vector<glm::vec3>>();
+                diffs->reserve(data.size());
+                auto orgpos = std::make_shared<std::vector<glm::vec3>>();
+                orgpos->reserve(data.size());
+                auto newpos = std::make_shared<std::vector<glm::vec3>>();
+                newpos->reserve(data.size());
+
+                for (size_t i = 0; i < treelets.size(); ++i) {
+                    unsigned int offset = 0;
+
+                    /*if (local_tables) {
+                        offset = i * num_idx;
+                    }*/
+
+                    auto const [diffs_t, orgpos_t, newpos_t] =
+                        unified_sub_print(selected_type, 0, qtreelets[i].basePos, data.data(), qtpbuffer, qtreelets[i],
+                            exp_vec_x.data() + offset, exp_vec_y.data() + offset, exp_vec_z.data() + offset);
+
+                    diffs->insert(diffs->end(), diffs_t.begin(), diffs_t.end());
+                    orgpos->insert(orgpos->end(), orgpos_t.begin(), orgpos_t.end());
+                    newpos->insert(newpos->end(), newpos_t.begin(), newpos_t.end());
+                }
+            }
         }
 
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&

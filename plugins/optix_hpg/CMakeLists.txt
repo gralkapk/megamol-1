@@ -9,6 +9,7 @@ megamol_plugin(optix_hpg
     cuda
   DEPENDS_PLUGINS
     mmstd
+    moldyn
     mesh
     geometry_calls)
 

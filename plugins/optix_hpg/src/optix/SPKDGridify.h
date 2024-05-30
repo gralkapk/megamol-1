@@ -187,7 +187,9 @@ std::tuple<std::vector<glm::vec3>, std::vector<glm::vec3>, std::vector<glm::vec3
     std::vector<glm::vec3> diffs(gend - gbegin);
     std::vector<glm::vec3> ops(gend - gbegin);
     std::vector<glm::vec3> sps(gend - gbegin);
-    for (auto const& treelet : treelets) {
+    tbb::parallel_for((size_t) 0, treelets.size(), [&](auto const tID) {
+        //for (auto const& treelet : treelets) {
+        auto const& treelet = treelets[tID];
         for (size_t i = treelet.begin; i < treelet.end; ++i) {
             glm::dvec3 const dpos = decode_spart(sparticles[i], treelet);
             glm::dvec3 const org_pos = org_data[i].pos;
@@ -196,7 +198,8 @@ std::tuple<std::vector<glm::vec3>, std::vector<glm::vec3>, std::vector<glm::vec3
             ops[i - gbegin] = org_pos;
             sps[i - gbegin] = dpos;
         }
-    }
+        //}
+    });
     return std::make_tuple(diffs, ops, sps);
 }
 

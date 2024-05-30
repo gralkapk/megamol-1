@@ -1,8 +1,8 @@
 #include "PKDGeometry.h"
 
+#include <algorithm>
 #include <fstream>
 #include <mutex>
-#include <algorithm>
 #include <unordered_set>
 
 #include "mmcore/param/BoolParam.h"
@@ -27,6 +27,8 @@
 #include "SPKDGridify.h"
 
 #include "QTreelets.h"
+
+#include "moldyn/RDF.h"
 
 #ifdef MEGAMOL_USE_POWER
 #include <arrow/io/file.h>
@@ -143,7 +145,8 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
             compression_slot_.IsDirty()) ||
         ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) &&
             compression_slot_.Param<core::param::BoolParam>()->Value() && grid_slot_.IsDirty()) ||
-        ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) && qtreelet_type_slot_.IsDirty())) {
+        ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) &&
+            qtreelet_type_slot_.IsDirty())) {
         if (!assert_data(*in_data, *ctx))
             return false;
         createSBTRecords(*in_data, *ctx);
@@ -288,21 +291,20 @@ bool PKDGeometry::init(Context const& ctx) {
 
     switch (static_cast<QTreeletType>(qtreelet_type_slot_.Param<core::param::EnumParam>()->Value())) {
     case QTreeletType::E5M15: {
-            qpkd_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-                &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-                MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-                {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15"},
-                    {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
-                    {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+        qpkd_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15"},
+                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
+                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-            qpkd_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-                &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-                MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-                {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15"},
-                    {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-                    {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
-        }
-        break;
+        qpkd_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15"},
+                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
+                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+    } break;
     case QTreeletType::E4M16: {
         qpkd_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
             &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
@@ -510,10 +512,12 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                     //el.bounds = extendBounds(data, el.begin, el.end, particles.GetGlobalRadius());
                 }
 #ifdef MEGAMOL_USE_POWER
-                auto const [tmp_d, tmp_op, tmp_s] = compute_diffs(tmp_t, s_particles, data, c.first, c.second);
-                diffs.insert(diffs.end(), tmp_d.begin(), tmp_d.end());
-                orgpos.insert(orgpos.end(), tmp_op.begin(), tmp_op.end());
-                spos.insert(spos.end(), tmp_s.begin(), tmp_s.end());
+                if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
+                    auto const [tmp_d, tmp_op, tmp_s] = compute_diffs(tmp_t, s_particles, data, c.first, c.second);
+                    diffs.insert(diffs.end(), tmp_d.begin(), tmp_d.end());
+                    orgpos.insert(orgpos.end(), tmp_op.begin(), tmp_op.end());
+                    spos.insert(spos.end(), tmp_s.begin(), tmp_s.end());
+                }
 #endif
                 // make PKD
                 tbb::parallel_for(
@@ -538,8 +542,61 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             power_callbacks.add_meta_key_value("CompressedDataSize",
                 std::to_string(
                     s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle)));
+
             if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
                 auto const output_path = power_callbacks.get_output_path();
+
+                auto op_s = std::make_shared<std::vector<glm::vec3>>(orgpos.begin(), orgpos.end());
+                auto sp_s = std::make_shared<std::vector<glm::vec3>>(spos.begin(), spos.end());
+                auto rdf = moldyn::RDF(op_s, sp_s);
+                auto const [org_rdf, new_rdf] = rdf.BuildHistogram(4.0f * particles.GetGlobalRadius(), 100);
+
+                {
+                    auto f = std::ofstream(output_path / ("org_rdf_" + std::to_string(pl_idx) + ".blobb"));
+                    f.write(reinterpret_cast<char const*>(org_rdf.data()),
+                        org_rdf.size() * sizeof(decltype(org_rdf)::value_type));
+                    f.close();
+                }
+
+                {
+                    auto f = std::ofstream(output_path / ("new_rdf_" + std::to_string(pl_idx) + ".blobb"));
+                    f.write(reinterpret_cast<char const*>(new_rdf.data()),
+                        new_rdf.size() * sizeof(decltype(new_rdf)::value_type));
+                    f.close();
+                }
+
+                {
+                    auto const dx_minmax = std::minmax_element(
+                        diffs.begin(), diffs.end(), [](auto const& lhs, auto const& rhs) { return lhs.x < rhs.x; });
+                    auto const dy_minmax = std::minmax_element(
+                        diffs.begin(), diffs.end(), [](auto const& lhs, auto const& rhs) { return lhs.y < rhs.y; });
+                    auto const dz_minmax = std::minmax_element(
+                        diffs.begin(), diffs.end(), [](auto const& lhs, auto const& rhs) { return lhs.z < rhs.z; });
+                    auto const d_acc = std::accumulate(diffs.begin(), diffs.end(), glm::vec3(0));
+                    auto const csv_file_path = output_path / "comp_stats.csv";
+                    if (std::filesystem::exists(csv_file_path)) {
+                        // already exists ... append stats
+                        auto f = std::ofstream(csv_file_path, std::ios::app);
+                        f << dx_minmax.first->x << "," << dx_minmax.second->x << "," << dy_minmax.first->y << ","
+                          << dy_minmax.second->y << "," << dz_minmax.first->z << "," << dz_minmax.second->z << ","
+                          << d_acc.x / static_cast<float>(diffs.size()) << ","
+                          << d_acc.y / static_cast<float>(diffs.size()) << ","
+                          << d_acc.z / static_cast<float>(diffs.size()) << "\n";
+                        f.close();
+                    } else {
+                        // create file
+                        auto f = std::ofstream(csv_file_path);
+                        f << "dx_min,dx_max,dy_min,dy_max,dz_min,dz_max,dx_mean,dy_mean,dz_mean\n";
+                        f << dx_minmax.first->x << "," << dx_minmax.second->x << "," << dy_minmax.first->y << ","
+                          << dy_minmax.second->y << "," << dz_minmax.first->z << "," << dz_minmax.second->z << ","
+                          << d_acc.x / static_cast<float>(diffs.size()) << ","
+                          << d_acc.y / static_cast<float>(diffs.size()) << ","
+                          << d_acc.z / static_cast<float>(diffs.size()) << "\n";
+                        f.close();
+                    }
+                }
+
+#if 0
                 auto const file_path = output_path / "diff.parquet";
                 {
                     using namespace parquet;
@@ -637,6 +694,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                         core::utility::log::Log::DefaultLog.WriteError("[ParquetWriter]: %s", ex.what());
                     }
                 }
+#endif
             }
 #endif
         }
@@ -648,7 +706,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         std::vector<char> exp_vec_z;
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) {
             // QTreelets
-            auto const selected_type = static_cast<QTreeletType>(qtreelet_type_slot_.Param<core::param::EnumParam>()->Value());
+            auto const selected_type =
+                static_cast<QTreeletType>(qtreelet_type_slot_.Param<core::param::EnumParam>()->Value());
 
             // 1 partion particles
             treelets = prePartition_inPlace(
@@ -739,7 +798,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 
             switch (selected_type) {
             case QTreeletType::E5M15: {
-                tbb::parallel_for((size_t)0, treelets.size(), [&](size_t treeletID) {
+                tbb::parallel_for((size_t) 0, treelets.size(), [&](size_t treeletID) {
                     unsigned int offset = 0;
                     convert_qlet<device::QTParticle_e5m15>(qtreelets[treeletID], qtparticles,
                         std::dynamic_pointer_cast<QTPBuffer_e5m15>(qtpbuffer)->buffer, exp_vec_x.data() + offset,
@@ -758,16 +817,16 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 tbb::parallel_for((size_t) 0, treelets.size(), [&](size_t treeletID) {
                     unsigned int offset = 0;
                     convert_qlet_dep<device::QTParticle_e5m15d>(qtreelets[treeletID], qtparticles,
-                        std::dynamic_pointer_cast<QTPBuffer_e5m15d>(qtpbuffer)->buffer,
-                        exp_vec_x.data() + offset, exp_vec_y.data() + offset, exp_vec_z.data() + offset);
+                        std::dynamic_pointer_cast<QTPBuffer_e5m15d>(qtpbuffer)->buffer, exp_vec_x.data() + offset,
+                        exp_vec_y.data() + offset, exp_vec_z.data() + offset);
                 });
             } break;
             case QTreeletType::E4M16D: {
                 tbb::parallel_for((size_t) 0, treelets.size(), [&](size_t treeletID) {
                     unsigned int offset = 0;
                     convert_qlet_dep<device::QTParticle_e4m16d>(qtreelets[treeletID], qtparticles,
-                        std::dynamic_pointer_cast<QTPBuffer_e4m16d>(qtpbuffer)->buffer,
-                        exp_vec_x.data() + offset, exp_vec_y.data() + offset, exp_vec_z.data() + offset);
+                        std::dynamic_pointer_cast<QTPBuffer_e4m16d>(qtpbuffer)->buffer, exp_vec_x.data() + offset,
+                        exp_vec_y.data() + offset, exp_vec_z.data() + offset);
                 });
             } break;
             default:

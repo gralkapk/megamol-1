@@ -456,6 +456,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     size_t total_num_treelets = 0;
     size_t total_original_data_size = 0;
     size_t total_compressed_data_size = 0;
+    size_t total_num_cells = 0;
 #endif
 
     for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
@@ -503,14 +504,12 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             qparticles.resize(data.size());
             s_particles.resize(data.size());
 
-#ifdef MEGAMOL_USE_POWER
             auto diffs = std::make_shared<std::vector<glm::vec3>>();
             diffs->reserve(data.size());
             auto orgpos = std::make_shared<std::vector<glm::vec3>>();
             orgpos->reserve(data.size());
             auto spos = std::make_shared<std::vector<glm::vec3>>();
             spos->reserve(data.size());
-#endif
 
             /*= partition_data(
                 data, threshold_slot_.Param<core::param::IntParam>()->Value(), particles.GetGlobalRadius());*/
@@ -521,7 +520,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             auto const cells = gridify(data, lower, upper);
             megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Num cells: %d", cells.size());
 #ifdef MEGAMOL_USE_POWER
-            power_callbacks.add_meta_key_value("NumGridCells", std::to_string(cells.size()));
+            total_num_cells += cells.size();
 #endif
             for (auto const& c : cells) {
                 auto const box = extendBounds(data, c.first, c.second, particles.GetGlobalRadius());
@@ -565,14 +564,14 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                         });
                     //el.bounds = extendBounds(data, el.begin, el.end, particles.GetGlobalRadius());
                 }
-#ifdef MEGAMOL_USE_POWER
+
                 if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
                     auto const [tmp_d, tmp_op, tmp_s] = compute_diffs(tmp_t, s_particles, data, c.first, c.second);
                     diffs->insert(diffs->end(), tmp_d.begin(), tmp_d.end());
                     orgpos->insert(orgpos->end(), tmp_op.begin(), tmp_op.end());
                     spos->insert(spos->end(), tmp_s.begin(), tmp_s.end());
                 }
-#endif
+
                 // make PKD
                 tbb::parallel_for(
                     (size_t) 0, tmp_t.size(), [&](size_t treeletID) { makePKD(s_particles, tmp_t[treeletID], 0); });
@@ -594,10 +593,12 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             total_original_data_size += data.size() * sizeof(glm::vec3);
             total_compressed_data_size +=
                 s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle);
+#endif
 
             if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
                 auto const output_path = power_callbacks.get_output_path();
                 dump_analysis_data(output_path, orgpos, spos, diffs, pl_idx, particles.GetGlobalRadius());
+            }
 
 #if 0
                 auto op_s = std::make_shared<std::vector<glm::vec3>>(orgpos.begin(), orgpos.end());
@@ -652,6 +653,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 #endif
 
 #if 0
+#ifdef MEGAMOL_USE_POWER
                 auto const file_path = output_path / "diff.parquet";
                 {
                     using namespace parquet;
@@ -1208,6 +1210,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     power_callbacks.add_meta_key_value("NumTreelets", std::to_string(total_num_treelets));
     power_callbacks.add_meta_key_value("OriginalDataSize", std::to_string(total_original_data_size));
     power_callbacks.add_meta_key_value("CompressedDataSize", std::to_string(total_compressed_data_size));
+    power_callbacks.add_meta_key_value("NumGridCells", std::to_string(total_num_cells));
 #endif
     if (compSize < bufferSizes.outputSizeInBytes) {
         CUdeviceptr comp_geo_buffer;

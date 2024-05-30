@@ -7,6 +7,9 @@
 
 #include "mmcore/param/BoolParam.h"
 #include "mmcore/param/EnumParam.h"
+#ifndef MEGAMOL_USE_POWER
+#include "mmcore/param/FilePathParam.h"
+#endif
 #include "mmcore/param/IntParam.h"
 
 #include <glm/glm.hpp>
@@ -46,7 +49,10 @@ PKDGeometry::PKDGeometry()
         , compression_slot_("compression", "")
         , grid_slot_("grid", "")
         , threshold_slot_("threshold", "")
-        , dump_debug_info_slot_("dumpDebugInfo", "")
+        , dump_debug_info_slot_("Debug::dumpDebugInfo", "")
+#ifndef MEGAMOL_USE_POWER
+        , debug_output_path_slot_("Debug::outputPath", "")
+#endif
         , qtreelet_type_slot_("QTreelet::type", "") {
     out_geo_slot_.SetCallback(CallGeometry::ClassName(), CallGeometry::FunctionName(0), &PKDGeometry::get_data_cb);
     out_geo_slot_.SetCallback(CallGeometry::ClassName(), CallGeometry::FunctionName(1), &PKDGeometry::get_extents_cb);
@@ -73,6 +79,11 @@ PKDGeometry::PKDGeometry()
 
     dump_debug_info_slot_ << new core::param::BoolParam(false);
     MakeSlotAvailable(&dump_debug_info_slot_);
+
+#ifndef MEGAMOL_USE_POWER
+    debug_output_path_slot_ << new core::param::FilePathParam("comp_stats.csv");
+    MakeSlotAvailable(&debug_output_path_slot_);
+#endif
 
     ep = new core::param::EnumParam(static_cast<int>(QTreeletType::E5M15D));
     ep->SetTypePair(static_cast<int>(QTreeletType::E5M15), "E5M15");
@@ -596,7 +607,11 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 #endif
 
             if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
+#ifdef MEGAMOL_USE_POWER
                 auto const output_path = power_callbacks.get_output_path();
+#else
+                auto const output_path = debug_output_path_slot_.Param<core::param::FilePathParam>()->Value();
+#endif
                 dump_analysis_data(output_path, orgpos, spos, diffs, pl_idx, particles.GetGlobalRadius());
             }
 
@@ -896,6 +911,11 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 qtreelets.size() * sizeof(device::QPKDlet), ctx.GetExecStream()));
 
             if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
+#ifdef MEGAMOL_USE_POWER
+                auto const output_path = power_callbacks.get_output_path();
+#else
+                auto const output_path = debug_output_path_slot_.Param<core::param::FilePathParam>()->Value();
+#endif
                 auto diffs = std::make_shared<std::vector<glm::vec3>>();
                 diffs->reserve(data.size());
                 auto orgpos = std::make_shared<std::vector<glm::vec3>>();
@@ -918,6 +938,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                     orgpos->insert(orgpos->end(), orgpos_t.begin(), orgpos_t.end());
                     newpos->insert(newpos->end(), newpos_t.begin(), newpos_t.end());
                 }
+
+                dump_analysis_data(output_path, orgpos, newpos, diffs, pl_idx, particles.GetGlobalRadius());
             }
 
 #ifdef MEGAMOL_USE_POWER

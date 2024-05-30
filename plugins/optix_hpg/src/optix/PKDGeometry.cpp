@@ -1115,7 +1115,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             default:
                 std::cout << "Should not happen" << std::endl;
             }
-        } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STANDARD)) {
+        } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STANDARD) ||
+                   mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
             CUDA_CHECK_ERROR(
                 cuMemAllocAsync(&particle_data_[pl_idx], p_count * sizeof(device::PKDParticle), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(

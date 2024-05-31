@@ -196,8 +196,25 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
             program_groups_[1] = treelets_occlusion_module_;
         }
     } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) {
-        program_groups_[0] = qpkd_treelets_module_;
-        program_groups_[1] = qpkd_treelets_occlusion_module_;
+        switch (static_cast<QTreeletType>(qtreelet_type_slot_.Param<core::param::EnumParam>()->Value())) {
+        case QTreeletType::E4M16D: {
+            program_groups_[0] = qpkd_treelets_module_e4m16d_;
+            program_groups_[1] = qpkd_treelets_occlusion_module_e4m16d_;
+        } break;
+        case QTreeletType::E5M15D: {
+            program_groups_[0] = qpkd_treelets_module_e5m15d_;
+            program_groups_[1] = qpkd_treelets_occlusion_module_e5m15d_;
+        } break;
+        case QTreeletType::E5M15: {
+            program_groups_[0] = qpkd_treelets_module_e5m15_;
+            program_groups_[1] = qpkd_treelets_occlusion_module_e5m15_;
+        } break;
+        case QTreeletType::E4M16:
+        default: {
+            program_groups_[0] = qpkd_treelets_module_e4m16_;
+            program_groups_[1] = qpkd_treelets_occlusion_module_e4m16_;
+        }
+        }
     } else {
         program_groups_[0] = pkd_module_;
         program_groups_[1] = pkd_occlusion_module_;
@@ -302,84 +319,62 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
 
-    switch (static_cast<QTreeletType>(qtreelet_type_slot_.Param<core::param::EnumParam>()->Value())) {
-    case QTreeletType::E5M15: {
-        qpkd_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+    qpkd_treelets_module_e5m15_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-        qpkd_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
-    } break;
-    case QTreeletType::E4M16: {
-        qpkd_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+    qpkd_treelets_occlusion_module_e5m15_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-        qpkd_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
-    } break;
-    case QTreeletType::E5M15D: {
-        qpkd_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15d"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-        qpkd_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15d"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
-    } break;
-    case QTreeletType::E4M16D: {
-        qpkd_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16d"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+    qpkd_treelets_module_e4m16_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-        qpkd_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16d"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
-    } break;
-    default: {
-        qpkd_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+    qpkd_treelets_occlusion_module_e4m16_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-        qpkd_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-            &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-            MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-            {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-                {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
-    } break;
-    }
+    qpkd_treelets_module_e5m15d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15d"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
+    qpkd_treelets_occlusion_module_e5m15d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15d"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+
+    qpkd_treelets_module_e4m16d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16d"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+
+    qpkd_treelets_occlusion_module_e4m16d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16d"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
     ++program_version;
 
@@ -1427,7 +1422,30 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
 
 
         SBTRecord<device::QPKDTreeletsGeoData> qpkd_treelets_sbt_record;
-        OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(qpkd_treelets_module_, &qpkd_treelets_sbt_record));
+        SBTRecord<device::QPKDTreeletsGeoData> qpkd_treelets_sbt_record_occlusion;
+        switch (static_cast<QTreeletType>(qtreelet_type_slot_.Param<core::param::EnumParam>()->Value())) {
+        case QTreeletType::E4M16D: {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(qpkd_treelets_module_e4m16d_, &qpkd_treelets_sbt_record));
+            OPTIX_CHECK_ERROR(
+                optixSbtRecordPackHeader(qpkd_treelets_occlusion_module_e4m16d_, &qpkd_treelets_sbt_record_occlusion));
+        } break;
+        case QTreeletType::E5M15D: {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(qpkd_treelets_module_e5m15d_, &qpkd_treelets_sbt_record));
+            OPTIX_CHECK_ERROR(
+                optixSbtRecordPackHeader(qpkd_treelets_occlusion_module_e5m15d_, &qpkd_treelets_sbt_record_occlusion));
+        } break;
+        case QTreeletType::E5M15: {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(qpkd_treelets_module_e5m15_, &qpkd_treelets_sbt_record));
+            OPTIX_CHECK_ERROR(
+                optixSbtRecordPackHeader(qpkd_treelets_occlusion_module_e5m15_, &qpkd_treelets_sbt_record_occlusion));
+        } break;
+        case QTreeletType::E4M16:
+        default: {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(qpkd_treelets_module_e4m16_, &qpkd_treelets_sbt_record));
+            OPTIX_CHECK_ERROR(
+                optixSbtRecordPackHeader(qpkd_treelets_occlusion_module_e4m16_, &qpkd_treelets_sbt_record_occlusion));
+        }
+        }
 
         qpkd_treelets_sbt_record.data.particleBufferPtr = (void*) particle_data_[pl_idx];
         qpkd_treelets_sbt_record.data.colorBufferPtr = nullptr;
@@ -1449,9 +1467,8 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         qpkd_treelets_sbt_records_.push_back(qpkd_treelets_sbt_record);
 
         // occlusion stuff
-        SBTRecord<device::QPKDTreeletsGeoData> qpkd_treelets_sbt_record_occlusion;
-        OPTIX_CHECK_ERROR(
-            optixSbtRecordPackHeader(qpkd_treelets_occlusion_module_, &qpkd_treelets_sbt_record_occlusion));
+        
+        
 
         qpkd_treelets_sbt_record_occlusion.data = qpkd_treelets_sbt_record.data;
         qpkd_treelets_sbt_records_.push_back(qpkd_treelets_sbt_record_occlusion);

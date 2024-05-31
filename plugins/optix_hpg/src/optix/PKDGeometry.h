@@ -190,9 +190,15 @@ private:
 
     MMOptixModule s_comp_treelets_occlusion_module_;
 
-    MMOptixModule qpkd_treelets_module_;
+    MMOptixModule qpkd_treelets_module_e4m16_;
+    MMOptixModule qpkd_treelets_occlusion_module_e4m16_;
+    MMOptixModule qpkd_treelets_module_e4m16d_;
+    MMOptixModule qpkd_treelets_occlusion_module_e4m16d_;
 
-    MMOptixModule qpkd_treelets_occlusion_module_;
+    MMOptixModule qpkd_treelets_module_e5m15_;
+    MMOptixModule qpkd_treelets_occlusion_module_e5m15_;
+    MMOptixModule qpkd_treelets_module_e5m15d_;
+    MMOptixModule qpkd_treelets_occlusion_module_e5m15d_;
 
     uint64_t sbt_version = 0;
 

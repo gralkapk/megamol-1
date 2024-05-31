@@ -388,13 +388,13 @@ void dump_analysis_data(std::filesystem::path const& output_path, std::shared_pt
     auto const [org_rdf, new_rdf] = rdf.BuildHistogram(4.0f * radius, 100);
 
     {
-        auto f = std::ofstream(output_path / ("org_rdf_" + std::to_string(pl_idx) + ".blobb"));
+        auto f = std::ofstream(output_path / ("org_rdf_" + std::to_string(pl_idx) + ".blobb"), std::ios::binary);
         f.write(reinterpret_cast<char const*>(org_rdf.data()), org_rdf.size() * sizeof(decltype(org_rdf)::value_type));
         f.close();
     }
 
     {
-        auto f = std::ofstream(output_path / ("new_rdf_" + std::to_string(pl_idx) + ".blobb"));
+        auto f = std::ofstream(output_path / ("new_rdf_" + std::to_string(pl_idx) + ".blobb"), std::ios::binary);
         f.write(reinterpret_cast<char const*>(new_rdf.data()), new_rdf.size() * sizeof(decltype(new_rdf)::value_type));
         f.close();
     }

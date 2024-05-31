@@ -81,7 +81,8 @@ PKDGeometry::PKDGeometry()
     MakeSlotAvailable(&dump_debug_info_slot_);
 
 #ifndef MEGAMOL_USE_POWER
-    debug_output_path_slot_ << new core::param::FilePathParam("comp_stats.csv");
+    debug_output_path_slot_ << new core::param::FilePathParam(
+        "comp_stats.csv", core::param::FilePathParam::FilePathFlags_::Flag_Directory);
     MakeSlotAvailable(&debug_output_path_slot_);
 #endif
 
@@ -150,6 +151,7 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
         return false;
 
     if (in_data->FrameID() != frame_id_ || in_data->DataHash() != data_hash_ || mode_slot_.IsDirty() ||
+        threshold_slot_.IsDirty() ||
         ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) &&
             threshold_slot_.IsDirty()) ||
         ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) &&

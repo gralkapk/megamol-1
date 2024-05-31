@@ -450,6 +450,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     exp_y_data_.resize(pl_count, 0);
     exp_z_data_.resize(pl_count, 0);
 
+    use_localtables_.clear();
+    use_localtables_.resize(pl_count, 0);
+
     auto bbox = call.GetBoundingBoxes().ObjectSpaceBBox();
     glm::vec3 lower = glm::vec3(bbox.GetLeft(), bbox.Bottom(), bbox.Back());
     glm::vec3 upper = glm::vec3(bbox.GetRight(), bbox.Top(), bbox.Front());
@@ -773,7 +776,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         std::vector<char> exp_vec_x;
         std::vector<char> exp_vec_y;
         std::vector<char> exp_vec_z;
-        bool qt_exp_overflow = false;
+        unsigned int qt_exp_overflow = 0;
+        bool using_localtables = false;
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) {
             // QTreelets
             auto const selected_type =
@@ -841,15 +845,31 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 
             create_exp_maps(qtparticles, exponents_x, exponents_y, exponents_z, num_idx);
 
-            exp_vec_x.resize(treelets.size() * num_idx);
-            exp_vec_y.resize(treelets.size() * num_idx);
-            exp_vec_z.resize(treelets.size() * num_idx);
             exp_vec_x = std::vector<char>(exponents_x.begin(), exponents_x.end());
             exp_vec_y = std::vector<char>(exponents_y.begin(), exponents_y.end());
             exp_vec_z = std::vector<char>(exponents_z.begin(), exponents_z.end());
 
             if (exponents_x.size() > num_idx || exponents_y.size() > num_idx || exponents_z.size() > num_idx) {
-                qt_exp_overflow = true;
+                using_localtables = true;
+
+                exp_vec_x.resize(treelets.size() * num_idx);
+                exp_vec_y.resize(treelets.size() * num_idx);
+                exp_vec_z.resize(treelets.size() * num_idx);
+
+                use_localtables_[pl_idx] = 1;
+
+                std::vector<char> overflows(treelets.size(), 0);
+
+                tbb::parallel_for((size_t) 0, treelets.size(), [&](size_t treeletID) {
+                    unsigned int offset = treeletID * num_idx;
+                    auto const overflow = create_exp_maps(qtreelets[treeletID], qtparticles, exp_vec_x.data() + offset,
+                        exp_vec_y.data() + offset, exp_vec_z.data() + offset, num_idx);
+                    if (overflow) {
+                        overflows[treeletID] = 1;
+                    }
+                });
+
+                qt_exp_overflow = std::count(overflows.begin(), overflows.end(), 1);
             }
 
             // 4 convert to qlets
@@ -874,6 +894,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             case QTreeletType::E5M15: {
                 tbb::parallel_for((size_t) 0, treelets.size(), [&](size_t treeletID) {
                     unsigned int offset = 0;
+                    if (use_localtables_[pl_idx] > 0) {
+                        offset = treeletID * num_idx;
+                    }
                     convert_qlet<device::QTParticle_e5m15>(qtreelets[treeletID], qtparticles,
                         std::dynamic_pointer_cast<QTPBuffer_e5m15>(qtpbuffer)->buffer, exp_vec_x.data() + offset,
                         exp_vec_y.data() + offset, exp_vec_z.data() + offset);
@@ -882,6 +905,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             case QTreeletType::E4M16: {
                 tbb::parallel_for((size_t) 0, treelets.size(), [&](size_t treeletID) {
                     unsigned int offset = 0;
+                    if (use_localtables_[pl_idx] > 0) {
+                        offset = treeletID * num_idx;
+                    }
                     convert_qlet<device::QTParticle_e4m16>(qtreelets[treeletID], qtparticles,
                         std::dynamic_pointer_cast<QTPBuffer_e4m16>(qtpbuffer)->buffer, exp_vec_x.data() + offset,
                         exp_vec_y.data() + offset, exp_vec_z.data() + offset);
@@ -890,6 +916,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             case QTreeletType::E5M15D: {
                 tbb::parallel_for((size_t) 0, treelets.size(), [&](size_t treeletID) {
                     unsigned int offset = 0;
+                    if (use_localtables_[pl_idx] > 0) {
+                        offset = treeletID * num_idx;
+                    }
                     convert_qlet_dep<device::QTParticle_e5m15d>(qtreelets[treeletID], qtparticles,
                         std::dynamic_pointer_cast<QTPBuffer_e5m15d>(qtpbuffer)->buffer, exp_vec_x.data() + offset,
                         exp_vec_y.data() + offset, exp_vec_z.data() + offset);
@@ -898,6 +927,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             case QTreeletType::E4M16D: {
                 tbb::parallel_for((size_t) 0, treelets.size(), [&](size_t treeletID) {
                     unsigned int offset = 0;
+                    if (use_localtables_[pl_idx] > 0) {
+                        offset = treeletID * num_idx;
+                    }
                     convert_qlet_dep<device::QTParticle_e4m16d>(qtreelets[treeletID], qtparticles,
                         std::dynamic_pointer_cast<QTPBuffer_e4m16d>(qtpbuffer)->buffer, exp_vec_x.data() + offset,
                         exp_vec_y.data() + offset, exp_vec_z.data() + offset);
@@ -928,9 +960,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 for (size_t i = 0; i < treelets.size(); ++i) {
                     unsigned int offset = 0;
 
-                    /*if (local_tables) {
+                    if (use_localtables_[pl_idx] > 0) {
                         offset = i * num_idx;
-                    }*/
+                    }
 
                     auto const [diffs_t, orgpos_t, newpos_t] =
                         unified_sub_print(selected_type, 0, qtreelets[i].basePos, data.data(), qtpbuffer, qtreelets[i],
@@ -945,8 +977,13 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 
                 {
                     if (qt_exp_overflow) {
+                        auto f = std::ofstream(output_path / "localtables.txt");
+                        f << "localtables\n";
+                        f.close();
+                    }
+                    if (qt_exp_overflow > 0) {
                         auto f = std::ofstream(output_path / "overflow.txt");
-                        f << "overflow\n";
+                        f << qt_exp_overflow << "\n";
                         f.close();
                     }
                 }
@@ -1460,6 +1497,7 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         qpkd_treelets_sbt_record.data.expYBuffer = (char*) exp_y_data_[pl_idx];
         qpkd_treelets_sbt_record.data.expZBuffer = (char*) exp_z_data_[pl_idx];
         qpkd_treelets_sbt_record.data.selectedType = qtreelet_type_slot_.Param<core::param::EnumParam>()->Value();
+        qpkd_treelets_sbt_record.data.use_localtables = use_localtables_[pl_idx];
 
         if (has_color(particles)) {
             qpkd_treelets_sbt_record.data.colorBufferPtr = (glm::vec4*) color_data_[pl_idx];
@@ -1467,8 +1505,7 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         qpkd_treelets_sbt_records_.push_back(qpkd_treelets_sbt_record);
 
         // occlusion stuff
-        
-        
+
 
         qpkd_treelets_sbt_record_occlusion.data = qpkd_treelets_sbt_record.data;
         qpkd_treelets_sbt_records_.push_back(qpkd_treelets_sbt_record_occlusion);

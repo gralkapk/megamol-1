@@ -60,6 +60,7 @@ struct QPKDTreeletsGeoData {
     glm::vec4 globalColor;
     unsigned int particleCount;
     int selectedType;
+    char use_localtables;
 };
 } // namespace device
 } // namespace optix_hpg

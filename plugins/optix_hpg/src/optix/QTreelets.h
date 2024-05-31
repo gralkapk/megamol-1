@@ -164,8 +164,9 @@ inline void create_exp_maps(std::vector<device::QTParticle> const& input, std::u
     }
 }
 
-inline void create_exp_maps(device::QPKDlet& treelet, std::vector<device::QTParticle> const& input,
+inline bool create_exp_maps(device::QPKDlet& treelet, std::vector<device::QTParticle> const& input,
     char* out_exponents_x, char* out_exponents_y, char* out_exponents_z, unsigned int num_idx) {
+    bool overflow = false;
     std::unordered_set<char> exponents_x;
     std::unordered_set<char> exponents_y;
     std::unordered_set<char> exponents_z;
@@ -177,10 +178,13 @@ inline void create_exp_maps(device::QPKDlet& treelet, std::vector<device::QTPart
     }
     if (exponents_x.size() > num_idx || exponents_y.size() > num_idx || exponents_z.size() > num_idx) {
         std::cout << "Exponents Overflow" << std::endl;
+        overflow = true;
     }
     std::copy(exponents_x.begin(), exponents_x.end(), out_exponents_x);
     std::copy(exponents_y.begin(), exponents_y.end(), out_exponents_y);
     std::copy(exponents_z.begin(), exponents_z.end(), out_exponents_z);
+
+    return overflow;
 }
 
 template<typename TYPE, bool BDEP = TYPE::dep, int BOFFSET = TYPE::offset>

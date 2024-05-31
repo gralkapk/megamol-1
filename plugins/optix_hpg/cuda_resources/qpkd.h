@@ -200,9 +200,18 @@ void __device__ traverse_dep(BUF_TYPE const* buffer) {
     const auto treelet = self.treeletBufferPtr[treeletID];
     //auto const localTables = self.localTables;
 
+    int const num_idx = powf(2, BEXP);
+
     char const* exp_x_lu = self.expXBuffer;
     char const* exp_y_lu = self.expYBuffer;
     char const* exp_z_lu = self.expZBuffer;
+
+    if (self.use_localtables > 0) {
+        exp_x_lu += treeletID * num_idx;
+        exp_y_lu += treeletID * num_idx;
+        exp_z_lu += treeletID * num_idx;
+    }
+
     //#ifdef LOCAL_TABLES
     //    if (treelet.has_local_tables) {
     //        exp_x_lu = treelet.exp_x;
@@ -210,8 +219,7 @@ void __device__ traverse_dep(BUF_TYPE const* buffer) {
     //        exp_z_lu = treelet.exp_z;
     //    }
     //#endif
-
-    int const num_idx = powf(2, BEXP);
+       
 
     //const auto& test_ref = self.qtpBuffer[0];
 
@@ -419,11 +427,17 @@ void __device__ traverse(BUF_TYPE const* buffer) {
     const auto treelet = self.treeletBufferPtr[treeletID];
     //auto const localTables = self.localTables;
 
+    int const num_idx = powf(2, BEXP);
+
     char const* exp_x_lu = self.expXBuffer;
     char const* exp_y_lu = self.expYBuffer;
     char const* exp_z_lu = self.expZBuffer;
 
-    int const num_idx = powf(2, BEXP);
+    if (self.use_localtables > 0) {
+        exp_x_lu += treeletID * num_idx;
+        exp_y_lu += treeletID * num_idx;
+        exp_z_lu += treeletID * num_idx;
+    }
 
     auto const ray = Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), optixGetRayTmin(), optixGetRayTmax());
 

@@ -167,6 +167,7 @@ private:
     std::vector<CUdeviceptr> exp_x_data_;
     std::vector<CUdeviceptr> exp_y_data_;
     std::vector<CUdeviceptr> exp_z_data_;
+    std::vector<char> use_localtables_;
 
     std::vector<device::box3f> local_boxes_;
 

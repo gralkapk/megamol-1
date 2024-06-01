@@ -1044,6 +1044,37 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 &treelets_data_[pl_idx], treelets.size() * sizeof(device::PKDlet), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(treelets_data_[pl_idx], treelets.data(),
                 treelets.size() * sizeof(device::PKDlet), ctx.GetExecStream()));
+
+            if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
+#ifdef MEGAMOL_USE_POWER
+                auto const output_path = power_callbacks.get_output_path();
+#else
+                auto const output_path = debug_output_path_slot_.Param<core::param::FilePathParam>()->Value();
+#endif
+                auto diffs = std::make_shared<std::vector<glm::vec3>>();
+                diffs->reserve(data.size());
+                auto orgpos = std::make_shared<std::vector<glm::vec3>>();
+                orgpos->reserve(data.size());
+                auto newpos = std::make_shared<std::vector<glm::vec3>>();
+                newpos->reserve(data.size());
+
+                tbb::parallel_for((size_t) 0, treelets.size(), [&](size_t treeletID) {
+                    reconstruct_blets(0, treelets[treeletID].end - treelets[treeletID].begin,
+                        data.data() + treelets[treeletID].begin, btparticles.data() + treelets[treeletID].begin,
+                        particles.GetGlobalRadius(), treelets[treeletID].bounds,
+                        orgpos->data() + treelets[treeletID].begin, newpos->data() + treelets[treeletID].begin,
+                        diffs->data() + treelets[treeletID].begin);
+                });
+
+                dump_analysis_data(output_path, orgpos, newpos, diffs, pl_idx, particles.GetGlobalRadius());
+            }
+
+#ifdef MEGAMOL_USE_POWER
+            total_num_treelets += treelets.size();
+            total_original_data_size += data.size() * sizeof(glm::vec3);
+            total_compressed_data_size +=
+                treelets.size() * sizeof(device::PKDlet) + btparticles.size() * sizeof(device::BTParticle);
+#endif
         }
 
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&

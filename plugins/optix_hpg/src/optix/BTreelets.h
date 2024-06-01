@@ -40,4 +40,33 @@ inline void convert_blets(uint64_t P, uint64_t N, device::PKDParticle const* par
     convert_blets(lChild(P), N, particles, out_particles, radius, lbounds);
     convert_blets(rChild(P), N, particles, out_particles, radius, rbounds);
 }
+
+inline void reconstruct_blets(uint64_t P, uint64_t N, device::PKDParticle const* particles,
+    device::BTParticle* out_particles, float radius, device::box3f bounds, glm::vec3* original, glm::vec3* rec,
+    glm::vec3* diffs) {
+    if (P >= N)
+        return;
+
+    auto& out_par = out_particles[P];
+
+    auto const span = bounds.span();
+
+    auto const pos = out_par.from(span, bounds.lower);
+
+    auto const split_pos = pos[out_par.dim];
+
+    auto const lbounds = device::leftBounds(bounds, split_pos, radius, out_par.dim);
+    auto const rbounds = device::rightBounds(bounds, split_pos, radius, out_par.dim);
+
+    glm::dvec3 org_pos = particles[P].pos;
+    glm::dvec3 new_pos = pos;
+    auto const diff = new_pos - org_pos;
+
+    original[P] = org_pos;
+    rec[P] = new_pos;
+    diffs[P] = diff;
+
+    reconstruct_blets(lChild(P), N, particles, out_particles, radius, lbounds, original, rec, diffs);
+    reconstruct_blets(rChild(P), N, particles, out_particles, radius, rbounds, original, rec, diffs);
+}
 } // namespace megamol::optix_hpg

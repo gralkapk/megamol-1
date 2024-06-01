@@ -29,19 +29,20 @@ struct BTParticle {
 
     CU_CALLABLE void to(glm::vec3 const& pos, glm::vec3 const& span, glm::vec3 const& lower) {
         auto const diff = (pos - lower) / span;
-        x = static_cast<unsigned int>(diff.x * 1024);
-        y = static_cast<unsigned int>(diff.y * 1024);
-        z = static_cast<unsigned int>(diff.z * 1024);
+        x = static_cast<unsigned int>(diff.x * 1023);
+        y = static_cast<unsigned int>(diff.y * 1023);
+        z = static_cast<unsigned int>(diff.z * 1023);
     }
 
     CU_CALLABLE glm::vec3 from(glm::vec3 const& span, glm::vec3 const& lower) const {
-        glm::vec3 pos(x / 1024.f, y / 1024.f, z / 1024.f);
+        glm::vec3 pos(x / 1023.f, y / 1023.f, z / 1023.f);
         return (pos * span) + lower;
     }
 };
 
 CU_CALLABLE inline float t_compensate(float span) {
-    return span / 1024.f / 0.5f;
+    return span / 1023.f / 0.5f;
+    //return 0.0f;
 }
 
 CU_CALLABLE inline box3f leftBounds(box3f const& bounds, float split_pos, float radius, int dim) {

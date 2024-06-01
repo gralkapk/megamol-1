@@ -52,10 +52,10 @@ MM_OPTIX_INTERSECTION_KERNEL(treelet_intersect_bpkd)() {
                     pos = bpart.from(refBox.span(), refBox.lower);
                 }
 
-                const float t_slab_lo =
-                    (pos[dim] - self.radius - ray.origin[dim]) / ray.direction[dim] - t_compensate(refBox.span()[dim]);
-                const float t_slab_hi =
-                    (pos[dim] + self.radius - ray.origin[dim]) / ray.direction[dim] + t_compensate(refBox.span()[dim]);
+                const float t_slab_lo = (pos[dim] - self.radius - ray.origin[dim]) /
+                                        ray.direction[dim] - t_compensate(refBox.span()[dim]);
+                const float t_slab_hi = (pos[dim] + self.radius - ray.origin[dim]) /
+                                        ray.direction[dim] + t_compensate(refBox.span()[dim]);
 
                 const float t_slab_nr = fminf(t_slab_lo, t_slab_hi);
                 const float t_slab_fr = fmaxf(t_slab_lo, t_slab_hi);
@@ -102,23 +102,34 @@ MM_OPTIX_INTERSECTION_KERNEL(treelet_intersect_bpkd)() {
                     stackPtr->nodeID = farSide_nodeID;
                     stackPtr->t0 = farSide_t0;
                     stackPtr->t1 = farSide_t1;
-                    stackPtr->refBox = rightBounds(refBox, pos[dim], self.radius, dim);
+
+                    if (ray.direction[dim] < 0.f) {
+                        stackPtr->refBox = leftBounds(refBox, pos[dim], self.radius, dim);
+                        refBox = rightBounds(refBox, pos[dim], self.radius, dim);
+                    } else {
+                        stackPtr->refBox = rightBounds(refBox, pos[dim], self.radius, dim);
+                        refBox = leftBounds(refBox, pos[dim], self.radius, dim);
+                    }
 
                     ++stackPtr;
 
                     nodeID = nearSide_nodeID;
                     t0 = nearSide_t0;
                     t1 = nearSide_t1;
-                    refBox = leftBounds(refBox, pos[dim], self.radius, dim);
-
+                    
                     continue;
                 }
 
                 nodeID = need_nearSide ? nearSide_nodeID : farSide_nodeID;
                 t0 = need_nearSide ? nearSide_t0 : farSide_t0;
                 t1 = need_nearSide ? nearSide_t1 : farSide_t1;
-                refBox = need_nearSide ? leftBounds(refBox, pos[dim], self.radius, dim)
-                                       : rightBounds(refBox, pos[dim], self.radius, dim);
+                if (ray.direction[dim] < 0.f) {
+                    refBox = need_nearSide ? rightBounds(refBox, pos[dim], self.radius, dim)
+                                           : leftBounds(refBox, pos[dim], self.radius, dim);
+                } else {
+                    refBox = need_nearSide ? leftBounds(refBox, pos[dim], self.radius, dim)
+                                           : rightBounds(refBox, pos[dim], self.radius, dim);
+                }
             }
             // -------------------------------------------------------
             // pop

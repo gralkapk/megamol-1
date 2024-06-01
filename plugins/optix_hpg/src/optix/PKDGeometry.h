@@ -55,7 +55,7 @@ public:
 #endif
     }
 
-    enum class PKDMode { STANDARD, TREELETS, QTREELETS };
+    enum class PKDMode { STANDARD, TREELETS, QTREELETS, BTREELETS };
 
     static const char* ClassName(void) {
         return "PKDGeometry";
@@ -154,6 +154,8 @@ private:
 
     std::vector<SBTRecord<device::QPKDTreeletsGeoData>> qpkd_treelets_sbt_records_;
 
+    std::vector<SBTRecord<device::BTreeletsGeoData>> b_treelets_sbt_records_;
+
     std::array<OptixProgramGroup, 2> program_groups_;
 
     std::vector<CUdeviceptr> particle_data_;
@@ -200,6 +202,9 @@ private:
     MMOptixModule qpkd_treelets_occlusion_module_e5m15_;
     MMOptixModule qpkd_treelets_module_e5m15d_;
     MMOptixModule qpkd_treelets_occlusion_module_e5m15d_;
+
+    MMOptixModule b_treelets_module_;
+    MMOptixModule b_treelets_occlusion_module_;
 
     uint64_t sbt_version = 0;
 

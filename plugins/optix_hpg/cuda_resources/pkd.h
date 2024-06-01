@@ -62,6 +62,15 @@ struct QPKDTreeletsGeoData {
     int selectedType;
     char use_localtables;
 };
+struct BTreeletsGeoData {
+    BTParticle* particleBufferPtr;
+    glm::vec4* colorBufferPtr;
+    PKDlet* treeletBufferPtr;
+    float radius;
+    bool hasColorData;
+    glm::vec4 globalColor;
+    unsigned int particleCount;
+};
 } // namespace device
 } // namespace optix_hpg
 } // namespace megamol

@@ -36,6 +36,7 @@ struct BTParticle {
 
     CU_CALLABLE glm::vec3 from(glm::vec3 const& span, glm::vec3 const& lower) const {
         glm::vec3 pos(x / 1023.f, y / 1023.f, z / 1023.f);
+
         return (pos * span) + lower;
     }
 };
@@ -56,6 +57,20 @@ CU_CALLABLE inline box3f rightBounds(box3f const& bounds, float split_pos, float
     device::box3f rbounds = bounds;
     rbounds.lower[dim] = split_pos;
     rbounds.lower[dim] -= radius + t_compensate(bounds.span()[dim]);
+    return rbounds;
+}
+
+CU_CALLABLE inline box3f leftBounds(box3f const& bounds, float split_pos, float radius, int dim, float compensate) {
+    device::box3f lbounds = bounds;
+    lbounds.upper[dim] = split_pos;
+    lbounds.upper[dim] += radius + compensate;
+    return lbounds;
+}
+
+CU_CALLABLE inline box3f rightBounds(box3f const& bounds, float split_pos, float radius, int dim, float compensate) {
+    device::box3f rbounds = bounds;
+    rbounds.lower[dim] = split_pos;
+    rbounds.lower[dim] -= radius + compensate;
     return rbounds;
 }
 } // namespace device

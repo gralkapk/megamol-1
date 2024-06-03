@@ -181,26 +181,52 @@ device::box3f extendBounds(std::vector<device::PKDParticle> const& particles, si
     return bounds;
 }
 
-std::vector<device::PKDlet> prePartition_inPlace(
-    std::vector<device::PKDParticle>& particles, size_t maxSize, float radius) {
+std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle>& particles, size_t maxSize,
+    float radius, std::function<bool(device::box3f const&)> add_cond) {
     std::mutex resultMutex;
     std::vector<device::PKDlet> result;
 
-    partitionRecursively(particles, 0ULL, particles.size(), [&](size_t begin, size_t end, bool force) {
-        /*bool makeLeaf() :*/
-        const size_t size = end - begin;
-        if (size > maxSize && !force)
-            return false;
+    if (add_cond == nullptr) {
+        partitionRecursively(
+            particles, 0ULL, particles.size(), [&](size_t begin, size_t end, bool force, device::box3f const& bounds) {
+                /*bool makeLeaf() :*/
+                const size_t size = end - begin;
+                if (size > maxSize && !force)
+                    return false;
 
-        device::PKDlet treelet;
-        treelet.begin = begin;
-        treelet.end = end;
-        treelet.bounds = extendBounds(particles, begin, end, radius);
+                device::PKDlet treelet;
+                treelet.begin = begin;
+                treelet.end = end;
+                //treelet.bounds = extendBounds(particles, begin, end, radius);
+                treelet.bounds = bounds;
+                treelet.bounds.lower -= radius;
+                treelet.bounds.upper += radius;
 
-        std::lock_guard<std::mutex> lock(resultMutex);
-        result.push_back(treelet);
-        return true;
-    });
+                std::lock_guard<std::mutex> lock(resultMutex);
+                result.push_back(treelet);
+                return true;
+            });
+    } else {
+        partitionRecursively(
+            particles, 0ULL, particles.size(), [&](size_t begin, size_t end, bool force, device::box3f const& bounds) {
+                /*bool makeLeaf() :*/
+                const size_t size = end - begin;
+                if ((size > maxSize && !force) || add_cond(bounds))
+                    return false;
+
+                device::PKDlet treelet;
+                treelet.begin = begin;
+                treelet.end = end;
+                //treelet.bounds = extendBounds(particles, begin, end, radius);
+                treelet.bounds = bounds;
+                treelet.bounds.lower -= radius;
+                treelet.bounds.upper += radius;
+
+                std::lock_guard<std::mutex> lock(resultMutex);
+                result.push_back(treelet);
+                return true;
+            });
+    }
 
     return std::move(result);
 }

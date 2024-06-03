@@ -1023,8 +1023,13 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         std::vector<device::BTParticle> btparticles;
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::BTREELETS)) {
             // 1 treelet partitioning
+            auto const add_cond = [](device::box3f const& bounds) -> bool {
+                constexpr auto const spatial_threshold = 32.f;
+                auto const span = bounds.span();
+                return span.x >= spatial_threshold || span.y >= spatial_threshold || span.z >= spatial_threshold;
+            };
             treelets = prePartition_inPlace(
-                data, threshold_slot_.Param<core::param::IntParam>()->Value(), particles.GetGlobalRadius());
+                data, threshold_slot_.Param<core::param::IntParam>()->Value(), particles.GetGlobalRadius(), add_cond);
 
             // 2 create PKDs from original data
             tbb::parallel_for((size_t) 0, treelets.size(), [&](size_t treeletID) {
@@ -1044,6 +1049,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 &treelets_data_[pl_idx], treelets.size() * sizeof(device::PKDlet), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(treelets_data_[pl_idx], treelets.data(),
                 treelets.size() * sizeof(device::PKDlet), ctx.GetExecStream()));
+
+            core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Number of treelets: %d", treelets.size());
 
             if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
 #ifdef MEGAMOL_USE_POWER

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <vector>
 
 #include "particle.h"
@@ -13,8 +14,8 @@ void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t e
 
 void makePKD(std::vector<device::SPKDParticle>& particles, device::SPKDlet const& treelet, size_t begin);
 
-std::vector<device::PKDlet> prePartition_inPlace(
-    std::vector<device::PKDParticle>& particles, size_t maxSize, float radius);
+std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle>& particles, size_t maxSize,
+    float radius, std::function<bool(device::box3f const&)> add_cond = nullptr);
 // END PKD
 
 // BEGIN TREELETS
@@ -24,10 +25,6 @@ size_t sort_partition(
 template<typename MakeLeafLambda>
 void partitionRecursively(
     std::vector<device::PKDParticle>& particles, size_t begin, size_t end, const MakeLeafLambda& makeLeaf) {
-    if (makeLeaf(begin, end, false))
-        // could make into a leaf, done.
-        return;
-
     // -------------------------------------------------------
     // parallel bounding box computation
     // -------------------------------------------------------
@@ -36,6 +33,10 @@ void partitionRecursively(
     for (size_t idx = begin; idx < end; ++idx) {
         bounds.extend(particles[idx].pos);
     }
+
+    if (makeLeaf(begin, end, false, bounds))
+        // could make into a leaf, done.
+        return;
 
 #if 0
     std::mutex boundsMutex;

@@ -1414,6 +1414,7 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
     comp_treelets_sbt_records_.clear();
     s_comp_treelets_sbt_records_.clear();
     qpkd_treelets_sbt_records_.clear();
+    b_treelets_sbt_records_.clear();
 
     for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
         auto const& particles = call.AccessParticles(pl_idx);

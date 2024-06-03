@@ -14,7 +14,7 @@ chan_3:state(true):attenuation(oscilloscope_quantity:new(100, "A")):range(oscill
 --chan_3 = oscilloscope_channel:new(3)
 --chan_3:state(true):attenuation(oscilloscope_quantity:new(10, "A")):range(oscilloscope_quantity:new(40, "A")):label(oscilloscope_label:new("A_12VHPWR_2", true))
 chan_4 = oscilloscope_channel:new(4)
-chan_4:state(true):range(oscilloscope_quantity:new(2, "V")):attenuation(oscilloscope_quantity:new(1, "V")):offset(oscilloscope_quantity:new(5, "V")):label(oscilloscope_label:new("V_ATX5", true))
+chan_4:state(true):range(oscilloscope_quantity:new(2, "V")):attenuation(oscilloscope_quantity:new(10, "V")):offset(oscilloscope_quantity:new(5, "V")):label(oscilloscope_label:new("V_ATX5", true))
 rtb01:channel(chan_1)
 --rtb01:channel(chan_2)
 rtb01:channel(chan_3)

@@ -1059,11 +1059,11 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 auto const output_path = debug_output_path_slot_.Param<core::param::FilePathParam>()->Value();
 #endif
                 auto diffs = std::make_shared<std::vector<glm::vec3>>();
-                diffs->reserve(data.size());
+                diffs->resize(data.size());
                 auto orgpos = std::make_shared<std::vector<glm::vec3>>();
-                orgpos->reserve(data.size());
+                orgpos->resize(data.size());
                 auto newpos = std::make_shared<std::vector<glm::vec3>>();
-                newpos->reserve(data.size());
+                newpos->resize(data.size());
 
                 tbb::parallel_for((size_t) 0, treelets.size(), [&](size_t treeletID) {
                     reconstruct_blets(0, treelets[treeletID].end - treelets[treeletID].begin,

@@ -429,7 +429,8 @@ void dump_analysis_data(std::filesystem::path const& output_path, std::shared_pt
             diffs->begin(), diffs->end(), [](auto const& lhs, auto const& rhs) { return lhs.y < rhs.y; });
         auto const dz_minmax = std::minmax_element(
             diffs->begin(), diffs->end(), [](auto const& lhs, auto const& rhs) { return lhs.z < rhs.z; });
-        auto const d_acc = std::accumulate(diffs->begin(), diffs->end(), glm::vec3(0));
+        auto const d_acc = std::accumulate(diffs->begin(), diffs->end(), glm::vec3(0),
+            [](auto const& lhs, auto const& rhs) { return glm::abs(lhs) + glm::abs(rhs); });
         auto const csv_file_path = output_path / "comp_stats.csv";
         if (std::filesystem::exists(csv_file_path)) {
             // already exists ... append stats

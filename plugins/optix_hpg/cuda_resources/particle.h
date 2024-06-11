@@ -84,6 +84,11 @@ struct QPKDParticle {
     unsigned int z : 16;
 };
 
+struct FPKDParticle {
+    int dim;
+    glm::uvec3 pos;
+};
+
 struct SPKDParticle {
     unsigned char dim : 2;
     unsigned char sx_idx : 2;

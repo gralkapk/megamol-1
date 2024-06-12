@@ -18,7 +18,8 @@
 #include <tracy/Tracy.hpp>
 #endif
 
-#include "LuaCallbacksCollection.h"
+#include "LuaApiResource.h"
+#include "mmcore/LuaAPI.h"
 
 #include "ModuleGraphSubscription.h"
 
@@ -120,7 +121,8 @@ bool Power_Service::init(void* configPtr) {
 
     m_providedResourceReferences = {{frontend_resources::PowerCallbacks_Req_Name, callbacks_}};
 
-    m_requestedResourcesNames = {"RegisterLuaCallbacks", "RuntimeInfo", frontend_resources::MegaMolGraph_Req_Name};
+    m_requestedResourcesNames = {
+        frontend_resources::LuaAPI_Req_Name, "RuntimeInfo", frontend_resources::MegaMolGraph_Req_Name};
 
     using namespace visus::power_overwhelming;
 
@@ -345,62 +347,48 @@ void Power_Service::postGraphRender() {}
 //}
 
 void Power_Service::fill_lua_callbacks() {
-    frontend_resources::LuaCallbacksCollection callbacks;
+    auto luaApi = m_requestedResourceReferences[0].getResource<core::LuaAPI*>();
 
-    callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult>(
-        "mmPowerSetup", "()", {[&]() -> frontend_resources::LuaCallbacksCollection::VoidResult {
-            //setup_measurement();
-            if (rtx_) {
-                rtx_->ApplyConfigs(&meta_);
-            }
-            return frontend_resources::LuaCallbacksCollection::VoidResult{};
-        }});
+    luaApi->RegisterCallback("mmPowerSetup", "()", [&]() -> void {
+        //setup_measurement();
+        if (rtx_) {
+            rtx_->ApplyConfigs(&meta_);
+        }
+    });
 
-    callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, std::string>("mmPowerOutput", "(string path)",
-        {[&](std::string path) -> frontend_resources::LuaCallbacksCollection::VoidResult {
-            write_folder_ = path;
-            return frontend_resources::LuaCallbacksCollection::VoidResult{};
-        }});
+    luaApi->RegisterCallback("mmPowerOutput", "(string path)", [&](std::string path) -> void { write_folder_ = path; });
 
-    callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, std::string>("mmPowerMeasure",
-        "(string path)", {[&](std::string path) -> frontend_resources::LuaCallbacksCollection::VoidResult {
-            //start_measurement();
-            reset_measurement();
-            write_folder_ = path;
-            meta_.project_file = megamolgraph_ptr_->Convenience().SerializeGraph();
-            if (rtx_) {
-                if (write_to_files_) {
-                    if (dataverse_key_) {
-                        std::function<void(std::string)> dataverse_writer =
-                            std::bind(&power::DataverseWriter, dataverse_config_.base_path, dataverse_config_.doi,
-                                std::placeholders::_1, dataverse_key_->GetToken(), std::ref(sbroker_.Get(false)));
-                        power::writer_func_t parquet_dataverse_writer =
-                            std::bind(&power::wf_parquet_dataverse, std::placeholders::_1, std::placeholders::_2,
-                                std::placeholders::_3, std::placeholders::_4, dataverse_writer);
-                        rtx_->StartMeasurement(path, {parquet_dataverse_writer, &power::wf_tracy_wrapper::wf_tracy},
-                            &meta_, sbroker_.Get(false));
-                    } else {
-                        rtx_->StartMeasurement(path, {&power::wf_parquet, &power::wf_tracy_wrapper::wf_tracy}, &meta_,
-                            sbroker_.Get(false));
-                    }
+    luaApi->RegisterCallback("mmPowerMeasure", "(string path)", [&](std::string path) -> void {
+        //start_measurement();
+        reset_measurement();
+        write_folder_ = path;
+        meta_.project_file = megamolgraph_ptr_->Convenience().SerializeGraph();
+        if (rtx_) {
+            if (write_to_files_) {
+                if (dataverse_key_) {
+                    std::function<void(std::string)> dataverse_writer =
+                        std::bind(&power::DataverseWriter, dataverse_config_.base_path, dataverse_config_.doi,
+                            std::placeholders::_1, dataverse_key_->GetToken(), std::ref(sbroker_.Get(false)));
+                    power::writer_func_t parquet_dataverse_writer =
+                        std::bind(&power::wf_parquet_dataverse, std::placeholders::_1, std::placeholders::_2,
+                            std::placeholders::_3, std::placeholders::_4, dataverse_writer);
+                    rtx_->StartMeasurement(path, {parquet_dataverse_writer, &power::wf_tracy_wrapper::wf_tracy}, &meta_,
+                        sbroker_.Get(false));
                 } else {
-                    rtx_->StartMeasurement(path, {&power::wf_tracy_wrapper::wf_tracy}, &meta_, sbroker_.Get(false));
+                    rtx_->StartMeasurement(
+                        path, {&power::wf_parquet, &power::wf_tracy_wrapper::wf_tracy}, &meta_, sbroker_.Get(false));
                 }
+            } else {
+                rtx_->StartMeasurement(path, {&power::wf_tracy_wrapper::wf_tracy}, &meta_, sbroker_.Get(false));
             }
-            return frontend_resources::LuaCallbacksCollection::VoidResult{};
-        }});
+        }
+    });
 
-    callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, bool>("mmPowerWriteToFile", "(bool flag)",
-        {[&](bool const flag) -> frontend_resources::LuaCallbacksCollection::VoidResult {
-            write_to_files_ = flag;
-            return frontend_resources::LuaCallbacksCollection::VoidResult{};
-        }});
+    luaApi->RegisterCallback(
+        "mmPowerWriteToFile", "(bool flag)", [&](bool const flag) -> void { write_to_files_ = flag; });
 
-    callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, std::string>("mmPowerSetLPTAddress",
-        "(string address)", {[&](std::string const address) -> frontend_resources::LuaCallbacksCollection::VoidResult {
-            main_trigger_->SetLPTAddress(address);
-            return frontend_resources::LuaCallbacksCollection::VoidResult{};
-        }});
+    luaApi->RegisterCallback("mmPowerSetLPTAddress", "(string address)",
+        [&](std::string const address) -> void { main_trigger_->SetLPTAddress(address); });
 
     /*callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult>(
         "mmPowerSignalHalt", "()", {[&]() -> frontend_resources::LuaCallbacksCollection::VoidResult {
@@ -414,10 +402,8 @@ void Power_Service::fill_lua_callbacks() {
             return frontend_resources::LuaCallbacksCollection::VoidResult{};
         }});*/
 
-    callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, std::string, int, int, int, int>(
-        "mmPowerConfig", "(string path, int points, int count, int range_ms, int timeout_ms)",
-        {[&](std::string path, int points, int count, int range,
-             int timeout) -> frontend_resources::LuaCallbacksCollection::VoidResult {
+    luaApi->RegisterCallback("mmPowerConfig", "(string path, int points, int count, int range_ms, int timeout_ms)",
+        [&](std::string path, int points, int count, int range, int timeout) -> void {
             /*sol_state_["points"] = points;
             sol_state_["count"] = count;
             sol_state_["range"] = range;
@@ -434,14 +420,9 @@ void Power_Service::fill_lua_callbacks() {
             }
             meta_.trigger_ts.reserve(count);
             reset_segment_range(std::chrono::milliseconds(range));
+        });
 
-            return frontend_resources::LuaCallbacksCollection::VoidResult{};
-        }});
-
-    callbacks.add<frontend_resources::LuaCallbacksCollection::BoolResult>(
-        "mmPowerIsPending", "()", {[&]() -> frontend_resources::LuaCallbacksCollection::BoolResult {
-            return frontend_resources::LuaCallbacksCollection::BoolResult{sbroker_.GetValue()};
-        }});
+    luaApi->RegisterCallback("mmPowerIsPending", "()", [&]() -> bool { return sbroker_.GetValue(); });
 
     /*callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult>(
         "mmPowerForceTrigger", "()", {[&]() -> frontend_resources::LuaCallbacksCollection::VoidResult {
@@ -451,13 +432,11 @@ void Power_Service::fill_lua_callbacks() {
             return frontend_resources::LuaCallbacksCollection::VoidResult{};
         }});*/
 
-    callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, bool>("mmPowerSoftwareTrigger", "(bool set)",
-        {[&](bool set) -> frontend_resources::LuaCallbacksCollection::VoidResult {
-            if (rtx_) {
-                rtx_->SetSoftwareTrigger(set);
-            }
-            return frontend_resources::LuaCallbacksCollection::VoidResult{};
-        }});
+    luaApi->RegisterCallback("mmPowerSoftwareTrigger", "(bool set)", [&](bool set) -> void {
+        if (rtx_) {
+            rtx_->SetSoftwareTrigger(set);
+        }
+    });
 
     /*callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, std::string, std::string>(
         "mmPowerRegisterTracyExp", "(string name, string path)",
@@ -466,24 +445,17 @@ void Power_Service::fill_lua_callbacks() {
             return frontend_resources::LuaCallbacksCollection::VoidResult{};
         }});*/
 
-    callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, std::string>("mmPowerDataverseKey",
-        "(string path_to_key)",
-        {[&](std::string path_to_key) -> frontend_resources::LuaCallbacksCollection::VoidResult {
-            dataverse_key_ = std::make_unique<power::CryptToken>(path_to_key);
-            return frontend_resources::LuaCallbacksCollection::VoidResult{};
-        }});
+    luaApi->RegisterCallback("mmPowerDataverseKey", "(string path_to_key)",
+        [&](std::string path_to_key) -> void { dataverse_key_ = std::make_unique<power::CryptToken>(path_to_key); });
 
-    callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, std::string, std::string>(
-        "mmPowerDataverseDataset", "(string base_path, string doi)",
-        {[&](std::string base_path, std::string doi) -> frontend_resources::LuaCallbacksCollection::VoidResult {
+    luaApi->RegisterCallback("mmPowerDataverseDataset", "(string base_path, string doi)",
+        [&](std::string base_path, std::string doi) -> void {
             dataverse_config_.base_path = base_path;
             dataverse_config_.doi = doi;
-            return frontend_resources::LuaCallbacksCollection::VoidResult{};
-        }});
+        });
 
-    callbacks.add<frontend_resources::LuaCallbacksCollection::VoidResult, std::string, std::string>("mmPowerRecipe",
-        "(string name, string path)",
-        {[&](std::string name, std::string path) -> frontend_resources::LuaCallbacksCollection::VoidResult {
+    luaApi->RegisterCallback(
+        "mmPowerRecipe", "(string name, string path)", [&](std::string name, std::string path) -> void {
             if (std::filesystem::exists(path) && std::filesystem::is_regular_file(path)) {
                 auto const size = std::filesystem::file_size(path);
                 std::ifstream f(path);
@@ -492,14 +464,7 @@ void Power_Service::fill_lua_callbacks() {
                 f.close();
                 meta_.analysis_recipes[name] = std::string(data.begin(), data.end());
             }
-            return frontend_resources::LuaCallbacksCollection::VoidResult{};
-        }});
-
-    auto& register_callbacks =
-        m_requestedResourceReferences[0]
-            .getResource<std::function<void(frontend_resources::LuaCallbacksCollection const&)>>();
-
-    register_callbacks(callbacks);
+        });
 }
 
 //void clear_sb(power::buffers_t& buffers) {

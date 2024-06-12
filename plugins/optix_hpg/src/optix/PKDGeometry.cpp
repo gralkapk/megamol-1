@@ -1109,8 +1109,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 #ifdef MEGAMOL_USE_POWER
             total_num_treelets += treelets.size();
             total_original_data_size += data.size() * sizeof(glm::vec3);
-            total_compressed_data_size +=
-                treelets.size() * sizeof(device::PKDlet) + data.size() * sizeof(device::PKDParticle);
+            total_compressed_data_size += treelets.size() * sizeof(device::PKDlet) + data.size() * sizeof(glm::vec3);
             /*power_callbacks.add_meta_key_value("NumTreelets", std::to_string(treelets.size()));
             power_callbacks.add_meta_key_value(
                 "OriginalDataSize", std::to_string(data.size() * sizeof(device::PKDParticle)));
@@ -1379,9 +1378,16 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 #ifdef MEGAMOL_USE_POWER
     if (compSize < bufferSizes.outputSizeInBytes) {
         power_callbacks.add_meta_key_value("GeoSize", std::to_string(compSize));
+        core::utility::log::Log::DefaultLog.WriteInfo(
+            "[PKDGeometry] Data size with BVH: %d", total_compressed_data_size + compSize);
     } else {
         power_callbacks.add_meta_key_value("GeoSize", std::to_string(bufferSizes.outputSizeInBytes));
+        core::utility::log::Log::DefaultLog.WriteInfo(
+            "[PKDGeometry] Data size with BVH: %d", total_compressed_data_size + bufferSizes.outputSizeInBytes);
     }
+    power_callbacks.add_meta_key_value("OriginalGeoSize", std::to_string(bufferSizes.outputSizeInBytes));
+    power_callbacks.add_meta_key_value("OriginalGeoTempSize", std::to_string(bufferSizes.tempSizeInBytes));
+    power_callbacks.add_meta_key_value("CompactGeoSize", std::to_string(compSize));
     power_callbacks.add_meta_key_value("NumTreelets", std::to_string(total_num_treelets));
     power_callbacks.add_meta_key_value("OriginalDataSize", std::to_string(total_original_data_size));
     power_callbacks.add_meta_key_value("CompressedDataSize", std::to_string(total_compressed_data_size));

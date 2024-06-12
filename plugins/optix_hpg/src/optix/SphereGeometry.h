@@ -20,9 +20,20 @@
 
 #include "optix/Context.h"
 
+#ifdef MEGAMOL_USE_POWER
+#include "PowerCallbacks.h"
+#endif
+
 namespace megamol::optix_hpg {
 class SphereGeometry : public core::Module {
 public:
+    static void requested_lifetime_resources(frontend_resources::ResourceRequest& req) {
+        core::Module::requested_lifetime_resources(req);
+#ifdef MEGAMOL_USE_POWER
+        req.require<frontend_resources::PowerCallbacks>();
+#endif
+    }
+
     static const char* ClassName(void) {
         return "SphereGeometry";
     }

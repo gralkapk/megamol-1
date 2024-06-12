@@ -105,6 +105,10 @@ void megamol::optix_hpg::SphereGeometry::init(Context const& ctx) {
 
 
 bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataCall& call, Context const& ctx) {
+#ifdef MEGAMOL_USE_POWER
+    auto power_callbacks = this->frontend_resources.get<frontend_resources::PowerCallbacks>();
+#endif
+
     auto const pl_count = call.GetParticleListCount();
 
     for (auto const& el : particle_data_) {
@@ -122,6 +126,10 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
     color_data_.resize(pl_count, 0);
     std::vector<CUdeviceptr> bounds_data(pl_count);
     std::vector<OptixBuildInput> build_inputs;
+
+#ifdef MEGAMOL_USE_POWER
+    size_t total_original_data_size = 0;
+#endif
 
     for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
         // for now only the first geometry
@@ -198,6 +206,9 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
         OptixBuildInput& buildInput = build_inputs.back();
         memset(&buildInput, 0, sizeof(OptixBuildInput));
 
+#ifdef MEGAMOL_USE_POWER
+        total_original_data_size += data.size() * sizeof(glm::vec3);
+#endif
 
         if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
             buildInput.type = OPTIX_BUILD_INPUT_TYPE_SPHERES;
@@ -314,6 +325,18 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
     std::size_t compSize;
     CUDA_CHECK_ERROR(cuMemcpyDtoHAsync(&compSize, d_compSize, sizeof(std::size_t), ctx.GetExecStream()));
     CUDA_CHECK_ERROR(cuMemFreeAsync(d_compSize, ctx.GetExecStream()));
+#ifdef MEGAMOL_USE_POWER
+    if (compSize < bufferSizes.outputSizeInBytes) {
+        power_callbacks.add_meta_key_value("GeoSize", std::to_string(compSize));
+        core::utility::log::Log::DefaultLog.WriteInfo(
+            "[SphereGeometry] Data size with BVH: %d", total_original_data_size + compSize);
+    } else {
+        power_callbacks.add_meta_key_value("GeoSize", std::to_string(bufferSizes.outputSizeInBytes));
+        core::utility::log::Log::DefaultLog.WriteInfo(
+            "[SphereGeometry] Data size with BVH: %d", total_original_data_size + bufferSizes.outputSizeInBytes);
+    }
+    power_callbacks.add_meta_key_value("OriginalDataSize", std::to_string(total_original_data_size));
+#endif
     if (compSize < bufferSizes.outputSizeInBytes) {
         CUdeviceptr comp_geo_buffer;
         CUDA_CHECK_ERROR(cuMemAllocAsync(&comp_geo_buffer, compSize, ctx.GetExecStream()));

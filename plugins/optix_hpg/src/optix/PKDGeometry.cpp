@@ -48,8 +48,8 @@ PKDGeometry::PKDGeometry()
         : out_geo_slot_("outGeo", "")
         , in_data_slot_("inData", "")
         , mode_slot_("mode", "")
-        , compression_slot_("compression", "")
-        , grid_slot_("grid", "")
+        /*, compression_slot_("compression", "")
+        , grid_slot_("grid", "")*/
         , threshold_slot_("threshold", "")
         , dump_debug_info_slot_("Debug::dumpDebugInfo", "")
 #ifndef MEGAMOL_USE_POWER
@@ -66,16 +66,17 @@ PKDGeometry::PKDGeometry()
     auto ep = new core::param::EnumParam(static_cast<int>(PKDMode::STANDARD));
     ep->SetTypePair(static_cast<int>(PKDMode::STANDARD), "Standard");
     ep->SetTypePair(static_cast<int>(PKDMode::TREELETS), "Treelets");
+    ep->SetTypePair(static_cast<int>(PKDMode::STREELETS), "STreelets");
     ep->SetTypePair(static_cast<int>(PKDMode::QTREELETS), "QTreelets");
     ep->SetTypePair(static_cast<int>(PKDMode::BTREELETS), "BTreelets");
     mode_slot_ << ep;
     MakeSlotAvailable(&mode_slot_);
 
-    compression_slot_ << new core::param::BoolParam(false);
+    /*compression_slot_ << new core::param::BoolParam(false);
     MakeSlotAvailable(&compression_slot_);
 
     grid_slot_ << new core::param::BoolParam(false);
-    MakeSlotAvailable(&grid_slot_);
+    MakeSlotAvailable(&grid_slot_);*/
 
     threshold_slot_ << new core::param::IntParam(256, 16);
     MakeSlotAvailable(&threshold_slot_);
@@ -154,50 +155,26 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
         return false;
 
     if (in_data->FrameID() != frame_id_ || in_data->DataHash() != data_hash_ || mode_slot_.IsDirty() ||
-        threshold_slot_.IsDirty() ||
-        ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) &&
-            threshold_slot_.IsDirty()) ||
-        ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) &&
-            compression_slot_.IsDirty()) ||
-        ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) &&
-            compression_slot_.Param<core::param::BoolParam>()->Value() && grid_slot_.IsDirty()) ||
-        ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) &&
-            qtreelet_type_slot_.IsDirty())) {
+        threshold_slot_is_dirty() || qtreelets_type_slot_is_dirty()) {
         if (!assert_data(*in_data, *ctx))
             return false;
         createSBTRecords(*in_data, *ctx);
-        frame_id_ = in_data->FrameID();
-        data_hash_ = in_data->DataHash();
-        if (mode_slot_.IsDirty() || threshold_slot_.IsDirty() ||
-            ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) &&
-                compression_slot_.IsDirty()) ||
-            ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) &&
-                compression_slot_.Param<core::param::BoolParam>()->Value() && grid_slot_.IsDirty()) ||
-            ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) &&
-                qtreelet_type_slot_.IsDirty())) {
+        if (mode_slot_.IsDirty() || threshold_slot_is_dirty() || qtreelets_type_slot_is_dirty()) {
             ++program_version;
         }
+        frame_id_ = in_data->FrameID();
+        data_hash_ = in_data->DataHash();
         mode_slot_.ResetDirty();
-        threshold_slot_.ResetDirty();
-        compression_slot_.ResetDirty();
-        grid_slot_.ResetDirty();
-        qtreelet_type_slot_.ResetDirty();
+        threshold_slot_reset_dirty();
+        qtreelets_type_slot_reset_dirty();
     }
 
     if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
-        if (compression_slot_.Param<core::param::BoolParam>()->Value() &&
-            !grid_slot_.Param<core::param::BoolParam>()->Value()) {
-            program_groups_[0] = comp_treelets_module_;
-            program_groups_[1] = comp_treelets_occlusion_module_;
-        } else if (compression_slot_.Param<core::param::BoolParam>()->Value() &&
-                   grid_slot_.Param<core::param::BoolParam>()->Value()) {
-            // full compression
-            program_groups_[0] = s_comp_treelets_module_;
-            program_groups_[1] = s_comp_treelets_occlusion_module_;
-        } else {
-            program_groups_[0] = treelets_module_;
-            program_groups_[1] = treelets_occlusion_module_;
-        }
+        program_groups_[0] = treelets_module_;
+        program_groups_[1] = treelets_occlusion_module_;
+    } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {
+        program_groups_[0] = s_comp_treelets_module_;
+        program_groups_[1] = s_comp_treelets_occlusion_module_;
     } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) {
         switch (static_cast<QTreeletType>(qtreelet_type_slot_.Param<core::param::EnumParam>()->Value())) {
         case QTreeletType::E4M16D: {
@@ -229,19 +206,11 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
     out_geo->set_handle(&geo_handle_, geo_version);
     out_geo->set_program_groups(program_groups_.data(), program_groups_.size(), program_version);
     if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
-        if (compression_slot_.Param<core::param::BoolParam>()->Value() &&
-            !grid_slot_.Param<core::param::BoolParam>()->Value()) {
-            out_geo->set_record(comp_treelets_sbt_records_.data(), comp_treelets_sbt_records_.size(),
-                sizeof(SBTRecord<device::QTreeletsGeoData>), sbt_version);
-        } else if (compression_slot_.Param<core::param::BoolParam>()->Value() &&
-                   grid_slot_.Param<core::param::BoolParam>()->Value()) {
-            // full compression
-            out_geo->set_record(s_comp_treelets_sbt_records_.data(), s_comp_treelets_sbt_records_.size(),
-                sizeof(SBTRecord<device::STreeletsGeoData>), sbt_version);
-        } else {
-            out_geo->set_record(treelets_sbt_records_.data(), treelets_sbt_records_.size(),
-                sizeof(SBTRecord<device::TreeletsGeoData>), sbt_version);
-        }
+        out_geo->set_record(treelets_sbt_records_.data(), treelets_sbt_records_.size(),
+            sizeof(SBTRecord<device::TreeletsGeoData>), sbt_version);
+    } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {
+        out_geo->set_record(s_comp_treelets_sbt_records_.data(), s_comp_treelets_sbt_records_.size(),
+            sizeof(SBTRecord<device::STreeletsGeoData>), sbt_version);
     } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) {
         out_geo->set_record(qpkd_treelets_sbt_records_.data(), qpkd_treelets_sbt_records_.size(),
             sizeof(SBTRecord<device::QPKDTreeletsGeoData>), sbt_version);
@@ -532,9 +501,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         std::vector<device::QPKDParticle> qparticles;
         std::vector<device::SPKDParticle> s_particles;
 
-        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&
-            compression_slot_.Param<core::param::BoolParam>()->Value() &&
-            grid_slot_.Param<core::param::BoolParam>()->Value()) {
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {
             // Grid Compression Treelets
             qparticles.resize(data.size());
             s_particles.resize(data.size());
@@ -620,7 +587,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 s_treelets.size() * sizeof(device::SPKDlet), ctx.GetExecStream()));
             megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Num treelets: %d", s_treelets.size());
             megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Original size: %d; New size: %d",
-                data.size() * sizeof(device::PKDParticle),
+                data.size() * sizeof(glm::vec3),
                 s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle));
 
 #ifdef MEGAMOL_USE_POWER
@@ -1085,9 +1052,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 #endif
         }
 
-        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&
-            !(compression_slot_.Param<core::param::BoolParam>()->Value() &&
-                grid_slot_.Param<core::param::BoolParam>()->Value())) {
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
             // Normal treelets
             // TODO separate particles into a set of treelets
             treelets = prePartition_inPlace(
@@ -1119,19 +1084,21 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 
             // TODO compress data if requested
             // for debugging without parallel
-            if (compression_slot_.Param<core::param::BoolParam>()->Value() &&
-                !grid_slot_.Param<core::param::BoolParam>()->Value()) {
-                // Normal treelets with compression
-                qparticles.resize(data.size());
-                for (size_t tID = 0; tID < treelets.size(); ++tID) {
-                    auto const& treelet = treelets[tID];
-                    std::vector<glm::uvec3> out_coord(treelet.end - treelet.begin);
-                    std::vector<device::PKDParticle> out_decode(treelet.end - treelet.begin);
-                    convert(0, &data[treelet.begin], &qparticles[treelet.begin], treelet.end - treelet.begin,
-                        treelet.bounds, global_rad, out_decode.data(), out_coord.data());
-                }
-            }
-        } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STANDARD)) {
+            //if (compression_slot_.Param<core::param::BoolParam>()->Value() &&
+            //    !grid_slot_.Param<core::param::BoolParam>()->Value()) {
+            //    // Normal treelets with compression
+            //    qparticles.resize(data.size());
+            //    for (size_t tID = 0; tID < treelets.size(); ++tID) {
+            //        auto const& treelet = treelets[tID];
+            //        std::vector<glm::uvec3> out_coord(treelet.end - treelet.begin);
+            //        std::vector<device::PKDParticle> out_decode(treelet.end - treelet.begin);
+            //        convert(0, &data[treelet.begin], &qparticles[treelet.begin], treelet.end - treelet.begin,
+            //            treelet.bounds, global_rad, out_decode.data(), out_coord.data());
+            //    }
+            //}
+        }
+
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STANDARD)) {
             // Normal PKDs
             auto const max_threads = omp_get_max_threads();
             std::vector<device::box3f> local_boxes(max_threads);
@@ -1170,16 +1137,15 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
                 color_data_[pl_idx], color_data.data(), col_count * sizeof(glm::vec4), ctx.GetExecStream()));
         }
-        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&
+        /*if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&
             (compression_slot_.Param<core::param::BoolParam>()->Value() &&
                 !grid_slot_.Param<core::param::BoolParam>()->Value())) {
             CUDA_CHECK_ERROR(
                 cuMemAllocAsync(&particle_data_[pl_idx], p_count * sizeof(device::QPKDParticle), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(particle_data_[pl_idx], qparticles.data(),
                 p_count * sizeof(device::QPKDParticle), ctx.GetExecStream()));
-        } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&
-                   (compression_slot_.Param<core::param::BoolParam>()->Value() &&
-                       grid_slot_.Param<core::param::BoolParam>()->Value())) {
+        } else*/
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {
             CUDA_CHECK_ERROR(
                 cuMemAllocAsync(&particle_data_[pl_idx], p_count * sizeof(device::SPKDParticle), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(particle_data_[pl_idx], s_particles.data(),
@@ -1258,8 +1224,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         OptixBuildInput& buildInput = build_inputs.back();
         memset(&buildInput, 0, sizeof(OptixBuildInput));
 
-        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&
-            !grid_slot_.Param<core::param::BoolParam>()->Value()) {
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
             // TODO set of treelet boxes
             CUDA_CHECK_ERROR(
                 cuMemAllocAsync(&bounds_data[pl_idx], treelets.size() * sizeof(device::box3f), ctx.GetExecStream()));
@@ -1273,8 +1238,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             }
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(bounds_data[pl_idx], treelet_boxes.data(),
                 treelet_boxes.size() * sizeof(device::box3f), ctx.GetExecStream()));
-        } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&
-                   grid_slot_.Param<core::param::BoolParam>()->Value()) {
+        } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {
             CUDA_CHECK_ERROR(
                 cuMemAllocAsync(&bounds_data[pl_idx], s_treelets.size() * sizeof(device::box3f), ctx.GetExecStream()));
             std::vector<device::box3f> treelet_boxes;
@@ -1325,11 +1289,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         buildInput.type = OPTIX_BUILD_INPUT_TYPE_CUSTOM_PRIMITIVES;
         auto& cp_input = buildInput.customPrimitiveArray;
         cp_input.aabbBuffers = &bounds_data[pl_idx];
-        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&
-            !grid_slot_.Param<core::param::BoolParam>()->Value()) {
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
             cp_input.numPrimitives = treelets.size();
-        } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) &&
-                   grid_slot_.Param<core::param::BoolParam>()->Value()) {
+        } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {
             cp_input.numPrimitives = s_treelets.size();
         } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) {
             cp_input.numPrimitives = qtreelets.size();

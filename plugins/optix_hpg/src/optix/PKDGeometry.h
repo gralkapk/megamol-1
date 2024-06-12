@@ -28,14 +28,15 @@
 #include "mmcore/CallerSlot.h"
 #include "mmcore/Module.h"
 
+#include "mmcore/param/EnumParam.h"
 #include "mmcore/param/ParamSlot.h"
 
 #include "geometry_calls/MultiParticleDataCall.h"
 
+#include "MMOptixModule.h"
 #include "SBT.h"
 #include "optix/Context.h"
 #include "optix/Utils.h"
-#include "MMOptixModule.h"
 
 #include <cuda.h>
 
@@ -55,7 +56,7 @@ public:
 #endif
     }
 
-    enum class PKDMode { STANDARD, TREELETS, QTREELETS, BTREELETS };
+    enum class PKDMode { STANDARD, TREELETS, STREELETS, QTREELETS, BTREELETS };
 
     static const char* ClassName(void) {
         return "PKDGeometry";
@@ -126,14 +127,46 @@ private:
         }
     }
 
+    bool threshold_slot_is_dirty() {
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) ||
+            mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS) ||
+            mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS) ||
+            mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::BTREELETS)) {
+            return threshold_slot_.IsDirty();
+        }
+        return false;
+    }
+
+    void threshold_slot_reset_dirty() {
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) ||
+            mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS) ||
+            mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS) ||
+            mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::BTREELETS)) {
+            threshold_slot_.ResetDirty();
+        }
+    }
+
+    bool qtreelets_type_slot_is_dirty() {
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) {
+            return qtreelet_type_slot_.IsDirty();
+        }
+        return false;
+    }
+
+    void qtreelets_type_slot_reset_dirty() {
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) {
+            qtreelet_type_slot_.ResetDirty();
+        }
+    }
+
     core::CalleeSlot out_geo_slot_;
 
     core::CallerSlot in_data_slot_;
 
     core::param::ParamSlot mode_slot_;
 
-    core::param::ParamSlot compression_slot_;
-    core::param::ParamSlot grid_slot_;
+    /*core::param::ParamSlot compression_slot_;
+    core::param::ParamSlot grid_slot_;*/
 
     core::param::ParamSlot threshold_slot_;
 

@@ -73,7 +73,7 @@ size_t sort_partition(std::vector<PType>& particles, size_t begin, size_t end, B
 }
 
 template<typename PType, typename BType, typename MakeLeafLambda>
-void partitionRecursively(std::vector<PType>& particles, size_t begin, size_t end, const MakeLeafLambda& makeLeaf) {
+void partitionRecursively(std::vector<PType>& particles, size_t begin, size_t end, const MakeLeafLambda& makeLeaf, bool skip = false) {
     // -------------------------------------------------------
     // parallel bounding box computation
     // -------------------------------------------------------
@@ -83,9 +83,11 @@ void partitionRecursively(std::vector<PType>& particles, size_t begin, size_t en
         bounds.extend(particles[idx].pos);
     }
 
-    if (makeLeaf(begin, end, false, bounds))
-        // could make into a leaf, done.
-        return;
+    if (!skip) {
+        if (makeLeaf(begin, end, false, bounds))
+            // could make into a leaf, done.
+            return;
+    }
 
 #if 0
     std::mutex boundsMutex;

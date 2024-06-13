@@ -43,6 +43,7 @@ struct PKDlet {
 struct FPKDLet {
     box3u32 bounds;
     size_t begin, end;
+    int offset[3];
 };
 
 //struct SPKDlet {

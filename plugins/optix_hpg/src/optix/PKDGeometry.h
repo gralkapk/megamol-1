@@ -56,7 +56,14 @@ public:
 #endif
     }
 
-    enum class PKDMode { STANDARD, TREELETS, STREELETS, QTREELETS, BTREELETS };
+    enum class PKDMode {
+        STANDARD,
+        TREELETS,
+        STREELETS /*grid with fixed*/,
+        QTREELETS /*floating*/,
+        BTREELETS /*quantization*/,
+        CTREELETS /*clustering*/
+    };
 
     static const char* ClassName(void) {
         return "PKDGeometry";
@@ -131,7 +138,8 @@ private:
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS) ||
             mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS) ||
             mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS) ||
-            mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::BTREELETS)) {
+            mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::BTREELETS) ||
+            mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::CTREELETS)) {
             return threshold_slot_.IsDirty();
         }
         return false;

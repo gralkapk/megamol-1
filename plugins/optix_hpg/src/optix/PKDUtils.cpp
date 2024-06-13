@@ -8,13 +8,7 @@
 namespace megamol::optix_hpg {
 // BEGIN PKD
 
-int arg_max(glm::vec3 const& v) {
-    int biggestDim = 0;
-    for (int i = 1; i < 3; ++i)
-        if ((v[i]) > (v[biggestDim]))
-            biggestDim = i;
-    return biggestDim;
-}
+
 
 void recBuild(size_t /* root node */ P, device::PKDParticle* particle, size_t N, device::box3f bounds) {
     if (P >= N)
@@ -133,41 +127,41 @@ void makePKD(std::vector<device::SPKDParticle>& particles, device::SPKDlet const
 
 // BEGIN TREELETS
 
-size_t sort_partition(
-    std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds, int& splitDim) {
-    // -------------------------------------------------------
-    // determine split pos
-    // -------------------------------------------------------
-    splitDim = arg_max(bounds.upper - bounds.lower);
-    //float splitPos = bounds.center()[splitDim];
-    float splitPos = (0.5f * (bounds.upper + bounds.lower))[splitDim];
-
-    // -------------------------------------------------------
-    // now partition ...
-    // -------------------------------------------------------
-    size_t mid = begin;
-    size_t l = begin, r = (end - 1);
-    // quicksort partition:
-    while (l <= r) {
-        while (l < r && particles[l].pos[splitDim] < splitPos)
-            ++l;
-        while (l < r && particles[r].pos[splitDim] >= splitPos)
-            --r;
-        if (l == r) {
-            mid = l;
-            break;
-        }
-
-        std::swap(particles[l], particles[r]);
-    }
-
-    // catch-all for extreme cases where all particles are on the same
-    // spot, and can't be split:
-    if (mid == begin || mid == end)
-        mid = (begin + end) / 2;
-
-    return mid;
-}
+//size_t sort_partition(
+//    std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds, int& splitDim) {
+//    // -------------------------------------------------------
+//    // determine split pos
+//    // -------------------------------------------------------
+//    splitDim = arg_max(bounds.upper - bounds.lower);
+//    //float splitPos = bounds.center()[splitDim];
+//    float splitPos = (0.5f * (bounds.upper + bounds.lower))[splitDim];
+//
+//    // -------------------------------------------------------
+//    // now partition ...
+//    // -------------------------------------------------------
+//    size_t mid = begin;
+//    size_t l = begin, r = (end - 1);
+//    // quicksort partition:
+//    while (l <= r) {
+//        while (l < r && particles[l].pos[splitDim] < splitPos)
+//            ++l;
+//        while (l < r && particles[r].pos[splitDim] >= splitPos)
+//            --r;
+//        if (l == r) {
+//            mid = l;
+//            break;
+//        }
+//
+//        std::swap(particles[l], particles[r]);
+//    }
+//
+//    // catch-all for extreme cases where all particles are on the same
+//    // spot, and can't be split:
+//    if (mid == begin || mid == end)
+//        mid = (begin + end) / 2;
+//
+//    return mid;
+//}
 
 device::box3f extendBounds(std::vector<device::PKDParticle> const& particles, size_t begin, size_t end, float radius) {
     device::box3f bounds;
@@ -187,7 +181,7 @@ std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle
     std::vector<device::PKDlet> result;
 
     if (add_cond == nullptr) {
-        partitionRecursively(
+        partitionRecursively<device::PKDParticle, device::box3f>(
             particles, 0ULL, particles.size(), [&](size_t begin, size_t end, bool force, device::box3f const& bounds) {
                 /*bool makeLeaf() :*/
                 const size_t size = end - begin;
@@ -207,7 +201,7 @@ std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle
                 return true;
             });
     } else {
-        partitionRecursively(
+        partitionRecursively<device::PKDParticle, device::box3f>(
             particles, 0ULL, particles.size(), [&](size_t begin, size_t end, bool force, device::box3f const& bounds) {
                 /*bool makeLeaf() :*/
                 const size_t size = end - begin;

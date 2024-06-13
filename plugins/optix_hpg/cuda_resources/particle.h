@@ -40,6 +40,11 @@ struct PKDlet {
     size_t begin, end;
 };
 
+struct FPKDLet {
+    box3u32 bounds;
+    size_t begin, end;
+};
+
 //struct SPKDlet {
 //    //! bounding box of all particles (including the radius)
 //    box3f bounds;

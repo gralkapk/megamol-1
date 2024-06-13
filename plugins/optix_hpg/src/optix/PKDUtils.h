@@ -19,16 +19,65 @@ std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle
 // END PKD
 
 // BEGIN TREELETS
-size_t sort_partition(
-    std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds, int& splitDim);
+inline int arg_max(glm::vec3 const& v) {
+    int biggestDim = 0;
+    for (int i = 1; i < 3; ++i)
+        if ((v[i]) > (v[biggestDim]))
+            biggestDim = i;
+    return biggestDim;
+}
 
-template<typename MakeLeafLambda>
-void partitionRecursively(
-    std::vector<device::PKDParticle>& particles, size_t begin, size_t end, const MakeLeafLambda& makeLeaf) {
+inline int arg_max(glm::uvec3 const& v) {
+    int biggestDim = 0;
+    for (int i = 1; i < 3; ++i)
+        if ((v[i]) > (v[biggestDim]))
+            biggestDim = i;
+    return biggestDim;
+}
+
+template<typename PType, typename BType>
+size_t sort_partition(std::vector<PType>& particles, size_t begin, size_t end, BType const& bounds, int& splitDim) {
+    // -------------------------------------------------------
+    // determine split pos
+    // -------------------------------------------------------
+    auto const span = bounds.span();
+    splitDim = arg_max(span);
+    float splitPos = bounds.center()[splitDim];
+    //float splitPos = (0.5f * (bounds.upper + bounds.lower))[splitDim];
+
+    // -------------------------------------------------------
+    // now partition ...
+    // -------------------------------------------------------
+    size_t mid = begin;
+    size_t l = begin, r = (end - 1);
+    // quicksort partition:
+    while (l <= r) {
+        while (l < r && particles[l].pos[splitDim] < splitPos)
+            ++l;
+        while (l < r && particles[r].pos[splitDim] >= splitPos)
+            --r;
+        if (l == r) {
+            mid = l;
+            break;
+        }
+
+        std::swap(particles[l], particles[r]);
+    }
+
+    // catch-all for extreme cases where all particles are on the same
+    // spot, and can't be split:
+    if (mid == begin || mid == end)
+        mid = (begin + end) / 2;
+
+    return mid;
+}
+
+template<typename PType, typename BType, typename MakeLeafLambda>
+void partitionRecursively(std::vector<PType>& particles, size_t begin, size_t end, const MakeLeafLambda& makeLeaf) {
     // -------------------------------------------------------
     // parallel bounding box computation
     // -------------------------------------------------------
-    device::box3f bounds;
+    BType bounds;
 
     for (size_t idx = begin; idx < end; ++idx) {
         bounds.extend(particles[idx].pos);
@@ -86,9 +135,9 @@ void partitionRecursively(
     // -------------------------------------------------------
     tbb::parallel_for(0, 2, [&](int side) {
         if (side)
-            partitionRecursively(particles, begin, mid, makeLeaf);
+            partitionRecursively<PType, BType>(particles, begin, mid, makeLeaf);
         else
-            partitionRecursively(particles, mid, end, makeLeaf);
+            partitionRecursively<PType, BType>(particles, mid, end, makeLeaf);
     });
 }
 // END TREELETS

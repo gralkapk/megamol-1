@@ -33,6 +33,8 @@
 
 #include "BTreelets.h"
 
+#include "CTreelets.h"
+
 #include "moldyn/RDF.h"
 
 #ifdef MEGAMOL_USE_POWER
@@ -69,6 +71,7 @@ PKDGeometry::PKDGeometry()
     ep->SetTypePair(static_cast<int>(PKDMode::STREELETS), "STreelets");
     ep->SetTypePair(static_cast<int>(PKDMode::QTREELETS), "QTreelets");
     ep->SetTypePair(static_cast<int>(PKDMode::BTREELETS), "BTreelets");
+    ep->SetTypePair(static_cast<int>(PKDMode::CTREELETS), "CTreelets");
     mode_slot_ << ep;
     MakeSlotAvailable(&mode_slot_);
 
@@ -500,6 +503,15 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         std::vector<device::SPKDlet> s_treelets;
         std::vector<device::QPKDParticle> qparticles;
         std::vector<device::SPKDParticle> s_particles;
+
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::CTREELETS)) {
+            auto bounds = device::box3f();
+            bounds.lower = lower;
+            bounds.upper = upper;
+            norm_at_bounds(data, bounds);
+
+            ctreelets_partition(data, bounds, global_rad, threshold_slot_.Param<core::param::IntParam>()->Value());
+        }
 
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {
             // Grid Compression Treelets

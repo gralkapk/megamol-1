@@ -26,7 +26,10 @@ inline void norm_at_bounds(std::vector<device::PKDParticle>& data, device::box3f
 
 inline void ctreelets_partition(
     std::vector<device::PKDParticle>& data, device::box3f const& bounds, float radius, size_t maxSize) {
-    auto fparticles = convert_to_fparticles(data, bounds);
+    device::box3f unit_box;
+    unit_box.lower = glm::vec3(0);
+    unit_box.upper = glm::vec3(1);
+    auto fparticles = convert_to_fparticles(data, unit_box);
 
     auto const max_threads = omp_get_max_threads();
     std::vector<device::box3u32> thread_box(max_threads);
@@ -228,8 +231,8 @@ inline void ctreelets_partition(
         tl.prefix[2] = el.prefix[2];
         auto const& fbounds = el.bounds;
         tl.fbounds = fbounds;
-        tl.bounds.lower = (glm::dvec3(fbounds.lower) / static_cast<double>(factor)) * span + lower;
-        tl.bounds.upper = (glm::dvec3(fbounds.upper) / static_cast<double>(factor)) * span + lower;
+        tl.bounds.lower = (glm::dvec3(fbounds.lower) / static_cast<double>(factor)); //* span + lower;
+        tl.bounds.upper = (glm::dvec3(fbounds.upper) / static_cast<double>(factor)); //* span + lower;
         tl.bounds.lower = (glm::dvec3(tl.bounds.lower) * span) + lower;
         tl.bounds.upper = (glm::dvec3(tl.bounds.upper) * span) + lower;
         tl.bounds.lower -= radius;

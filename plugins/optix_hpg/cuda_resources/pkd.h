@@ -71,6 +71,16 @@ struct BTreeletsGeoData {
     glm::vec4 globalColor;
     unsigned int particleCount;
 };
+struct CTreeletsGeoData {
+    box3f bounds;
+    CPKDParticle* particleBufferPtr;
+    glm::vec4* colorBufferPtr;
+    CPKDlet* treeletBufferPtr;
+    float radius;
+    bool hasColorData;
+    glm::vec4 globalColor;
+    unsigned int particleCount;
+};
 } // namespace device
 } // namespace optix_hpg
 } // namespace megamol

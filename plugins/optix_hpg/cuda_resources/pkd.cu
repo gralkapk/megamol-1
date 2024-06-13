@@ -870,6 +870,8 @@ MM_OPTIX_CLOSESTHIT_KERNEL(s_comp_treelets_closesthit_occlusion)
 
 #include "bpkd.h"
 
+#include "cpkd.h"
+
 } // namespace device
 } // namespace optix_hpg
 } // namespace megamol

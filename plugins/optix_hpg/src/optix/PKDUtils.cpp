@@ -10,7 +10,7 @@ namespace megamol::optix_hpg {
 
 
 
-void recBuild(size_t /* root node */ P, device::PKDParticle* particle, size_t N, device::box3f bounds) {
+void recBuild(size_t /* root node */ P, device::PKDParticle* particle, size_t N, device::box3f bounds, device::FPKDParticle* pack = nullptr) {
     if (P >= N)
         return;
 
@@ -20,26 +20,41 @@ void recBuild(size_t /* root node */ P, device::PKDParticle* particle, size_t N,
     const size_t R = rChild(P);
     const bool lValid = (L < N);
     const bool rValid = (R < N);
-    makeHeap(std::greater<float>(), L, particle, N, dim);
-    makeHeap(std::less<float>(), R, particle, N, dim);
+    makeHeap(std::greater<float>(), L, particle, N, dim, pack);
+    makeHeap(std::less<float>(), R, particle, N, dim, pack);
 
     if (rValid) {
         while (particle[L].pos[dim] > particle[R].pos[dim]) {
             std::swap(particle[L], particle[R]);
-            trickle(std::greater<float>(), L, particle, N, dim);
-            trickle(std::less<float>(), R, particle, N, dim);
+            if (pack) {
+                std::swap(pack[L], pack[R]);
+            }
+            trickle(std::greater<float>(), L, particle, N, dim, pack);
+            trickle(std::less<float>(), R, particle, N, dim, pack);
         }
         if (particle[L].pos[dim] > particle[P].pos[dim]) {
             std::swap(particle[L], particle[P]);
+            if (pack) {
+                std::swap(pack[L], pack[P]);
+                pack[L].dim = dim;
+            }
             particle[L].dim = dim;
         } else if (particle[R].pos[dim] < particle[P].pos[dim]) {
             std::swap(particle[R], particle[P]);
+            if (pack) {
+                std::swap(pack[R], pack[P]);
+                pack[R].dim = dim;
+            }
             particle[R].dim = dim;
         } else
             /* nothing, root fits */;
     } else if (lValid) {
         if (particle[L].pos[dim] > particle[P].pos[dim]) {
             std::swap(particle[L], particle[P]);
+            if (pack) {
+                std::swap(pack[L], pack[P]);
+                pack[L].dim = dim;
+            }
             particle[L].dim = dim;
         }
     }
@@ -51,9 +66,9 @@ void recBuild(size_t /* root node */ P, device::PKDParticle* particle, size_t N,
 
     tbb::parallel_for(0, 2, [&](int childID) {
         if (childID) {
-            recBuild(L, particle, N, lBounds);
+            recBuild(L, particle, N, lBounds, pack);
         } else {
-            recBuild(R, particle, N, rBounds);
+            recBuild(R, particle, N, rBounds, pack);
         }
     });
 }
@@ -62,8 +77,8 @@ void makePKD(std::vector<device::PKDParticle>& particles, device::box3f bounds) 
     recBuild(/*node:*/ 0, particles.data(), particles.size(), bounds);
 }
 
-void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds) {
-    recBuild(/*node:*/ 0, particles.data() + begin, end - begin, bounds);
+void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds, device::FPKDParticle* pack) {
+    recBuild(/*node:*/ 0, particles.data() + begin, end - begin, bounds, pack);
 }
 
 

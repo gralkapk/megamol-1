@@ -8,6 +8,7 @@
 
 #include "qtreeletparticle.h"
 #include "btreeletparticle.h"
+#include "ctreeletparticle.h"
 
 namespace megamol {
 namespace optix_hpg {
@@ -43,7 +44,8 @@ struct PKDlet {
 struct FPKDLet {
     box3u32 bounds;
     size_t begin, end;
-    int offset[3];
+    char offset[3];
+    unsigned short prefix[3];
 };
 
 //struct SPKDlet {

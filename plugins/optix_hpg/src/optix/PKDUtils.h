@@ -10,7 +10,7 @@ namespace megamol::optix_hpg {
 // BEGIN PKD
 void makePKD(std::vector<device::PKDParticle>& particles, device::box3f bounds);
 
-void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds);
+void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds, device::FPKDParticle* pack = nullptr);
 
 void makePKD(std::vector<device::SPKDParticle>& particles, device::SPKDlet const& treelet, size_t begin);
 
@@ -37,7 +37,7 @@ inline int arg_max(glm::uvec3 const& v) {
 
 template<typename PType, typename BType>
 size_t sort_partition(
-    std::vector<PType>& particles, size_t begin, size_t end, BType const& bounds, int& splitDim, bool median) {
+    std::vector<PType>& particles, size_t begin, size_t end, BType const& bounds, int& splitDim, bool median, device::PKDParticle* pack = nullptr) {
     // -------------------------------------------------------
     // determine split pos
     // -------------------------------------------------------
@@ -72,6 +72,9 @@ size_t sort_partition(
         }
 
         std::swap(particles[l], particles[r]);
+        if (pack) {
+            std::swap(pack[l], pack[r]);
+        }
     }
 
     // catch-all for extreme cases where all particles are on the same
@@ -83,7 +86,7 @@ size_t sort_partition(
 }
 
 template<typename PType, typename BType, typename MakeLeafLambda>
-void partitionRecursively(std::vector<PType>& particles, size_t begin, size_t end, const MakeLeafLambda& makeLeaf,
+void partitionRecursively(std::vector<PType>& particles, size_t begin, size_t end, const MakeLeafLambda& makeLeaf, device::PKDParticle* pack = nullptr,
     bool median = false, bool skip = false) {
     // -------------------------------------------------------
     // parallel bounding box computation
@@ -141,16 +144,16 @@ void partitionRecursively(std::vector<PType>& particles, size_t begin, size_t en
 #endif
 
     int splitDim;
-    auto mid = sort_partition(particles, begin, end, bounds, splitDim, median);
+    auto mid = sort_partition(particles, begin, end, bounds, splitDim, median, pack);
 
     // -------------------------------------------------------
     // and recurse ...
     // -------------------------------------------------------
     tbb::parallel_for(0, 2, [&](int side) {
         if (side)
-            partitionRecursively<PType, BType>(particles, begin, mid, makeLeaf, median);
+            partitionRecursively<PType, BType>(particles, begin, mid, makeLeaf, pack, median);
         else
-            partitionRecursively<PType, BType>(particles, mid, end, makeLeaf, median);
+            partitionRecursively<PType, BType>(particles, mid, end, makeLeaf, pack, median);
     });
 }
 // END TREELETS
@@ -189,7 +192,7 @@ inline size_t rChild(size_t P) {
 }
 
 template<class Comp>
-inline void trickle(const Comp& worse, size_t P, device::PKDParticle* particle, size_t N, int dim) {
+inline void trickle(const Comp& worse, size_t P, device::PKDParticle* particle, size_t N, int dim, device::FPKDParticle* pack = nullptr) {
     if (P >= N)
         return;
 
@@ -209,19 +212,22 @@ inline void trickle(const Comp& worse, size_t P, device::PKDParticle* particle, 
             return;
 
         std::swap(particle[C], particle[P]);
+        if (pack) {
+            std::swap(pack[C], pack[P]);
+        }
         P = C;
     }
 }
 
 template<class Comp>
-inline void makeHeap(const Comp& comp, size_t P, device::PKDParticle* particle, size_t N, int dim) {
+inline void makeHeap(const Comp& comp, size_t P, device::PKDParticle* particle, size_t N, int dim, device::FPKDParticle* pack = nullptr) {
     if (P >= N)
         return;
     const size_t L = lChild(P);
     const size_t R = rChild(P);
-    makeHeap(comp, L, particle, N, dim);
-    makeHeap(comp, R, particle, N, dim);
-    trickle(comp, P, particle, N, dim);
+    makeHeap(comp, L, particle, N, dim, pack);
+    makeHeap(comp, R, particle, N, dim, pack);
+    trickle(comp, P, particle, N, dim, pack);
 }
 
 

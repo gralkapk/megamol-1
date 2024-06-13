@@ -36,13 +36,23 @@ inline int arg_max(glm::uvec3 const& v) {
 }
 
 template<typename PType, typename BType>
-size_t sort_partition(std::vector<PType>& particles, size_t begin, size_t end, BType const& bounds, int& splitDim) {
+size_t sort_partition(
+    std::vector<PType>& particles, size_t begin, size_t end, BType const& bounds, int& splitDim, bool median) {
     // -------------------------------------------------------
     // determine split pos
     // -------------------------------------------------------
     auto const span = bounds.span();
     splitDim = arg_max(span);
+
     float splitPos = bounds.center()[splitDim];
+
+    if (median) {
+        std::nth_element(particles.begin() + begin, particles.begin() + begin + ((end - begin) / 2),
+            particles.begin() + end,
+            [&](auto const& lhs, auto const& rhs) { return lhs.pos[splitDim] < rhs.pos[splitDim]; });
+        splitPos = (particles.begin() + begin + ((end - begin) / 2))->pos[splitDim];
+    }
+
     //float splitPos = (0.5f * (bounds.upper + bounds.lower))[splitDim];
 
     // -------------------------------------------------------
@@ -73,7 +83,8 @@ size_t sort_partition(std::vector<PType>& particles, size_t begin, size_t end, B
 }
 
 template<typename PType, typename BType, typename MakeLeafLambda>
-void partitionRecursively(std::vector<PType>& particles, size_t begin, size_t end, const MakeLeafLambda& makeLeaf, bool skip = false) {
+void partitionRecursively(std::vector<PType>& particles, size_t begin, size_t end, const MakeLeafLambda& makeLeaf,
+    bool median = false, bool skip = false) {
     // -------------------------------------------------------
     // parallel bounding box computation
     // -------------------------------------------------------
@@ -130,16 +141,16 @@ void partitionRecursively(std::vector<PType>& particles, size_t begin, size_t en
 #endif
 
     int splitDim;
-    auto mid = sort_partition(particles, begin, end, bounds, splitDim);
+    auto mid = sort_partition(particles, begin, end, bounds, splitDim, median);
 
     // -------------------------------------------------------
     // and recurse ...
     // -------------------------------------------------------
     tbb::parallel_for(0, 2, [&](int side) {
         if (side)
-            partitionRecursively<PType, BType>(particles, begin, mid, makeLeaf);
+            partitionRecursively<PType, BType>(particles, begin, mid, makeLeaf, median);
         else
-            partitionRecursively<PType, BType>(particles, mid, end, makeLeaf);
+            partitionRecursively<PType, BType>(particles, mid, end, makeLeaf, median);
     });
 }
 // END TREELETS
@@ -161,8 +172,7 @@ std::tuple<std::vector<device::PKDlet>, std::vector<std::pair<unsigned int, devi
 //    std::vector<device::PKDParticle> const& org_data, size_t begin, size_t end, glm::vec3 const& lower);
 
 void convert(size_t P, device::PKDParticle* in_particle, device::QPKDParticle* out_particle, size_t N,
-    device::box3f bounds,
-    float radius, device::PKDParticle* out_decode = nullptr, glm::uvec3* out_coord = nullptr);
+    device::box3f bounds, float radius, device::PKDParticle* out_decode = nullptr, glm::uvec3* out_coord = nullptr);
 // END COMPRESS
 
 inline size_t parent(size_t C) {
@@ -216,7 +226,8 @@ inline void makeHeap(const Comp& comp, size_t P, device::PKDParticle* particle, 
 
 
 template<class Comp>
-inline void trickle(const Comp& worse, size_t P, device::SPKDParticle* particle, size_t N, int dim, device::SPKDlet const& treelet) {
+inline void trickle(
+    const Comp& worse, size_t P, device::SPKDParticle* particle, size_t N, int dim, device::SPKDlet const& treelet) {
     if (P >= N)
         return;
 
@@ -241,7 +252,8 @@ inline void trickle(const Comp& worse, size_t P, device::SPKDParticle* particle,
 }
 
 template<class Comp>
-inline void makeHeap(const Comp& comp, size_t P, device::SPKDParticle* particle, size_t N, int dim, device::SPKDlet const& treelet) {
+inline void makeHeap(
+    const Comp& comp, size_t P, device::SPKDParticle* particle, size_t N, int dim, device::SPKDlet const& treelet) {
     if (P >= N)
         return;
     const size_t L = lChild(P);

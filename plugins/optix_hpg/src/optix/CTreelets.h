@@ -102,7 +102,7 @@ inline void ctreelets_partition(
                 remaining_jobs.push(std::make_tuple(begin, end, offset_x, offset_y, offset_z));
             }
             return true;
-        });
+        }, true);
 
     while (!remaining_jobs.empty()) {
         auto rj = remaining_jobs.top();
@@ -158,7 +158,7 @@ inline void ctreelets_partition(
                     remaining_jobs.push(std::make_tuple(begin, end, offset_x, offset_y, offset_z));
                 }
                 return true;
-            }, true);
+            }, true, false);
     }
 
     auto const pc = std::count_if(

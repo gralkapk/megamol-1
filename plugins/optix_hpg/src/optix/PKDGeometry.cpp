@@ -35,6 +35,8 @@
 
 #include "CTreelets.h"
 
+#include "Morton.h"
+
 #include "moldyn/RDF.h"
 
 #ifdef MEGAMOL_USE_POWER
@@ -508,9 +510,26 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             auto bounds = device::box3f();
             bounds.lower = lower;
             bounds.upper = upper;
-            norm_at_bounds(data, bounds);
+            //norm_at_bounds(data, bounds);
 
-            ctreelets_partition(data, bounds, global_rad, threshold_slot_.Param<core::param::IntParam>()->Value());
+            auto mc = create_morton_codes(data, bounds);
+            sort_morton_codes(mc);
+            auto [cells, sorted_codes, sorted_data] = mask_morton_codes(mc,data);
+
+            std::vector<device::PKDlet> c_temp_treelets;
+
+            for (auto const& c : cells) {
+                auto const temp_treelets = prePartition_inPlace(
+                    sorted_data, c.first, c.second, threshold_slot_.Param<core::param::IntParam>()->Value(), particles.GetGlobalRadius());
+
+                c_temp_treelets.insert(c_temp_treelets.end(), temp_treelets.begin(), temp_treelets.end());
+            }
+
+            for (auto const& el : c_temp_treelets) {
+                convert_morton_treelet(el, sorted_data, bounds);
+            }
+
+            //ctreelets_partition(data, bounds, global_rad, threshold_slot_.Param<core::param::IntParam>()->Value());
         }
 
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {

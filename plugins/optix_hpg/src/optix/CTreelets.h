@@ -5,6 +5,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+#include <numeric>
 
 #include "FTreelets.h"
 #include "PKDUtils.h"
@@ -26,10 +27,10 @@ inline void norm_at_bounds(std::vector<device::PKDParticle>& data, device::box3f
 
 inline void ctreelets_partition(
     std::vector<device::PKDParticle>& data, device::box3f const& bounds, float radius, size_t maxSize) {
-    device::box3f unit_box;
+    /*device::box3f unit_box;
     unit_box.lower = glm::vec3(0);
-    unit_box.upper = glm::vec3(1);
-    auto fparticles = convert_to_fparticles(data, unit_box);
+    unit_box.upper = glm::vec3(1);*/
+    auto fparticles = convert_to_fparticles(data, bounds);
 
     auto const max_threads = omp_get_max_threads();
     std::vector<device::box3u32> thread_box(max_threads);
@@ -231,8 +232,8 @@ inline void ctreelets_partition(
         tl.prefix[2] = el.prefix[2];
         auto const& fbounds = el.bounds;
         tl.fbounds = fbounds;
-        tl.bounds.lower = (glm::dvec3(fbounds.lower) / static_cast<double>(factor)); //* span + lower;
-        tl.bounds.upper = (glm::dvec3(fbounds.upper) / static_cast<double>(factor)); //* span + lower;
+        tl.bounds.lower = (glm::dvec3(fbounds.lower) / static_cast<double>(factor));
+        tl.bounds.upper = (glm::dvec3(fbounds.upper) / static_cast<double>(factor));
         tl.bounds.lower = (glm::dvec3(tl.bounds.lower) * span) + lower;
         tl.bounds.upper = (glm::dvec3(tl.bounds.upper) * span) + lower;
         tl.bounds.lower -= radius;
@@ -256,5 +257,26 @@ inline void ctreelets_partition(
             cparticles[i].z = (fparticles[i].pos.z - el.fbounds.lower.z) /* >> el.offset[2]*/;
         }
     }
+
+    std::vector<glm::vec3> diffs(cparticles.size());
+    for (auto const& el : ctreelets) {
+        for (unsigned int i = el.begin; i < el.end; ++i) {
+            auto const new_pos = glm::dvec3(cparticles[i].from(el, span, lower));
+            auto const org_pos = glm::dvec3(glm::dvec3(data[i].pos) * span + lower);
+            diffs[i] = glm::abs(new_pos - org_pos);
+        }
+    }
+
+    auto const max_x =
+        std::max_element(diffs.begin(), diffs.end(), [](auto const& lhs, auto const& rhs) { return lhs.x < rhs.x; })->x;
+    auto const max_y =
+        std::max_element(diffs.begin(), diffs.end(), [](auto const& lhs, auto const& rhs) { return lhs.y < rhs.y; })->y;
+    auto const max_z =
+        std::max_element(diffs.begin(), diffs.end(), [](auto const& lhs, auto const& rhs) { return lhs.z < rhs.z; })->z;
+    auto diff_avg = std::accumulate(diffs.begin(), diffs.end(), glm::dvec3(0), std::plus<glm::dvec3>());
+    diff_avg /= static_cast<double>(diffs.size());
+
+    std::cout << "max x " << max_x << " max y " << max_y << " max z " << max_z << std::endl;
+    std::cout << "avg x " << diff_avg.x << " avg y " << diff_avg.y << " acg z " << diff_avg.z << std::endl;
 }
 } // namespace megamol::optix_hpg

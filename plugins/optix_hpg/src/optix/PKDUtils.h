@@ -16,6 +16,9 @@ void makePKD(std::vector<device::SPKDParticle>& particles, device::SPKDlet const
 
 std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle>& particles, size_t maxSize,
     float radius, std::function<bool(device::box3f const&)> add_cond = nullptr);
+
+std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, size_t maxSize,
+    float radius, std::function<bool(device::box3f const&)> add_cond = nullptr);
 // END PKD
 
 // BEGIN TREELETS

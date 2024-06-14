@@ -32,7 +32,7 @@ struct CPKDParticle {
         pos.z /= static_cast<float>(factor);
 
         pos = pos * span + lower;
-        pos = pos * span + lower;
+        //pos = pos * span + lower;
 
         return pos;
     }

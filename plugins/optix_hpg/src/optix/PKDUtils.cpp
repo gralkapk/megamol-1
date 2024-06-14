@@ -240,6 +240,56 @@ std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle
     return std::move(result);
 }
 
+std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, size_t maxSize,
+    float radius, std::function<bool(device::box3f const&)> add_cond) {
+    std::mutex resultMutex;
+    std::vector<device::PKDlet> result;
+
+    if (add_cond == nullptr) {
+        partitionRecursively<device::PKDParticle, device::box3f>(
+            particles, begin, end, [&](size_t begin, size_t end, bool force, device::box3f const& bounds) {
+                /*bool makeLeaf() :*/
+                const size_t size = end - begin;
+                if (size > maxSize && !force)
+                    return false;
+
+                device::PKDlet treelet;
+                treelet.begin = begin;
+                treelet.end = end;
+                //treelet.bounds = extendBounds(particles, begin, end, radius);
+                treelet.bounds = bounds;
+                treelet.bounds.lower -= radius;
+                treelet.bounds.upper += radius;
+
+                std::lock_guard<std::mutex> lock(resultMutex);
+                result.push_back(treelet);
+                return true;
+            });
+    } else {
+        partitionRecursively<device::PKDParticle, device::box3f>(
+            particles, begin, end, [&](size_t begin, size_t end, bool force, device::box3f const& bounds) {
+                /*bool makeLeaf() :*/
+                const size_t size = end - begin;
+                if ((size > maxSize && !force) || add_cond(bounds))
+                    return false;
+
+                device::PKDlet treelet;
+                treelet.begin = begin;
+                treelet.end = end;
+                //treelet.bounds = extendBounds(particles, begin, end, radius);
+                treelet.bounds = bounds;
+                treelet.bounds.lower -= radius;
+                treelet.bounds.upper += radius;
+
+                std::lock_guard<std::mutex> lock(resultMutex);
+                result.push_back(treelet);
+                return true;
+            });
+    }
+
+    return std::move(result);
+}
+
 // END TREELETS
 
 // BEGIN COMPRESSION

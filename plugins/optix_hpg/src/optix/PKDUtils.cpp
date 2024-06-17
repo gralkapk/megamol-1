@@ -8,80 +8,9 @@
 namespace megamol::optix_hpg {
 // BEGIN PKD
 
-
-
-void recBuild(size_t /* root node */ P, device::PKDParticle* particle, size_t N, device::box3f bounds, device::FPKDParticle* pack = nullptr) {
-    if (P >= N)
-        return;
-
-    int dim = arg_max(bounds.upper - bounds.lower);
-
-    const size_t L = lChild(P);
-    const size_t R = rChild(P);
-    const bool lValid = (L < N);
-    const bool rValid = (R < N);
-    makeHeap(std::greater<float>(), L, particle, N, dim, pack);
-    makeHeap(std::less<float>(), R, particle, N, dim, pack);
-
-    if (rValid) {
-        while (particle[L].pos[dim] > particle[R].pos[dim]) {
-            std::swap(particle[L], particle[R]);
-            if (pack) {
-                std::swap(pack[L], pack[R]);
-            }
-            trickle(std::greater<float>(), L, particle, N, dim, pack);
-            trickle(std::less<float>(), R, particle, N, dim, pack);
-        }
-        if (particle[L].pos[dim] > particle[P].pos[dim]) {
-            std::swap(particle[L], particle[P]);
-            if (pack) {
-                std::swap(pack[L], pack[P]);
-                pack[L].dim = dim;
-            }
-            particle[L].dim = dim;
-        } else if (particle[R].pos[dim] < particle[P].pos[dim]) {
-            std::swap(particle[R], particle[P]);
-            if (pack) {
-                std::swap(pack[R], pack[P]);
-                pack[R].dim = dim;
-            }
-            particle[R].dim = dim;
-        } else
-            /* nothing, root fits */;
-    } else if (lValid) {
-        if (particle[L].pos[dim] > particle[P].pos[dim]) {
-            std::swap(particle[L], particle[P]);
-            if (pack) {
-                std::swap(pack[L], pack[P]);
-                pack[L].dim = dim;
-            }
-            particle[L].dim = dim;
-        }
-    }
-
-    device::box3f lBounds = bounds;
-    device::box3f rBounds = bounds;
-    lBounds.upper[dim] = rBounds.lower[dim] = particle[P].pos[dim];
-    particle[P].dim = dim;
-
-    tbb::parallel_for(0, 2, [&](int childID) {
-        if (childID) {
-            recBuild(L, particle, N, lBounds, pack);
-        } else {
-            recBuild(R, particle, N, rBounds, pack);
-        }
-    });
-}
-
 void makePKD(std::vector<device::PKDParticle>& particles, device::box3f bounds) {
-    recBuild(/*node:*/ 0, particles.data(), particles.size(), bounds);
+    recBuild<device::PKDParticle>(/*node:*/ 0, particles.data(), particles.size(), bounds);
 }
-
-void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds, device::FPKDParticle* pack) {
-    recBuild(/*node:*/ 0, particles.data() + begin, end - begin, bounds, pack);
-}
-
-
 
 void recBuild(size_t /* root node */ P, device::SPKDParticle* particle, size_t N, device::box3f const& bounds, device::SPKDlet const& treelet) {
     if (P >= N)

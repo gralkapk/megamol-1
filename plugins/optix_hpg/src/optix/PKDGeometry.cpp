@@ -203,6 +203,9 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
     } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::BTREELETS)) {
         program_groups_[0] = b_treelets_module_;
         program_groups_[1] = b_treelets_occlusion_module_;
+    } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::CTREELETS)) {
+        program_groups_[0] = c_treelets_module_;
+        program_groups_[1] = c_treelets_occlusion_module_;
     } else {
         program_groups_[0] = pkd_module_;
         program_groups_[1] = pkd_occlusion_module_;
@@ -222,6 +225,9 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
     } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::BTREELETS)) {
         out_geo->set_record(b_treelets_sbt_records_.data(), b_treelets_sbt_records_.size(),
             sizeof(SBTRecord<device::BTreeletsGeoData>), sbt_version);
+    } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::CTREELETS)) {
+        out_geo->set_record(c_treelets_sbt_records_.data(), c_treelets_sbt_records_.size(),
+            sizeof(SBTRecord<device::CTreeletsGeoData>), sbt_version);
     } else {
         out_geo->set_record(
             sbt_records_.data(), sbt_records_.size(), sizeof(SBTRecord<device::PKDGeoData>), sbt_version);
@@ -373,6 +379,21 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "bpkd_treelets_closesthit_occlusion"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
+
+
+    c_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
+        &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "cpkd_treelet_intersect"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "cpkd_treelets_closesthit"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+
+    c_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
+        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "cpkd_treelet_intersect"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "cpkd_treelets_closesthit_occlusion"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+
     ++program_version;
 
     return true;
@@ -503,8 +524,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 
         std::vector<device::PKDlet> treelets;
         std::vector<device::SPKDlet> s_treelets;
+        std::vector<device::C2PKDlet> ctreelets;
         std::vector<device::QPKDParticle> qparticles;
         std::vector<device::SPKDParticle> s_particles;
+        std::vector<device::C2PKDParticle> cparticles;
 
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::CTREELETS)) {
             auto bounds = device::box3f();
@@ -512,7 +535,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             bounds.upper = upper;
             //norm_at_bounds(data, bounds);
 
-            MortonConfig config;
+            device::MortonConfig config;
 
             auto mc = create_morton_codes(data, bounds, config);
             sort_morton_codes(mc);
@@ -527,14 +550,30 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 c_temp_treelets.insert(c_temp_treelets.end(), temp_treelets.begin(), temp_treelets.end());
             }
 
-            std::vector<device::C2PKDlet> ctreelets(c_temp_treelets.size());
-            std::vector<device::C2PKDParticle> cparticles(data.size());
+            //std::vector<device::C2PKDlet> ctreelets(c_temp_treelets.size());
+            ctreelets.resize(c_temp_treelets.size());
+            //std::vector<device::C2PKDParticle> cparticles(data.size());
+            cparticles.resize(sorted_data.size());
 
             for (size_t i = 0; i < c_temp_treelets.size(); ++i) {
                 convert_morton_treelet(c_temp_treelets[i], sorted_data, ctreelets[i], cparticles, bounds, config);
             }
 
+            for (auto const& el : c_temp_treelets) {
+                makePKD(sorted_data, el.begin, el.end, el.bounds, cparticles.data());
+            }
+
+            std::transform(cparticles.begin(), cparticles.end(), sorted_data.begin(), cparticles.begin(),
+                [](auto& cp, auto const& sd) {
+                    cp.dim = sd.dim;
+                    return cp;
+                });
             //ctreelets_partition(data, bounds, global_rad, threshold_slot_.Param<core::param::IntParam>()->Value());
+
+            CUDA_CHECK_ERROR(cuMemAllocAsync(
+                &treelets_data_[pl_idx], ctreelets.size() * sizeof(device::C2PKDlet), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(treelets_data_[pl_idx], ctreelets.data(),
+                ctreelets.size() * sizeof(device::C2PKDlet), ctx.GetExecStream()));
         }
 
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {
@@ -668,7 +707,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             std::mutex histo_guard;
 
             tbb::parallel_for((size_t) 0, treelets.size(), [&](size_t treeletID) {
-                makePKD(data, treelets[treeletID].begin, treelets[treeletID].end, treelets[treeletID].bounds);
+                makePKD<device::PKDParticle>(
+                    data, treelets[treeletID].begin, treelets[treeletID].end, treelets[treeletID].bounds);
 
                 auto const histo_t = quantizeTree2(
                     selected_type, data.data(), treelets[treeletID], qtparticles.data(), qtreelets[treeletID]);
@@ -882,7 +922,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 
             // 2 create PKDs from original data
             tbb::parallel_for((size_t) 0, treelets.size(), [&](size_t treeletID) {
-                makePKD(data, treelets[treeletID].begin, treelets[treeletID].end, treelets[treeletID].bounds);
+                makePKD<device::PKDParticle>(
+                    data, treelets[treeletID].begin, treelets[treeletID].end, treelets[treeletID].bounds);
             });
 
             // 3 conversion
@@ -943,7 +984,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 /*box3f bounds;
                 bounds.lower = treelets[treeletID].bounds_lower;
                 bounds.upper = treelets[treeletID].bounds_upper;*/
-                makePKD(data, treelets[treeletID].begin, treelets[treeletID].end, treelets[treeletID].bounds);
+                makePKD<device::PKDParticle>(
+                    data, treelets[treeletID].begin, treelets[treeletID].end, treelets[treeletID].bounds);
             });
 
             CUDA_CHECK_ERROR(cuMemAllocAsync(
@@ -1088,6 +1130,11 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 cuMemAllocAsync(&particle_data_[pl_idx], p_count * sizeof(device::BTParticle), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
                 particle_data_[pl_idx], btparticles.data(), p_count * sizeof(device::BTParticle), ctx.GetExecStream()));
+        } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::CTREELETS)) {
+            CUDA_CHECK_ERROR(
+                cuMemAllocAsync(&particle_data_[pl_idx], p_count * sizeof(device::C2PKDParticle), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(particle_data_[pl_idx], cparticles.data(),
+                p_count * sizeof(device::C2PKDParticle), ctx.GetExecStream()));
         } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STANDARD) ||
                    mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
             CUDA_CHECK_ERROR(
@@ -1155,6 +1202,16 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             }
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(bounds_data[pl_idx], treelet_boxes.data(),
                 treelet_boxes.size() * sizeof(device::box3f), ctx.GetExecStream()));
+        } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::CTREELETS)) {
+            CUDA_CHECK_ERROR(
+                cuMemAllocAsync(&bounds_data[pl_idx], ctreelets.size() * sizeof(device::box3f), ctx.GetExecStream()));
+            std::vector<device::box3f> treelet_boxes;
+            treelet_boxes.reserve(ctreelets.size());
+            for (auto const& el : ctreelets) {
+                treelet_boxes.push_back(el.bounds);
+            }
+            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(bounds_data[pl_idx], treelet_boxes.data(),
+                treelet_boxes.size() * sizeof(device::box3f), ctx.GetExecStream()));
         } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STANDARD)) {
             CUDA_CHECK_ERROR(cuMemAllocAsync(&bounds_data[pl_idx], 1 * sizeof(device::box3f), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(
@@ -1178,6 +1235,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             cp_input.numPrimitives = qtreelets.size();
         } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::BTREELETS)) {
             cp_input.numPrimitives = treelets.size();
+        } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::CTREELETS)) {
+            cp_input.numPrimitives = ctreelets.size();
         } else {
             cp_input.numPrimitives = 1;
         }
@@ -1272,6 +1331,7 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
     s_comp_treelets_sbt_records_.clear();
     qpkd_treelets_sbt_records_.clear();
     b_treelets_sbt_records_.clear();
+    c_treelets_sbt_records_.clear();
 
     for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
         auto const& particles = call.AccessParticles(pl_idx);
@@ -1497,6 +1557,48 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
 
         b_treelets_sbt_record_occlusion.data = b_treelets_sbt_record.data;
         b_treelets_sbt_records_.push_back(b_treelets_sbt_record_occlusion);
+
+
+
+
+        SBTRecord<device::CTreeletsGeoData> c_treelets_sbt_record;
+        OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(c_treelets_module_, &c_treelets_sbt_record));
+
+        auto bbox = call.GetBoundingBoxes().ObjectSpaceBBox();
+        glm::vec3 lower = glm::vec3(bbox.GetLeft(), bbox.Bottom(), bbox.Back());
+        glm::vec3 upper = glm::vec3(bbox.GetRight(), bbox.Top(), bbox.Front());
+        device::box3f bounds;
+        bounds.lower = lower;
+        bounds.upper = upper;
+        c_treelets_sbt_record.data.bounds = bounds;
+        c_treelets_sbt_record.data.particleBufferPtr = (device::C2PKDParticle*) particle_data_[pl_idx];
+        //b_treelets_sbt_record.data.radiusBufferPtr = nullptr;
+        c_treelets_sbt_record.data.colorBufferPtr = nullptr;
+        c_treelets_sbt_record.data.treeletBufferPtr = (device::C2PKDlet*) treelets_data_[pl_idx];
+        c_treelets_sbt_record.data.radius = particles.GetGlobalRadius();
+        //b_treelets_sbt_record.data.hasGlobalRadius = has_global_radius(particles);
+        c_treelets_sbt_record.data.hasColorData = has_color(particles);
+        c_treelets_sbt_record.data.globalColor =
+            glm::vec4(particles.GetGlobalColour()[0] / 255.f, particles.GetGlobalColour()[1] / 255.f,
+                particles.GetGlobalColour()[2] / 255.f, particles.GetGlobalColour()[3] / 255.f);
+        c_treelets_sbt_record.data.particleCount = p_count;
+        //b_treelets_sbt_record.data.worldBounds = local_boxes_[pl_idx];
+
+        /*if (!has_global_radius(particles)) {
+            treelets_sbt_record.data.radiusBufferPtr = (float*) radius_data_[pl_idx];
+        }*/
+        //b_treelets_sbt_record.data.radiusBufferPtr = nullptr;
+        if (has_color(particles)) {
+            c_treelets_sbt_record.data.colorBufferPtr = (glm::vec4*) color_data_[pl_idx];
+        }
+        c_treelets_sbt_records_.push_back(c_treelets_sbt_record);
+
+        // occlusion stuff
+        SBTRecord<device::CTreeletsGeoData> c_treelets_sbt_record_occlusion;
+        OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(c_treelets_occlusion_module_, &c_treelets_sbt_record_occlusion));
+
+        c_treelets_sbt_record_occlusion.data = c_treelets_sbt_record.data;
+        c_treelets_sbt_records_.push_back(c_treelets_sbt_record_occlusion);
     }
 
     ++sbt_version;

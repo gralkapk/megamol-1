@@ -8,17 +8,86 @@
 
 namespace megamol::optix_hpg {
 // BEGIN PKD
+template<typename PackType>
+void recBuild(
+    size_t /* root node */ P, device::PKDParticle* particle, size_t N, device::box3f bounds, PackType* pack = nullptr) {
+    if (P >= N)
+        return;
+
+    int dim = arg_max(bounds.upper - bounds.lower);
+
+    const size_t L = lChild(P);
+    const size_t R = rChild(P);
+    const bool lValid = (L < N);
+    const bool rValid = (R < N);
+    makeHeap(std::greater<float>(), L, particle, N, dim, pack);
+    makeHeap(std::less<float>(), R, particle, N, dim, pack);
+
+    if (rValid) {
+        while (particle[L].pos[dim] > particle[R].pos[dim]) {
+            std::swap(particle[L], particle[R]);
+            if (pack) {
+                std::swap(pack[L], pack[R]);
+            }
+            trickle(std::greater<float>(), L, particle, N, dim, pack);
+            trickle(std::less<float>(), R, particle, N, dim, pack);
+        }
+        if (particle[L].pos[dim] > particle[P].pos[dim]) {
+            std::swap(particle[L], particle[P]);
+            if (pack) {
+                std::swap(pack[L], pack[P]);
+                pack[L].dim = dim;
+            }
+            particle[L].dim = dim;
+        } else if (particle[R].pos[dim] < particle[P].pos[dim]) {
+            std::swap(particle[R], particle[P]);
+            if (pack) {
+                std::swap(pack[R], pack[P]);
+                pack[R].dim = dim;
+            }
+            particle[R].dim = dim;
+        } else
+            /* nothing, root fits */;
+    } else if (lValid) {
+        if (particle[L].pos[dim] > particle[P].pos[dim]) {
+            std::swap(particle[L], particle[P]);
+            if (pack) {
+                std::swap(pack[L], pack[P]);
+                pack[L].dim = dim;
+            }
+            particle[L].dim = dim;
+        }
+    }
+
+    device::box3f lBounds = bounds;
+    device::box3f rBounds = bounds;
+    lBounds.upper[dim] = rBounds.lower[dim] = particle[P].pos[dim];
+    particle[P].dim = dim;
+
+    tbb::parallel_for(0, 2, [&](int childID) {
+        if (childID) {
+            recBuild(L, particle, N, lBounds, pack);
+        } else {
+            recBuild(R, particle, N, rBounds, pack);
+        }
+    });
+}
+
 void makePKD(std::vector<device::PKDParticle>& particles, device::box3f bounds);
 
-void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds, device::FPKDParticle* pack = nullptr);
+template<typename PackType>
+void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, device::box3f bounds,
+    PackType* pack = nullptr) {
+    recBuild(/*node:*/ 0, particles.data() + begin, end - begin, bounds, pack);
+}
 
 void makePKD(std::vector<device::SPKDParticle>& particles, device::SPKDlet const& treelet, size_t begin);
 
 std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle>& particles, size_t maxSize,
     float radius, std::function<bool(device::box3f const&)> add_cond = nullptr);
 
-std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, size_t maxSize,
-    float radius, std::function<bool(device::box3f const&)> add_cond = nullptr);
+std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle>& particles, size_t begin, size_t end,
+    size_t maxSize, float radius, std::function<bool(device::box3f const&)> add_cond = nullptr);
 // END PKD
 
 // BEGIN TREELETS
@@ -39,8 +108,8 @@ inline int arg_max(glm::uvec3 const& v) {
 }
 
 template<typename PType, typename BType>
-size_t sort_partition(
-    std::vector<PType>& particles, size_t begin, size_t end, BType const& bounds, int& splitDim, bool median, device::PKDParticle* pack = nullptr) {
+size_t sort_partition(std::vector<PType>& particles, size_t begin, size_t end, BType const& bounds, int& splitDim,
+    bool median, device::PKDParticle* pack = nullptr) {
     // -------------------------------------------------------
     // determine split pos
     // -------------------------------------------------------
@@ -89,8 +158,8 @@ size_t sort_partition(
 }
 
 template<typename PType, typename BType, typename MakeLeafLambda>
-void partitionRecursively(std::vector<PType>& particles, size_t begin, size_t end, const MakeLeafLambda& makeLeaf, device::PKDParticle* pack = nullptr,
-    bool median = false, bool skip = false) {
+void partitionRecursively(std::vector<PType>& particles, size_t begin, size_t end, const MakeLeafLambda& makeLeaf,
+    device::PKDParticle* pack = nullptr, bool median = false, bool skip = false) {
     // -------------------------------------------------------
     // parallel bounding box computation
     // -------------------------------------------------------
@@ -194,8 +263,9 @@ inline size_t rChild(size_t P) {
     return 2 * P + 2;
 }
 
-template<class Comp>
-inline void trickle(const Comp& worse, size_t P, device::PKDParticle* particle, size_t N, int dim, device::FPKDParticle* pack = nullptr) {
+template<class Comp, typename PackType>
+inline void trickle(
+    const Comp& worse, size_t P, device::PKDParticle* particle, size_t N, int dim, PackType* pack = nullptr) {
     if (P >= N)
         return;
 
@@ -222,8 +292,9 @@ inline void trickle(const Comp& worse, size_t P, device::PKDParticle* particle, 
     }
 }
 
-template<class Comp>
-inline void makeHeap(const Comp& comp, size_t P, device::PKDParticle* particle, size_t N, int dim, device::FPKDParticle* pack = nullptr) {
+template<class Comp, typename PackType>
+inline void makeHeap(
+    const Comp& comp, size_t P, device::PKDParticle* particle, size_t N, int dim, PackType* pack = nullptr) {
     if (P >= N)
         return;
     const size_t L = lChild(P);

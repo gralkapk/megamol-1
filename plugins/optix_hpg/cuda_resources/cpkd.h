@@ -26,6 +26,11 @@ MM_OPTIX_INTERSECTION_KERNEL(cpkd_treelet_intersect)() {
         glm::vec3 pos;
         int dim;
 
+        auto const span = self.bounds.span();
+        auto const lower = self.bounds.lower;
+
+        MortonConfig const mc;
+
         //box3f refBox = treelet.bounds;
 
         glm::vec3 tmp_hit_pos;
@@ -39,11 +44,13 @@ MM_OPTIX_INTERSECTION_KERNEL(cpkd_treelet_intersect)() {
                 // while we can go down
 
                 const int particleID = nodeID + begin;
-
+                
                 {
                     auto const& cpart = self.particleBufferPtr[particleID];
                     dim = cpart.dim;
-                    pos = cpart.from(treelet, self.bounds.span(), self.bounds.lower);
+                    pos = cpart.from(treelet.prefix, span, lower, mc.code_offset, mc.offset, mc.factor);
+
+                    //printf("ISEC %f:%f:%f\n", pos.x, pos.y, pos.z);
                 }
 
                 //compensation = t_compensate(refBox.span()[dim]);

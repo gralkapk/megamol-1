@@ -26,7 +26,7 @@ namespace device {
 #define BITMASK_21BITS UINT64_C(2097151)
 
 
-static inline void morton_decode(uint64_t m, uint32_t& xto, uint32_t& yto, uint32_t& zto) {
+CU_CALLABLE static inline void morton_decode(uint64_t m, uint32_t& xto, uint32_t& yto, uint32_t& zto) {
     constexpr uint64_t const mask0 = 0b0000000001000001000001000001000001000001000001000001000001000001,
                              mask1 = 0b0000001000001000001000001000001000001000001000001000001000001000,
                              mask2 = 0b0001000000000000000000000000000000000000000000000000000000000000,
@@ -96,6 +96,14 @@ static inline uint64_t morton_encode(uint32_t xsrc, uint32_t ysrc, uint32_t zsrc
     /* 000c00c00c00c00c00c00c00c00c00c00c00c00c00c00c00c00c00c00c00c00c */
     return x | (y << 1) | (z << 2);
 }
+
+struct MortonConfig {
+    uint64_t mask = 0b111111111111111000000000000000000000000000000000000000000000000;
+    int offset = 48;
+    uint64_t factor = 1 << 21;
+    int code_offset = 18;
+};
+
 } // namespace device
 } // namespace optix_hpg
 } // namespace megamol

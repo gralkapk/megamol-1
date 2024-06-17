@@ -197,6 +197,8 @@ private:
 
     std::vector<SBTRecord<device::BTreeletsGeoData>> b_treelets_sbt_records_;
 
+    std::vector<SBTRecord<device::CTreeletsGeoData>> c_treelets_sbt_records_;
+
     std::array<OptixProgramGroup, 2> program_groups_;
 
     std::vector<CUdeviceptr> particle_data_;
@@ -246,6 +248,9 @@ private:
 
     MMOptixModule b_treelets_module_;
     MMOptixModule b_treelets_occlusion_module_;
+
+    MMOptixModule c_treelets_module_;
+    MMOptixModule c_treelets_occlusion_module_;
 
     uint64_t sbt_version = 0;
 

@@ -8,18 +8,12 @@
 #include <glm/glm.hpp>
 
 #include "box.h"
-#include "particle.h"
 #include "morton_util.h"
+#include "particle.h"
 
 namespace megamol::optix_hpg {
 using MortonCode = glm::uvec3;
 
-struct MortonConfig {
-    uint64_t mask = 0b111111111111111000000000000000000000000000000000000000000000000;
-    int offset = 48;
-    uint64_t factor = 1 << 21;
-    int code_offset = 18;
-};
 
 // wikipedia
 
@@ -38,7 +32,7 @@ bool cmp_mc(MortonCode const& lhs, MortonCode const& rhs) {
 }
 
 std::vector<std::pair<uint64_t, uint64_t>> create_morton_codes(
-    std::vector<device::PKDParticle> const& data, device::box3f const& bounds, MortonConfig const& config) {
+    std::vector<device::PKDParticle> const& data, device::box3f const& bounds, device::MortonConfig const& config) {
     std::vector<MortonCode> codes(data.size());
 
     //constexpr uint64_t const factor = 1 << 21;
@@ -62,7 +56,7 @@ std::vector<std::pair<uint64_t, uint64_t>> create_morton_codes(
 }
 
 std::vector<std::pair<uint64_t, uint64_t>> create_morton_codes(std::vector<device::PKDParticle> const& data,
-    size_t begin, size_t end, device::box3f const& bounds, MortonConfig const& config) {
+    size_t begin, size_t end, device::box3f const& bounds, device::MortonConfig const& config) {
     auto const datasize = end - begin;
     std::vector<MortonCode> codes(datasize);
 
@@ -80,7 +74,8 @@ std::vector<std::pair<uint64_t, uint64_t>> create_morton_codes(std::vector<devic
 
     std::vector<std::pair<uint64_t, uint64_t>> mc(datasize);
     for (size_t i = begin; i < end; ++i) {
-        mc[i - begin] = std::make_pair(device::morton_encode(codes[i - begin].x, codes[i - begin].y, codes[i - begin].z), i);
+        mc[i - begin] =
+            std::make_pair(device::morton_encode(codes[i - begin].x, codes[i - begin].y, codes[i - begin].z), i);
     }
 
     return mc;
@@ -92,7 +87,7 @@ void sort_morton_codes(std::vector<std::pair<uint64_t, uint64_t>>& codes) {
 
 std::tuple<std::vector<std::pair<uint64_t, uint64_t>>, std::vector<uint64_t>, std::vector<device::PKDParticle>>
 mask_morton_codes(std::vector<std::pair<uint64_t, uint64_t>> const& codes, std::vector<device::PKDParticle> const& data,
-    MortonConfig const& config) {
+    device::MortonConfig const& config) {
     //constexpr uint32_t const mask = 0b11111111111111110000000000;
     //constexpr uint32_t const mask = 0b1111111111;
     //constexpr uint64_t const mask = 0b111111111111111111000000000000000000000000000000000000000000000;
@@ -142,7 +137,7 @@ mask_morton_codes(std::vector<std::pair<uint64_t, uint64_t>> const& codes, std::
 
 void convert_morton_treelet(device::PKDlet const& treelet, std::vector<device::PKDParticle> const& data,
     device::C2PKDlet& ctreelet, std::vector<device::C2PKDParticle>& cparticles, device::box3f const& global_bounds,
-    MortonConfig const& config) {
+    device::MortonConfig const& config) {
     auto const codes = create_morton_codes(data, treelet.begin, treelet.end, global_bounds, config);
 
     //constexpr uint64_t const factor = 1 << 21;
@@ -157,6 +152,9 @@ void convert_morton_treelet(device::PKDlet const& treelet, std::vector<device::P
 
     auto const prefix = (codes[0].first & config.mask) >> config.offset;
     ctreelet.prefix = prefix;
+    ctreelet.begin = treelet.begin;
+    ctreelet.end = treelet.end;
+    ctreelet.bounds = treelet.bounds;
 
     std::vector<glm::vec3> recon_data(codes.size());
     for (size_t i = 0; i < codes.size(); ++i) {

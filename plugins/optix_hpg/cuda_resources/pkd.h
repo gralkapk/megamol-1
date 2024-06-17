@@ -73,9 +73,9 @@ struct BTreeletsGeoData {
 };
 struct CTreeletsGeoData {
     box3f bounds;
-    CPKDParticle* particleBufferPtr;
+    C2PKDParticle* particleBufferPtr;
     glm::vec4* colorBufferPtr;
-    CPKDlet* treeletBufferPtr;
+    C2PKDlet* treeletBufferPtr;
     float radius;
     bool hasColorData;
     glm::vec4 globalColor;

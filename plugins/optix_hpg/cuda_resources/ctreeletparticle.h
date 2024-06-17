@@ -50,7 +50,7 @@ struct C2PKDParticle {
     unsigned int code : 30;
 
     CU_CALLABLE glm::vec3 from(unsigned short const prefix, glm::vec3 const& span, glm::vec3 const& lower,
-        int const code_offset, int const prefix_offset, float const factor) {
+        int const code_offset, int const prefix_offset, float const factor) const {
         auto const combined_code =
             (static_cast<uint64_t>(code) << code_offset) + (static_cast<uint64_t>(prefix) << prefix_offset);
 
@@ -59,6 +59,8 @@ struct C2PKDParticle {
         glm::vec3 basePos(x / factor, y / factor, z / factor);
         basePos *= span;
         basePos += lower;
+
+        return basePos;
     }
 };
 } // namespace device

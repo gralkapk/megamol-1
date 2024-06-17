@@ -512,21 +512,26 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             bounds.upper = upper;
             //norm_at_bounds(data, bounds);
 
-            auto mc = create_morton_codes(data, bounds);
+            MortonConfig config;
+
+            auto mc = create_morton_codes(data, bounds, config);
             sort_morton_codes(mc);
-            auto [cells, sorted_codes, sorted_data] = mask_morton_codes(mc,data);
+            auto [cells, sorted_codes, sorted_data] = mask_morton_codes(mc, data, config);
 
             std::vector<device::PKDlet> c_temp_treelets;
 
             for (auto const& c : cells) {
-                auto const temp_treelets = prePartition_inPlace(
-                    sorted_data, c.first, c.second, threshold_slot_.Param<core::param::IntParam>()->Value(), particles.GetGlobalRadius());
+                auto const temp_treelets = prePartition_inPlace(sorted_data, c.first, c.second,
+                    threshold_slot_.Param<core::param::IntParam>()->Value(), particles.GetGlobalRadius());
 
                 c_temp_treelets.insert(c_temp_treelets.end(), temp_treelets.begin(), temp_treelets.end());
             }
 
-            for (auto const& el : c_temp_treelets) {
-                convert_morton_treelet(el, sorted_data, bounds);
+            std::vector<device::C2PKDlet> ctreelets(c_temp_treelets.size());
+            std::vector<device::C2PKDParticle> cparticles(data.size());
+
+            for (size_t i = 0; i < c_temp_treelets.size(); ++i) {
+                convert_morton_treelet(c_temp_treelets[i], sorted_data, ctreelets[i], cparticles, bounds, config);
             }
 
             //ctreelets_partition(data, bounds, global_rad, threshold_slot_.Param<core::param::IntParam>()->Value());

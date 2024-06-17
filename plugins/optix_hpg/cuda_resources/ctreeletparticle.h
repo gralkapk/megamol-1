@@ -1,6 +1,7 @@
 #pragma once
 
 #include "box.h"
+#include "morton_util.h"
 
 namespace megamol {
 namespace optix_hpg {
@@ -35,6 +36,29 @@ struct CPKDParticle {
         //pos = pos * span + lower;
 
         return pos;
+    }
+};
+
+struct C2PKDlet {
+    box3f bounds;
+    unsigned int begin, end;
+    unsigned short prefix;
+};
+
+struct C2PKDParticle {
+    unsigned int dim : 2;
+    unsigned int code : 30;
+
+    CU_CALLABLE glm::vec3 from(unsigned short const prefix, glm::vec3 const& span, glm::vec3 const& lower,
+        int const code_offset, int const prefix_offset, float const factor) {
+        auto const combined_code =
+            (static_cast<uint64_t>(code) << code_offset) + (static_cast<uint64_t>(prefix) << prefix_offset);
+
+        uint32_t x, y, z;
+        morton_decode(combined_code, x, y, z);
+        glm::vec3 basePos(x / factor, y / factor, z / factor);
+        basePos *= span;
+        basePos += lower;
     }
 };
 } // namespace device

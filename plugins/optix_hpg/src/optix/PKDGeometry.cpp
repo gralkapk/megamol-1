@@ -559,15 +559,17 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 convert_morton_treelet(c_temp_treelets[i], sorted_data, ctreelets[i], cparticles, bounds, config);
             }
 
-            for (auto const& el : c_temp_treelets) {
-                makePKD(sorted_data, el.begin, el.end, el.bounds, cparticles.data());
+            for (auto& el : ctreelets) {
+                adapt_morton_bbox(cparticles, el, bounds, particles.GetGlobalRadius(), config);
+                //makePKD(sorted_data, el.begin, el.end, el.bounds, cparticles.data());
+                makePKD(cparticles, el, bounds, config);
             }
 
-            std::transform(cparticles.begin(), cparticles.end(), sorted_data.begin(), cparticles.begin(),
+            /*std::transform(cparticles.begin(), cparticles.end(), sorted_data.begin(), cparticles.begin(),
                 [](auto& cp, auto const& sd) {
                     cp.dim = sd.dim;
                     return cp;
-                });
+                });*/
             //ctreelets_partition(data, bounds, global_rad, threshold_slot_.Param<core::param::IntParam>()->Value());
 
             CUDA_CHECK_ERROR(cuMemAllocAsync(

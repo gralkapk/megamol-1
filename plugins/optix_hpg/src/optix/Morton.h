@@ -150,20 +150,26 @@ void convert_morton_treelet(device::PKDlet const& treelet, std::vector<device::P
         ++grid[(codes[i].first & config.mask) >> config.offset];
     }
 
-    auto const prefix = (codes[0].first & config.mask) >> config.offset;
-    ctreelet.prefix = prefix;
+    auto const global_prefix = (codes[0].first & config.mask) >> config.offset;
+    ctreelet.prefix = global_prefix;
     ctreelet.begin = treelet.begin;
     ctreelet.end = treelet.end;
     ctreelet.bounds = treelet.bounds;
+
+    auto const span = global_bounds.span();
+    auto const lower = global_bounds.lower;
 
     std::vector<glm::vec3> recon_data(codes.size());
     for (size_t i = 0; i < codes.size(); ++i) {
         auto const code = codes[i].first >> config.code_offset;
         auto const prefix = (codes[i].first & config.mask) >> config.offset;
+        if (global_prefix != prefix) {
+            throw std::runtime_error("unexpected prefix");
+        }
 
         cparticles[i + treelet.begin].code = code;
 
-        auto const combined_code = (static_cast<uint64_t>(cparticles[i + treelet.begin].code) << config.code_offset) +
+        /*auto const combined_code = (static_cast<uint64_t>(cparticles[i + treelet.begin].code) << config.code_offset) +
                                    (static_cast<uint64_t>(ctreelet.prefix) << config.offset);
 
         uint32_t x, y, z;
@@ -171,7 +177,11 @@ void convert_morton_treelet(device::PKDlet const& treelet, std::vector<device::P
         glm::vec3 basePos(x / static_cast<double>(config.factor), y / static_cast<double>(config.factor),
             z / static_cast<double>(config.factor));
         basePos *= global_bounds.span();
-        basePos += global_bounds.lower;
+        basePos += global_bounds.lower;*/
+
+        auto const basePos = cparticles[i + treelet.begin].from(
+            ctreelet.prefix, span, lower, config.code_offset, config.offset, config.factor);
+
         recon_data[i] = basePos;
     }
 
@@ -179,5 +189,23 @@ void convert_morton_treelet(device::PKDlet const& treelet, std::vector<device::P
     for (size_t i = treelet.begin; i < treelet.end; ++i) {
         diffs[i - treelet.begin] = glm::abs(glm::dvec3(data[i].pos) - glm::dvec3(recon_data[i - treelet.begin]));
     }
+}
+
+void adapt_morton_bbox(std::vector<device::C2PKDParticle> const& cparticles, device::C2PKDlet& treelet,
+    device::box3f const& global_bounds, float const radius, device::MortonConfig const& config) {
+    device::box3f bounds;
+
+    auto const span = global_bounds.span();
+    auto const lower = global_bounds.lower;
+
+    for (unsigned int i = treelet.begin; i < treelet.end; ++i) {
+        bounds.extend(
+            cparticles[i].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor));
+    }
+
+    bounds.lower -= radius;
+    bounds.upper += radius;
+
+    treelet.bounds = bounds;
 }
 } // namespace megamol::optix_hpg

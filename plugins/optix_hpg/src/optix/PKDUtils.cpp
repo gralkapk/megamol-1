@@ -12,7 +12,8 @@ void makePKD(std::vector<device::PKDParticle>& particles, device::box3f bounds) 
     recBuild<device::PKDParticle>(/*node:*/ 0, particles.data(), particles.size(), bounds);
 }
 
-void recBuild(size_t /* root node */ P, device::SPKDParticle* particle, size_t N, device::box3f const& bounds, device::SPKDlet const& treelet) {
+void recBuild(size_t /* root node */ P, device::SPKDParticle* particle, size_t N, device::box3f const& bounds,
+    device::SPKDlet const& treelet) {
     if (P >= N)
         return;
 
@@ -63,7 +64,74 @@ void recBuild(size_t /* root node */ P, device::SPKDParticle* particle, size_t N
 }
 
 void makePKD(std::vector<device::SPKDParticle>& particles, device::SPKDlet const& treelet, size_t begin) {
-    recBuild(/*node:*/ 0, particles.data() + treelet.begin - begin, treelet.end - treelet.begin, treelet.bounds, treelet);
+    recBuild(
+        /*node:*/ 0, particles.data() + treelet.begin - begin, treelet.end - treelet.begin, treelet.bounds, treelet);
+}
+
+
+void recBuild(size_t /* root node */ P, device::C2PKDParticle* particle, size_t N, device::box3f const& bounds,
+    device::C2PKDlet const& treelet, device::box3f const& global_bounds, device::MortonConfig const& config) {
+    if (P >= N)
+        return;
+
+    int dim = arg_max(bounds.upper - bounds.lower);
+
+    auto const span = global_bounds.span();
+    auto const lower = global_bounds.lower;
+
+    const size_t L = lChild(P);
+    const size_t R = rChild(P);
+    const bool lValid = (L < N);
+    const bool rValid = (R < N);
+    makeHeap(std::greater<float>(), L, particle, N, dim, treelet, global_bounds, config);
+    makeHeap(std::less<float>(), R, particle, N, dim, treelet, global_bounds, config);
+
+    auto const P_pos = particle[P].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor);
+
+    if (rValid) {
+        while (particle[L].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor)[dim] >
+               particle[R].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor)[dim]) {
+            std::swap(particle[L], particle[R]);
+            trickle(std::greater<float>(), L, particle, N, dim, treelet, global_bounds, config);
+            trickle(std::less<float>(), R, particle, N, dim, treelet, global_bounds, config);
+        }
+        if (particle[L].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor)[dim] >
+            P_pos[dim]) {
+            std::swap(particle[L], particle[P]);
+            particle[L].dim = dim;
+        } else if (particle[R].from(treelet.prefix, span, lower, config.code_offset, config.offset,
+                       config.factor)[dim] < P_pos[dim]) {
+            std::swap(particle[R], particle[P]);
+            particle[R].dim = dim;
+        } else
+            /* nothing, root fits */;
+    } else if (lValid) {
+        if (particle[L].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor)[dim] >
+            P_pos[dim]) {
+            std::swap(particle[L], particle[P]);
+            particle[L].dim = dim;
+        }
+    }
+
+    device::box3f lBounds = bounds;
+    device::box3f rBounds = bounds;
+    lBounds.upper[dim] = rBounds.lower[dim] = P_pos[dim];
+    particle[P].dim = dim;
+
+    tbb::parallel_for(0, 2, [&](int childID) {
+        if (childID) {
+            recBuild(L, particle, N, lBounds, treelet, global_bounds, config);
+        } else {
+            recBuild(R, particle, N, rBounds, treelet, global_bounds, config);
+        }
+    });
+}
+
+void makePKD(std::vector<device::C2PKDParticle>& particles, device::C2PKDlet const& treelet,
+    device::box3f const& global_bounds, device::MortonConfig const& config) {
+    recBuild(
+        /*node:*/ 0, particles.data() + treelet.begin, treelet.end - treelet.begin, treelet.bounds, treelet,
+        global_bounds, config);
 }
 
 // END PKD
@@ -169,8 +237,8 @@ std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle
     return std::move(result);
 }
 
-std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle>& particles, size_t begin, size_t end, size_t maxSize,
-    float radius, std::function<bool(device::box3f const&)> add_cond) {
+std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle>& particles, size_t begin, size_t end,
+    size_t maxSize, float radius, std::function<bool(device::box3f const&)> add_cond) {
     std::mutex resultMutex;
     std::vector<device::PKDlet> result;
 
@@ -397,7 +465,7 @@ std::tuple<std::vector<device::PKDlet>, std::vector<std::pair<unsigned int, devi
 
 std::vector<std::pair<size_t, size_t>> gridify(
     std::vector<device::PKDParticle>& data, glm::vec3 const& lower, glm::vec3 const& upper) {
-    constexpr float const split_size = (1 << (16 - dec_val));//    -1.0f;
+    constexpr float const split_size = (1 << (16 - dec_val)); //    -1.0f;
     auto const span = upper - lower;
     auto const num_cells = glm::ceil(span / split_size);
     auto const diff = span / num_cells;

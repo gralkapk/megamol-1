@@ -83,6 +83,9 @@ void makePKD(std::vector<device::PKDParticle>& particles, size_t begin, size_t e
 
 void makePKD(std::vector<device::SPKDParticle>& particles, device::SPKDlet const& treelet, size_t begin);
 
+void makePKD(std::vector<device::C2PKDParticle>& particles, device::C2PKDlet const& treelet,
+             device::box3f const& global_bounds, device::MortonConfig const& config);
+
 std::vector<device::PKDlet> prePartition_inPlace(std::vector<device::PKDParticle>& particles, size_t maxSize,
     float radius, std::function<bool(device::box3f const&)> add_cond = nullptr);
 
@@ -341,5 +344,52 @@ inline void makeHeap(
     makeHeap(comp, L, particle, N, dim, treelet);
     makeHeap(comp, R, particle, N, dim, treelet);
     trickle(comp, P, particle, N, dim, treelet);
+}
+
+
+template<class Comp>
+inline void trickle(
+    const Comp& worse, size_t P, device::C2PKDParticle* particle, size_t N, int dim, device::C2PKDlet const& treelet, device::box3f const& global_bounds, device::MortonConfig const& config) {
+    if (P >= N)
+        return;
+
+    auto const span = global_bounds.span();
+    auto const lower = global_bounds.lower;
+
+    while (1) {
+        const size_t L = lChild(P);
+        const size_t R = rChild(P);
+        const bool lValid = (L < N);
+        const bool rValid = (R < N);
+
+        if (!lValid)
+            return;
+        size_t C = L;
+        if (rValid &&
+            worse(
+                (particle[R].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor))[dim],
+                (particle[L].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor))[dim]))
+            C = R;
+
+        if (!worse(
+                (particle[C].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor))[dim],
+                (particle[P].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor))[dim]))
+            return;
+
+        std::swap(particle[C], particle[P]);
+        P = C;
+    }
+}
+
+template<class Comp>
+inline void makeHeap(
+    const Comp& comp, size_t P, device::C2PKDParticle* particle, size_t N, int dim, device::C2PKDlet const& treelet, device::box3f const& global_bounds, device::MortonConfig const& config) {
+    if (P >= N)
+        return;
+    const size_t L = lChild(P);
+    const size_t R = rChild(P);
+    makeHeap(comp, L, particle, N, dim, treelet, global_bounds, config);
+    makeHeap(comp, R, particle, N, dim, treelet, global_bounds, config);
+    trickle(comp, P, particle, N, dim, treelet, global_bounds, config);
 }
 } // namespace megamol::optix_hpg

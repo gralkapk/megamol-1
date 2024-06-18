@@ -38,12 +38,12 @@ struct PKDlet {
     //! bounding box of all particles (including the radius)
     box3f bounds;
     //! begin/end range in the common particles array
-    size_t begin, end;
+    unsigned int begin, end;
 };
 
 struct FPKDLet {
     box3u32 bounds;
-    size_t begin, end;
+    unsigned int begin, end;
     char offset[3];
     unsigned short prefix[3];
 };
@@ -60,7 +60,7 @@ struct FPKDLet {
 static int const spkd_array_size = 3;
 struct SPKDlet {
     box3f bounds;
-    size_t begin, end;
+    unsigned int begin, end;
     glm::vec3 lower;
     unsigned char sx[spkd_array_size], sy[spkd_array_size], sz[spkd_array_size];
 };

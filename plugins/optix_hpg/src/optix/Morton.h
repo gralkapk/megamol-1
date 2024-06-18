@@ -135,8 +135,9 @@ mask_morton_codes(std::vector<std::pair<uint64_t, uint64_t>> const& codes, std::
     return std::make_tuple(cells, sorted_codes, sorted_data);
 }
 
-void convert_morton_treelet(device::PKDlet const& treelet, std::vector<device::PKDParticle> const& data,
-    device::C2PKDlet& ctreelet, std::vector<device::C2PKDParticle>& cparticles, device::box3f const& global_bounds,
+std::tuple<std::vector<glm::vec3>, std::vector<glm::vec3>, std::vector<glm::vec3>> convert_morton_treelet(
+    device::PKDlet const& treelet, std::vector<device::PKDParticle> const& data, device::C2PKDlet& ctreelet,
+    std::vector<device::C2PKDParticle>& cparticles, device::box3f const& global_bounds,
     device::MortonConfig const& config) {
     auto const codes = create_morton_codes(data, treelet.begin, treelet.end, global_bounds, config);
 
@@ -185,10 +186,16 @@ void convert_morton_treelet(device::PKDlet const& treelet, std::vector<device::P
         recon_data[i] = basePos;
     }
 
-    std::vector<glm::dvec3> diffs(codes.size());
+    std::vector<glm::vec3> diffs(codes.size());
+    std::vector<glm::vec3> pos(codes.size());
+    std::vector<glm::vec3> rec(codes.size());
     for (size_t i = treelet.begin; i < treelet.end; ++i) {
         diffs[i - treelet.begin] = glm::abs(glm::dvec3(data[i].pos) - glm::dvec3(recon_data[i - treelet.begin]));
+        pos[i - treelet.begin] = data[i].pos;
+        rec[i - treelet.begin] = recon_data[i - treelet.begin];
     }
+
+    return std::make_tuple(pos, rec, diffs);
 }
 
 void adapt_morton_bbox(std::vector<device::C2PKDParticle> const& cparticles, device::C2PKDlet& treelet,

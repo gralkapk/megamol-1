@@ -550,13 +550,31 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 c_temp_treelets.insert(c_temp_treelets.end(), temp_treelets.begin(), temp_treelets.end());
             }
 
+            /*c_temp_treelets.resize(cells.size());
+            std::transform(cells.begin(), cells.end(), c_temp_treelets.begin(), [](auto const& el) {
+                device::PKDlet p;
+                p.begin = std::get<0>(el);
+                p.end = std::get<1>(el);
+                return p;
+            });*/
+
             //std::vector<device::C2PKDlet> ctreelets(c_temp_treelets.size());
             ctreelets.resize(c_temp_treelets.size());
             //std::vector<device::C2PKDParticle> cparticles(data.size());
             cparticles.resize(sorted_data.size());
 
+            auto diffs = std::make_shared<std::vector<glm::vec3>>();
+            diffs->reserve(data.size());
+            auto orgpos = std::make_shared<std::vector<glm::vec3>>();
+            orgpos->reserve(data.size());
+            auto spos = std::make_shared<std::vector<glm::vec3>>();
+            spos->reserve(data.size());
+
             for (size_t i = 0; i < c_temp_treelets.size(); ++i) {
-                convert_morton_treelet(c_temp_treelets[i], sorted_data, ctreelets[i], cparticles, bounds, config);
+                auto const [temp_pos, temp_rec, temp_diffs] = convert_morton_treelet(c_temp_treelets[i], sorted_data, ctreelets[i], cparticles, bounds, config);
+                orgpos->insert(orgpos->end(), temp_pos.begin(), temp_pos.end());
+                spos->insert(spos->end(), temp_rec.begin(), temp_rec.end());
+                diffs->insert(diffs->end(), temp_diffs.begin(), temp_diffs.end());
             }
 
             for (auto& el : ctreelets) {
@@ -576,6 +594,22 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 &treelets_data_[pl_idx], ctreelets.size() * sizeof(device::C2PKDlet), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(treelets_data_[pl_idx], ctreelets.data(),
                 ctreelets.size() * sizeof(device::C2PKDlet), ctx.GetExecStream()));
+
+#ifdef MEGAMOL_USE_POWER
+            total_num_treelets += ctreelets.size();
+            total_original_data_size += data.size() * sizeof(glm::vec3);
+            total_compressed_data_size +=
+                ctreelets.size() * sizeof(device::C2PKDlet) + cparticles.size() * sizeof(device::C2PKDParticle);
+#endif
+
+            if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
+#ifdef MEGAMOL_USE_POWER
+                auto const output_path = power_callbacks.get_output_path();
+#else
+                auto const output_path = debug_output_path_slot_.Param<core::param::FilePathParam>()->Value();
+#endif
+                dump_analysis_data(output_path, orgpos, spos, diffs, pl_idx, particles.GetGlobalRadius());
+            }
         }
 
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {

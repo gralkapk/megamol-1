@@ -380,7 +380,6 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
 
-
     c_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "cpkd_treelet_intersect"},
@@ -482,12 +481,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         coord_file.close();
     }*/
 
-#ifdef MEGAMOL_USE_POWER
     size_t total_num_treelets = 0;
     size_t total_original_data_size = 0;
     size_t total_compressed_data_size = 0;
     size_t total_num_cells = 0;
-#endif
 
     for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
         auto const& particles = call.AccessParticles(pl_idx);
@@ -571,7 +568,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             spos->reserve(data.size());
 
             for (size_t i = 0; i < c_temp_treelets.size(); ++i) {
-                auto const [temp_pos, temp_rec, temp_diffs] = convert_morton_treelet(c_temp_treelets[i], sorted_data, ctreelets[i], cparticles, bounds, config);
+                auto const [temp_pos, temp_rec, temp_diffs] =
+                    convert_morton_treelet(c_temp_treelets[i], sorted_data, ctreelets[i], cparticles, bounds, config);
                 orgpos->insert(orgpos->end(), temp_pos.begin(), temp_pos.end());
                 spos->insert(spos->end(), temp_rec.begin(), temp_rec.end());
                 diffs->insert(diffs->end(), temp_diffs.begin(), temp_diffs.end());
@@ -595,12 +593,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(treelets_data_[pl_idx], ctreelets.data(),
                 ctreelets.size() * sizeof(device::C2PKDlet), ctx.GetExecStream()));
 
-#ifdef MEGAMOL_USE_POWER
             total_num_treelets += ctreelets.size();
             total_original_data_size += data.size() * sizeof(glm::vec3);
             total_compressed_data_size +=
                 ctreelets.size() * sizeof(device::C2PKDlet) + cparticles.size() * sizeof(device::C2PKDParticle);
-#endif
 
             if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
 #ifdef MEGAMOL_USE_POWER
@@ -632,9 +628,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             //std::mutex data_add_mtx;
             auto const cells = gridify(data, lower, upper);
             megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Num cells: %d", cells.size());
-#ifdef MEGAMOL_USE_POWER
+
             total_num_cells += cells.size();
-#endif
+
             for (auto const& c : cells) {
                 auto const box = extendBounds(data, c.first, c.second, particles.GetGlobalRadius());
                 auto tmp_t = partition_data(data, c.first, c.second, box.lower,
@@ -701,12 +697,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 data.size() * sizeof(glm::vec3),
                 s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle));
 
-#ifdef MEGAMOL_USE_POWER
             total_num_treelets += s_treelets.size();
             total_original_data_size += data.size() * sizeof(glm::vec3);
             total_compressed_data_size +=
                 s_treelets.size() * sizeof(device::SPKDlet) + s_particles.size() * sizeof(device::SPKDParticle);
-#endif
 
             if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
 #ifdef MEGAMOL_USE_POWER
@@ -937,12 +931,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 }
             }
 
-#ifdef MEGAMOL_USE_POWER
             total_num_treelets += qtreelets.size();
             total_original_data_size += data.size() * sizeof(glm::vec3);
             total_compressed_data_size +=
                 qtreelets.size() * sizeof(device::QPKDlet) + data.size() * sizeof(device::QTParticle_e5m15);
-#endif
         }
 
         std::vector<device::BTParticle> btparticles;
@@ -1002,12 +994,10 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 dump_analysis_data(output_path, orgpos, newpos, diffs, pl_idx, particles.GetGlobalRadius());
             }
 
-#ifdef MEGAMOL_USE_POWER
             total_num_treelets += treelets.size();
             total_original_data_size += data.size() * sizeof(glm::vec3);
             total_compressed_data_size +=
                 treelets.size() * sizeof(device::PKDlet) + btparticles.size() * sizeof(device::BTParticle);
-#endif
         }
 
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
@@ -1030,16 +1020,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 treelets.size() * sizeof(device::PKDlet), ctx.GetExecStream()));
             megamol::core::utility::log::Log::DefaultLog.WriteInfo("[PKDGeometry] Num treelets: %d", treelets.size());
 
-#ifdef MEGAMOL_USE_POWER
             total_num_treelets += treelets.size();
             total_original_data_size += data.size() * sizeof(glm::vec3);
             total_compressed_data_size += treelets.size() * sizeof(device::PKDlet) + data.size() * sizeof(glm::vec3);
-            /*power_callbacks.add_meta_key_value("NumTreelets", std::to_string(treelets.size()));
-            power_callbacks.add_meta_key_value(
-                "OriginalDataSize", std::to_string(data.size() * sizeof(device::PKDParticle)));
-            power_callbacks.add_meta_key_value("CompressedDataSize",
-                std::to_string(treelets.size() * sizeof(device::PKDlet) + data.size() * sizeof(device::PKDParticle)));*/
-#endif
 
             // TODO compress data if requested
             // for debugging without parallel
@@ -1331,6 +1314,29 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     power_callbacks.add_meta_key_value("CompressedDataSize", std::to_string(total_compressed_data_size));
     power_callbacks.add_meta_key_value("NumGridCells", std::to_string(total_num_cells));
 #endif
+    if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
+#ifdef MEGAMOL_USE_POWER
+        auto const output_path = power_callbacks.get_output_path();
+#else
+        auto const output_path = debug_output_path_slot_.Param<core::param::FilePathParam>()->Value();
+#endif
+        std::string header;
+        if (std::filesystem::exists(output_path / "comp_size_stats.csv")) {
+            header = std::string("GeoSize,OriginalGeoSize,OriginalGeoTempSize,CompactGeoSize,NumTreelets,"
+                                 "OriginalDataSize,CompressedDataSize,NumGridCells\n");
+        }
+        std::ofstream file(output_path / "comp_size_stats.csv", std::ios::app);
+        file << header;
+        if (compSize < bufferSizes.outputSizeInBytes) {
+            file << compSize << ",";
+        } else {
+            file << bufferSizes.outputSizeInBytes << ",";
+        }
+        file << bufferSizes.outputSizeInBytes << "," << bufferSizes.tempSizeInBytes << "," << compSize << ","
+             << total_num_treelets << "," << total_original_data_size << "," << total_compressed_data_size << ","
+             << total_num_cells;
+        file.close();
+    }
     if (compSize < bufferSizes.outputSizeInBytes) {
         CUdeviceptr comp_geo_buffer;
         CUDA_CHECK_ERROR(cuMemAllocAsync(&comp_geo_buffer, compSize, ctx.GetExecStream()));
@@ -1593,8 +1599,6 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
 
         b_treelets_sbt_record_occlusion.data = b_treelets_sbt_record.data;
         b_treelets_sbt_records_.push_back(b_treelets_sbt_record_occlusion);
-
-
 
 
         SBTRecord<device::CTreeletsGeoData> c_treelets_sbt_record;

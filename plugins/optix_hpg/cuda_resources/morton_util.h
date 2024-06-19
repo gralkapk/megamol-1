@@ -98,10 +98,10 @@ static inline uint64_t morton_encode(uint32_t xsrc, uint32_t ysrc, uint32_t zsrc
 }
 
 struct MortonConfig {
-    uint64_t mask = 0b111111111111111000000000000000000000000000000000000000000000000;
-    int offset = 48;
-    uint64_t factor = 1 << 21;
-    int code_offset = 18;
+    uint64_t mask = 0b111111111111111000000000000000000000000000000000000000000000;
+    int offset = 45;
+    uint64_t factor = 1 << 20;
+    int code_offset = 15;
 };
 
 } // namespace device

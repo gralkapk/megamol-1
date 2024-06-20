@@ -328,10 +328,17 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
 #ifdef MEGAMOL_USE_POWER
     if (compSize < bufferSizes.outputSizeInBytes) {
         power_callbacks.add_meta_key_value("GeoSize", std::to_string(compSize));
+        core::utility::log::Log::DefaultLog.WriteInfo("[SphereGeometry] Data size BVH only: %d", compSize);
+        core::utility::log::Log::DefaultLog.WriteInfo(
+            "[SphereGeometry] Temp size BVH only: %d", bufferSizes.tempSizeInBytes);
         core::utility::log::Log::DefaultLog.WriteInfo(
             "[SphereGeometry] Data size with BVH: %d", total_original_data_size + compSize);
     } else {
         power_callbacks.add_meta_key_value("GeoSize", std::to_string(bufferSizes.outputSizeInBytes));
+        core::utility::log::Log::DefaultLog.WriteInfo(
+            "[SphereGeometry] Data size BVH only: %d", bufferSizes.outputSizeInBytes);
+        core::utility::log::Log::DefaultLog.WriteInfo(
+            "[SphereGeometry] Temp size BVH only: %d", bufferSizes.tempSizeInBytes);
         core::utility::log::Log::DefaultLog.WriteInfo(
             "[SphereGeometry] Data size with BVH: %d", total_original_data_size + bufferSizes.outputSizeInBytes);
     }

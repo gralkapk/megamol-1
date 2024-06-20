@@ -1320,12 +1320,9 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 #else
         auto const output_path = debug_output_path_slot_.Param<core::param::FilePathParam>()->Value();
 #endif
-        std::string header;
-        if (std::filesystem::exists(output_path / "comp_size_stats.csv")) {
-            header = std::string("GeoSize,OriginalGeoSize,OriginalGeoTempSize,CompactGeoSize,NumTreelets,"
-                                 "OriginalDataSize,CompressedDataSize,NumGridCells\n");
-        }
-        std::ofstream file(output_path / "comp_size_stats.csv", std::ios::app);
+        std::string header = std::string("GeoSize,OriginalGeoSize,OriginalGeoTempSize,CompactGeoSize,NumTreelets,"
+                                         "OriginalDataSize,CompressedDataSize,NumGridCells\n");
+        std::ofstream file(output_path / "comp_size_stats.csv");
         file << header;
         if (compSize < bufferSizes.outputSizeInBytes) {
             file << compSize << ",";

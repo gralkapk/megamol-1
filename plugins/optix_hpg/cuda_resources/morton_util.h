@@ -97,11 +97,14 @@ static inline uint64_t morton_encode(uint32_t xsrc, uint32_t ysrc, uint32_t zsrc
     return x | (y << 1) | (z << 2);
 }
 
+using morton_prefix_t = unsigned short;
+
 struct MortonConfig {
-    uint64_t mask = 0b111111111111111000000000000000000000000000000000000000000000;
-    int offset = 45;
-    uint64_t factor = 1 << 20;
-    int code_offset = 15;
+    static const uint64_t mask = 0b111111111111111000000000000000000000000000000000000000000000;
+    static const int prefix_offset = 45;
+    static const uint64_t factor = (1 << 20) - 1;
+    static const int code_offset = 15;
+    //static const float ffactor;
 };
 
 } // namespace device

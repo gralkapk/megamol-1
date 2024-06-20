@@ -29,7 +29,7 @@ MM_OPTIX_INTERSECTION_KERNEL(cpkd_treelet_intersect)() {
         auto const span = self.bounds.span();
         auto const lower = self.bounds.lower;
 
-        MortonConfig const mc;
+        //MortonConfig const mc;
 
         //box3f refBox = treelet.bounds;
 
@@ -48,7 +48,7 @@ MM_OPTIX_INTERSECTION_KERNEL(cpkd_treelet_intersect)() {
                 {
                     auto const& cpart = self.particleBufferPtr[particleID];
                     dim = cpart.dim;
-                    pos = cpart.from(treelet.prefix, span, lower, mc.code_offset, mc.offset, mc.factor);
+                    pos = cpart.from(treelet.prefix, span, lower);
 
                     //printf("ISEC %f:%f:%f\n", pos.x, pos.y, pos.z);
                 }

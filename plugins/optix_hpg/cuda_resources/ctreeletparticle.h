@@ -42,23 +42,29 @@ struct CPKDParticle {
 struct C2PKDlet {
     box3f bounds;
     unsigned int begin, end;
-    unsigned short prefix;
+    morton_prefix_t prefix;
 };
 
 struct C2PKDParticle {
     unsigned int dim : 2;
     unsigned int code : 30;
 
-    CU_CALLABLE glm::vec3 from(unsigned short const prefix, glm::vec3 const& span, glm::vec3 const& lower,
-        int const code_offset, int const prefix_offset, float const factor) const {
-        auto const combined_code =
-            (static_cast<uint64_t>(code) << code_offset) + (static_cast<uint64_t>(prefix) << prefix_offset);
+    CU_CALLABLE glm::vec3 from(morton_prefix_t const prefix, glm::vec3 const& span, glm::vec3 const& lower) const {
+        auto const combined_code = (static_cast<uint64_t>(code) << MortonConfig::code_offset) +
+                                   (static_cast<uint64_t>(prefix) << MortonConfig::prefix_offset);
+
+        static float const ffactor = MortonConfig::factor;
 
         uint32_t x, y, z;
         morton_decode(combined_code, x, y, z);
-        glm::vec3 basePos(x / factor, y / factor, z / factor);
+#ifdef __CUDACC__
+        glm::vec3 basePos(
+            fmaf(x / ffactor, span.x, lower.x), fmaf(y / ffactor, span.y, lower.y), fmaf(z / ffactor, span.z, lower.z));
+#else
+        glm::vec3 basePos(x / ffactor, y / ffactor, z / ffactor);
         basePos *= span;
         basePos += lower;
+#endif
 
         return basePos;
     }

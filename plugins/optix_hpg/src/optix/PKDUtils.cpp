@@ -86,28 +86,25 @@ void recBuild(size_t /* root node */ P, device::C2PKDParticle* particle, size_t 
     makeHeap(std::greater<float>(), L, particle, N, dim, treelet, global_bounds, config);
     makeHeap(std::less<float>(), R, particle, N, dim, treelet, global_bounds, config);
 
-    auto const P_pos = particle[P].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor);
+    auto const P_pos =
+        particle[P].from(treelet.prefix, span, lower);
 
     if (rValid) {
-        while (particle[L].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor)[dim] >
-               particle[R].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor)[dim]) {
+        while (particle[L].from(treelet.prefix, span, lower)[dim] > particle[R].from(treelet.prefix, span, lower)[dim]) {
             std::swap(particle[L], particle[R]);
             trickle(std::greater<float>(), L, particle, N, dim, treelet, global_bounds, config);
             trickle(std::less<float>(), R, particle, N, dim, treelet, global_bounds, config);
         }
-        if (particle[L].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor)[dim] >
-            P_pos[dim]) {
+        if (particle[L].from(treelet.prefix, span, lower)[dim] > P_pos[dim]) {
             std::swap(particle[L], particle[P]);
             particle[L].dim = dim;
-        } else if (particle[R].from(treelet.prefix, span, lower, config.code_offset, config.offset,
-                       config.factor)[dim] < P_pos[dim]) {
+        } else if (particle[R].from(treelet.prefix, span, lower)[dim] < P_pos[dim]) {
             std::swap(particle[R], particle[P]);
             particle[R].dim = dim;
         } else
             /* nothing, root fits */;
     } else if (lValid) {
-        if (particle[L].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor)[dim] >
-            P_pos[dim]) {
+        if (particle[L].from(treelet.prefix, span, lower)[dim] > P_pos[dim]) {
             std::swap(particle[L], particle[P]);
             particle[L].dim = dim;
         }

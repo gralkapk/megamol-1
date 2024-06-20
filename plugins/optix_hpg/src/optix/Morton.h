@@ -99,7 +99,7 @@ mask_morton_codes(std::vector<std::pair<uint64_t, uint64_t>> const& codes, std::
     std::unordered_map<uint64_t, uint64_t> grid;
 
     for (size_t i = 0; i < codes.size(); ++i) {
-        ++grid[(codes[i].first & config.mask) >> config.offset];
+        ++grid[(codes[i].first & config.mask) >> config.prefix_offset];
         //grid[i] = (codes[i] & mask) >> 30;
     }
 
@@ -127,7 +127,7 @@ mask_morton_codes(std::vector<std::pair<uint64_t, uint64_t>> const& codes, std::
     std::vector<device::PKDParticle> sorted_data(data.size());
 
     for (size_t i = 0; i < codes.size(); ++i) {
-        auto const idx = --grid[(codes[i].first & config.mask) >> config.offset];
+        auto const idx = --grid[(codes[i].first & config.mask) >> config.prefix_offset];
         sorted_codes[idx] = codes[i].first;
         sorted_data[idx] = data[codes[i].second];
     }
@@ -148,10 +148,10 @@ std::tuple<std::vector<glm::vec3>, std::vector<glm::vec3>, std::vector<glm::vec3
     std::unordered_map<uint64_t, uint64_t> grid;
 
     for (size_t i = 0; i < codes.size(); ++i) {
-        ++grid[(codes[i].first & config.mask) >> config.offset];
+        ++grid[(codes[i].first & config.mask) >> config.prefix_offset];
     }
 
-    auto const global_prefix = (codes[0].first & config.mask) >> config.offset;
+    auto const global_prefix = (codes[0].first & config.mask) >> config.prefix_offset;
     ctreelet.prefix = global_prefix;
     ctreelet.begin = treelet.begin;
     ctreelet.end = treelet.end;
@@ -163,7 +163,7 @@ std::tuple<std::vector<glm::vec3>, std::vector<glm::vec3>, std::vector<glm::vec3
     std::vector<glm::vec3> recon_data(codes.size());
     for (size_t i = 0; i < codes.size(); ++i) {
         auto const code = codes[i].first >> config.code_offset;
-        auto const prefix = (codes[i].first & config.mask) >> config.offset;
+        auto const prefix = (codes[i].first & config.mask) >> config.prefix_offset;
         if (global_prefix != prefix) {
             throw std::runtime_error("unexpected prefix");
         }
@@ -180,8 +180,7 @@ std::tuple<std::vector<glm::vec3>, std::vector<glm::vec3>, std::vector<glm::vec3
         basePos *= global_bounds.span();
         basePos += global_bounds.lower;*/
 
-        auto const basePos = cparticles[i + treelet.begin].from(
-            ctreelet.prefix, span, lower, config.code_offset, config.offset, config.factor);
+        auto const basePos = cparticles[i + treelet.begin].from(ctreelet.prefix, span, lower);
 
         recon_data[i] = basePos;
     }
@@ -206,8 +205,7 @@ void adapt_morton_bbox(std::vector<device::C2PKDParticle> const& cparticles, dev
     auto const lower = global_bounds.lower;
 
     for (unsigned int i = treelet.begin; i < treelet.end; ++i) {
-        bounds.extend(
-            cparticles[i].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor));
+        bounds.extend(cparticles[i].from(treelet.prefix, span, lower));
     }
 
     bounds.lower -= radius;

@@ -366,14 +366,15 @@ inline void trickle(
             return;
         size_t C = L;
         if (rValid &&
-            worse(
-                (particle[R].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor))[dim],
-                (particle[L].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor))[dim]))
+            worse((particle[R].from(
+                      treelet.prefix, span, lower))[dim],
+                          (particle[L].from(treelet.prefix, span, lower))[dim]))
             C = R;
 
-        if (!worse(
-                (particle[C].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor))[dim],
-                (particle[P].from(treelet.prefix, span, lower, config.code_offset, config.offset, config.factor))[dim]))
+        if (!worse((particle[C].from(
+                       treelet.prefix, span, lower))[dim],
+                (particle[P].from(
+                    treelet.prefix, span, lower))[dim]))
             return;
 
         std::swap(particle[C], particle[P]);

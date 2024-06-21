@@ -401,19 +401,23 @@ bool PKDGeometry::init(Context const& ctx) {
 void dump_analysis_data(std::filesystem::path const& output_path, std::shared_ptr<std::vector<glm::vec3>> op_s,
     std::shared_ptr<std::vector<glm::vec3>> sp_s, std::shared_ptr<std::vector<glm::vec3>> diffs, unsigned int pl_idx,
     float radius) {
-    auto rdf = moldyn::RDF(op_s, sp_s);
-    auto const [org_rdf, new_rdf] = rdf.BuildHistogram(4.0f * radius, 100);
-
     {
-        auto f = std::ofstream(output_path / ("org_rdf_" + std::to_string(pl_idx) + ".blobb"), std::ios::binary);
-        f.write(reinterpret_cast<char const*>(org_rdf.data()), org_rdf.size() * sizeof(decltype(org_rdf)::value_type));
-        f.close();
-    }
+        auto rdf = moldyn::RDF(op_s, sp_s);
+        auto const [org_rdf, new_rdf] = rdf.BuildHistogram(4.0f * radius, 100);
 
-    {
-        auto f = std::ofstream(output_path / ("new_rdf_" + std::to_string(pl_idx) + ".blobb"), std::ios::binary);
-        f.write(reinterpret_cast<char const*>(new_rdf.data()), new_rdf.size() * sizeof(decltype(new_rdf)::value_type));
-        f.close();
+        {
+            auto f = std::ofstream(output_path / ("org_rdf_" + std::to_string(pl_idx) + ".blobb"), std::ios::binary);
+            f.write(
+                reinterpret_cast<char const*>(org_rdf.data()), org_rdf.size() * sizeof(decltype(org_rdf)::value_type));
+            f.close();
+        }
+
+        {
+            auto f = std::ofstream(output_path / ("new_rdf_" + std::to_string(pl_idx) + ".blobb"), std::ios::binary);
+            f.write(
+                reinterpret_cast<char const*>(new_rdf.data()), new_rdf.size() * sizeof(decltype(new_rdf)::value_type));
+            f.close();
+        }
     }
 
     {
@@ -534,14 +538,21 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 
             device::MortonConfig config;
 
-            auto mc = create_morton_codes(data, bounds, config);
-            sort_morton_codes(mc);
-            auto [cells, sorted_codes, sorted_data] = mask_morton_codes(mc, data, config);
+            std::vector<std::pair<uint64_t, uint64_t>> cells;
+            std::vector<uint64_t> sorted_codes;
+            // std::vector<device::PKDParticle>
+
+            {
+                auto mc = create_morton_codes(data, bounds, config);
+                sort_morton_codes(mc);
+                //auto [cells, sorted_codes, sorted_data] = mask_morton_codes(mc, data, config);
+                std::tie(cells, sorted_codes, data) = mask_morton_codes(mc, data, config);
+            }
 
             std::vector<device::PKDlet> c_temp_treelets;
 
             for (auto const& c : cells) {
-                auto const temp_treelets = prePartition_inPlace(sorted_data, c.first, c.second,
+                auto const temp_treelets = prePartition_inPlace(data, c.first, c.second,
                     threshold_slot_.Param<core::param::IntParam>()->Value(), particles.GetGlobalRadius());
 
                 c_temp_treelets.insert(c_temp_treelets.end(), temp_treelets.begin(), temp_treelets.end());
@@ -558,21 +569,25 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             //std::vector<device::C2PKDlet> ctreelets(c_temp_treelets.size());
             ctreelets.resize(c_temp_treelets.size());
             //std::vector<device::C2PKDParticle> cparticles(data.size());
-            cparticles.resize(sorted_data.size());
+            cparticles.resize(data.size());
 
             auto diffs = std::make_shared<std::vector<glm::vec3>>();
-            diffs->reserve(data.size());
             auto orgpos = std::make_shared<std::vector<glm::vec3>>();
-            orgpos->reserve(data.size());
             auto spos = std::make_shared<std::vector<glm::vec3>>();
-            spos->reserve(data.size());
+            if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
+                diffs->reserve(data.size());
+                orgpos->reserve(data.size());
+                spos->reserve(data.size());
+            }
 
             for (size_t i = 0; i < c_temp_treelets.size(); ++i) {
                 auto const [temp_pos, temp_rec, temp_diffs] =
-                    convert_morton_treelet(c_temp_treelets[i], sorted_data, ctreelets[i], cparticles, bounds, config);
-                orgpos->insert(orgpos->end(), temp_pos.begin(), temp_pos.end());
-                spos->insert(spos->end(), temp_rec.begin(), temp_rec.end());
-                diffs->insert(diffs->end(), temp_diffs.begin(), temp_diffs.end());
+                    convert_morton_treelet(c_temp_treelets[i], data, ctreelets[i], cparticles, bounds, config);
+                if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
+                    orgpos->insert(orgpos->end(), temp_pos.begin(), temp_pos.end());
+                    spos->insert(spos->end(), temp_rec.begin(), temp_rec.end());
+                    diffs->insert(diffs->end(), temp_diffs.begin(), temp_diffs.end());
+                }
             }
 
             for (auto& el : ctreelets) {
@@ -614,11 +629,13 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             s_particles.resize(data.size());
 
             auto diffs = std::make_shared<std::vector<glm::vec3>>();
-            diffs->reserve(data.size());
             auto orgpos = std::make_shared<std::vector<glm::vec3>>();
-            orgpos->reserve(data.size());
             auto spos = std::make_shared<std::vector<glm::vec3>>();
-            spos->reserve(data.size());
+            if (dump_debug_info_slot_.Param<core::param::BoolParam>()->Value()) {
+                diffs->reserve(data.size());
+                orgpos->reserve(data.size());
+                spos->reserve(data.size());
+            }
 
             /*= partition_data(
                 data, threshold_slot_.Param<core::param::IntParam>()->Value(), particles.GetGlobalRadius());*/

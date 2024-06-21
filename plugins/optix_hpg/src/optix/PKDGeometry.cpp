@@ -941,7 +941,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::BTREELETS)) {
             // 1 treelet partitioning
             auto const add_cond = [](device::box3f const& bounds) -> bool {
-                constexpr auto const spatial_threshold = 32.f;
+                constexpr auto const spatial_threshold = 16.f;
                 auto const span = bounds.span();
                 return span.x >= spatial_threshold || span.y >= spatial_threshold || span.z >= spatial_threshold;
             };

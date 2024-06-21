@@ -180,6 +180,7 @@ private:
     core::param::ParamSlot threshold_slot_;
 
     core::param::ParamSlot dump_debug_info_slot_;
+    core::param::ParamSlot dump_debug_rdf_slot_;
 #ifndef MEGAMOL_USE_POWER
     core::param::ParamSlot debug_output_path_slot_;
 #endif

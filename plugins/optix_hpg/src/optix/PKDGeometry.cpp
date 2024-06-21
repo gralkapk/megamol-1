@@ -56,6 +56,7 @@ PKDGeometry::PKDGeometry()
         , grid_slot_("grid", "")*/
         , threshold_slot_("threshold", "")
         , dump_debug_info_slot_("Debug::dumpDebugInfo", "")
+        , dump_debug_rdf_slot_("Debug::dumpRDF", "")
 #ifndef MEGAMOL_USE_POWER
         , debug_output_path_slot_("Debug::outputPath", "")
 #endif
@@ -88,6 +89,9 @@ PKDGeometry::PKDGeometry()
 
     dump_debug_info_slot_ << new core::param::BoolParam(false);
     MakeSlotAvailable(&dump_debug_info_slot_);
+
+    dump_debug_rdf_slot_ << new core::param::BoolParam(false);
+    MakeSlotAvailable(&dump_debug_rdf_slot_);
 
 #ifndef MEGAMOL_USE_POWER
     debug_output_path_slot_ << new core::param::FilePathParam(
@@ -400,8 +404,8 @@ bool PKDGeometry::init(Context const& ctx) {
 
 void dump_analysis_data(std::filesystem::path const& output_path, std::shared_ptr<std::vector<glm::vec3>> op_s,
     std::shared_ptr<std::vector<glm::vec3>> sp_s, std::shared_ptr<std::vector<glm::vec3>> diffs, unsigned int pl_idx,
-    float radius) {
-    {
+    float radius, bool do_rdf) {
+    if (do_rdf) {
         auto rdf = moldyn::RDF(op_s, sp_s);
         auto const [org_rdf, new_rdf] = rdf.BuildHistogram(4.0f * radius, 100);
 
@@ -619,7 +623,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 #else
                 auto const output_path = debug_output_path_slot_.Param<core::param::FilePathParam>()->Value();
 #endif
-                dump_analysis_data(output_path, orgpos, spos, diffs, pl_idx, particles.GetGlobalRadius());
+                dump_analysis_data(output_path, orgpos, spos, diffs, pl_idx, particles.GetGlobalRadius(),
+                    dump_debug_rdf_slot_.Param<core::param::BoolParam>()->Value());
             }
         }
 
@@ -725,7 +730,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
 #else
                 auto const output_path = debug_output_path_slot_.Param<core::param::FilePathParam>()->Value();
 #endif
-                dump_analysis_data(output_path, orgpos, spos, diffs, pl_idx, particles.GetGlobalRadius());
+                dump_analysis_data(output_path, orgpos, spos, diffs, pl_idx, particles.GetGlobalRadius(),
+                    dump_debug_rdf_slot_.Param<core::param::BoolParam>()->Value());
             }
         }
 
@@ -932,7 +938,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                     newpos->insert(newpos->end(), newpos_t.begin(), newpos_t.end());
                 }
 
-                dump_analysis_data(output_path, orgpos, newpos, diffs, pl_idx, particles.GetGlobalRadius());
+                dump_analysis_data(output_path, orgpos, newpos, diffs, pl_idx, particles.GetGlobalRadius(),
+                    dump_debug_rdf_slot_.Param<core::param::BoolParam>()->Value());
 
                 {
                     if (qt_exp_overflow) {
@@ -1008,7 +1015,8 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                         diffs->data() + treelets[treeletID].begin);
                 });
 
-                dump_analysis_data(output_path, orgpos, newpos, diffs, pl_idx, particles.GetGlobalRadius());
+                dump_analysis_data(output_path, orgpos, newpos, diffs, pl_idx, particles.GetGlobalRadius(),
+                    dump_debug_rdf_slot_.Param<core::param::BoolParam>()->Value());
             }
 
             total_num_treelets += treelets.size();

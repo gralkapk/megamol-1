@@ -383,6 +383,10 @@ bool megamol::optix_hpg::SphereGeometry::createSBTRecords(geocalls::MultiParticl
     for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
         auto const& particles = call.AccessParticles(pl_idx);
 
+        auto const p_count = particles.GetCount();
+        if (p_count == 0)
+            continue;
+
         SBTRecord<device::SphereGeoData> sbt_record;
         if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
             OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_module_bi_, &sbt_record));

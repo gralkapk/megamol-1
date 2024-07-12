@@ -86,17 +86,17 @@ private:
 
     MMOptixModule sphere_module_;
 
-    MMOptixModule sphere_occlusion_module_;
+    //MMOptixModule sphere_occlusion_module_;
 
     MMOptixModule sphere_module_bi_;
 
-    MMOptixModule sphere_occlusion_module_bi_;
+    //MMOptixModule sphere_occlusion_module_bi_;
 
     OptixModule sphere_intersector_;
 
     std::vector<SBTRecord<device::SphereGeoData>> sbt_records_;
 
-    std::array<OptixProgramGroup, 2> program_groups_;
+    std::array<OptixProgramGroup, 1> program_groups_;
 
     CUdeviceptr _geo_buffer = 0;
 

@@ -14,7 +14,7 @@
 
 namespace megamol::optix_hpg {
 extern "C" const char embedded_sphere_programs[];
-extern "C" const char embedded_sphere_occlusion_programs[];
+//extern "C" const char embedded_sphere_occlusion_programs[];
 } // namespace megamol::optix_hpg
 
 
@@ -80,23 +80,23 @@ void megamol::optix_hpg::SphereGeometry::init(Context const& ctx) {
         sphere_intersector_,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "sphere_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "sphere_closesthit"}});
-    sphere_occlusion_module_bi_ = MMOptixModule(embedded_sphere_occlusion_programs, ctx.GetOptiXContext(),
+    /*sphere_occlusion_module_bi_ = MMOptixModule(embedded_sphere_occlusion_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP, sphere_intersector_,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "sphere_intersect"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "sphere_closesthit_occlusion"}});
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "sphere_closesthit_occlusion"}});*/
 
     sphere_module_ = MMOptixModule(embedded_sphere_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "sphere_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "sphere_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "sphere_bounds"}});
-    sphere_occlusion_module_ = MMOptixModule(embedded_sphere_occlusion_programs, ctx.GetOptiXContext(),
+    /*sphere_occlusion_module_ = MMOptixModule(embedded_sphere_occlusion_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "sphere_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "sphere_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "sphere_bounds_occlusion"}});
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "sphere_bounds_occlusion"}});*/
 
     ++program_version;
 
@@ -413,14 +413,14 @@ bool megamol::optix_hpg::SphereGeometry::createSBTRecords(geocalls::MultiParticl
         sbt_records_.push_back(sbt_record);
 
         // occlusion stuff
-        SBTRecord<device::SphereGeoData> sbt_record_occlusion;
+        /*SBTRecord<device::SphereGeoData> sbt_record_occlusion;
         if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
             OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_occlusion_module_bi_, &sbt_record_occlusion));
         } else {
             OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(sphere_occlusion_module_, &sbt_record_occlusion));
         }
         sbt_record_occlusion.data = sbt_record.data;
-        sbt_records_.push_back(sbt_record_occlusion);
+        sbt_records_.push_back(sbt_record_occlusion);*/
     }
 
     ++sbt_version;
@@ -466,10 +466,10 @@ bool megamol::optix_hpg::SphereGeometry::get_data_cb(core::Call& c) {
     
     if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
         program_groups_[0] = sphere_module_bi_;
-        program_groups_[1] = sphere_occlusion_module_bi_;
+        //program_groups_[1] = sphere_occlusion_module_bi_;
     } else {
         program_groups_[0] = sphere_module_;
-        program_groups_[1] = sphere_occlusion_module_;
+        //program_groups_[1] = sphere_occlusion_module_;
     }
 
     out_geo->set_handle(&_geo_handle, geo_version);

@@ -161,11 +161,11 @@ MM_OPTIX_RAYGEN_KERNEL(raygen_program)() {
     auto const index = optixGetLaunchIndex();
     glm::ivec2 pixelID = glm::ivec2(index.x, index.y);
 
-    if (pixelID.x >= self.fbSize.x)
-        return;
-    if (pixelID.y >= self.fbSize.y)
-        return;
-    const int pixelIdx = pixelID.x + self.fbSize.x * pixelID.y;
+            if (pixelID.x >= self.fbSize.x)
+                return;
+            if (pixelID.y >= self.fbSize.y)
+                return;
+            //const int pixelIdx = pixelID.x + self.fbSize.x * pixelID.y;
 
     const FrameState* fs = &self.frameStateBuffer[0];
 

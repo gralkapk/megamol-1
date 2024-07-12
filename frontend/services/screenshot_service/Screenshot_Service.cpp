@@ -265,6 +265,7 @@ void Screenshot_Service::setRequestedResources(std::vector<FrontendResource> res
     }
     frame_stats_ptr = const_cast<frontend_resources::FrameStatistics*>(
         &resources[5].getResource<frontend_resources::FrameStatistics>());
+
     ri_ = &resources[6].getResource<megamol::frontend_resources::RuntimeInfo>();
 }
 

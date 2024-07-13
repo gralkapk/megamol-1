@@ -233,9 +233,9 @@ MM_OPTIX_CLOSESTHIT_KERNEL(pkd_closesthit)() {
     prd.particleID = primID;
     const PKDParticle& particle = self.particleBufferPtr[primID];
     prd.pos = particle.pos;
-    glm::vec3 geo_col = glm::vec3(self.globalColor);
+    glm::vec3 geo_col = glm::vec3(self.globalColor) / 255.f;
     if (self.hasColorData) {
-        geo_col = glm::vec3(self.colorBufferPtr[primID]);
+        geo_col = glm::vec3(self.colorBufferPtr[primID]) / 255.f;
     }
     prd.albedo = geo_col;
     prd.t = optixGetRayTmax();
@@ -390,9 +390,9 @@ MM_OPTIX_CLOSESTHIT_KERNEL(treelets_closesthit)
     prd.particleID = primID;
     const PKDParticle& particle = self.particleBufferPtr[primID];
     prd.pos = particle.pos;
-    glm::vec3 geo_col = glm::vec3(self.globalColor);
+    glm::vec3 geo_col = glm::vec3(self.globalColor) / 255.f;
     if (self.hasColorData) {
-        geo_col = glm::vec3(self.colorBufferPtr[primID]);
+        geo_col = glm::vec3(self.colorBufferPtr[primID]) / 255.f;
     }
     prd.albedo = geo_col;
     prd.t = optixGetRayTmax();
@@ -621,9 +621,9 @@ MM_OPTIX_CLOSESTHIT_KERNEL(comp_treelets_closesthit)
     prd.pos.x = __uint_as_float(optixGetAttribute_1());
     prd.pos.y = __uint_as_float(optixGetAttribute_2());
     prd.pos.z = __uint_as_float(optixGetAttribute_3());
-    glm::vec3 geo_col = glm::vec3(self.globalColor);
+    glm::vec3 geo_col = glm::vec3(self.globalColor) / 255.f;
     if (self.hasColorData) {
-        geo_col = glm::vec3(self.colorBufferPtr[primID]);
+        geo_col = glm::vec3(self.colorBufferPtr[primID]) / 255.f;
     }
     prd.albedo = geo_col;
     prd.t = optixGetRayTmax();
@@ -851,9 +851,9 @@ MM_OPTIX_CLOSESTHIT_KERNEL(s_comp_treelets_closesthit)
     prd.pos.x = __uint_as_float(optixGetAttribute_1());
     prd.pos.y = __uint_as_float(optixGetAttribute_2());
     prd.pos.z = __uint_as_float(optixGetAttribute_3());
-    glm::vec3 geo_col = glm::vec3(self.globalColor);
+    glm::vec3 geo_col = glm::vec3(self.globalColor) / 255.f;
     if (self.hasColorData) {
-        geo_col = glm::vec3(self.colorBufferPtr[primID]);
+        geo_col = glm::vec3(self.colorBufferPtr[primID]) / 255.f;
     }
     prd.albedo = geo_col;
     prd.t = optixGetRayTmax();

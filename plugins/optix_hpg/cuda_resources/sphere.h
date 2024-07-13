@@ -9,11 +9,11 @@ namespace device {
 struct SphereGeoData {
     Particle* particleBufferPtr;
     float* radiusBufferPtr;
-    glm::vec4* colorBufferPtr;
+    color_t* colorBufferPtr;
     bool hasGlobalRadius;
     float radius;
     bool hasColorData;
-    glm::vec4 globalColor;
+    color_t globalColor;
 };
 } // namespace device
 } // namespace optix_hpg

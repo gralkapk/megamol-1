@@ -178,18 +178,19 @@ bool megamol::optix_hpg::SphereGeometry::assertData(geocalls::MultiParticleDataC
         if (!has_color(particles)) {
             col_count = 0;
         }
-        std::vector<glm::vec4> color_data(col_count);
+        std::vector<device::color_t> color_data(col_count);
         if (has_color(particles)) {
             for (std::size_t p_idx = 0; p_idx < col_count; ++p_idx) {
-                color_data[p_idx].r = cr_acc->Get_f(p_idx);
-                color_data[p_idx].g = cg_acc->Get_f(p_idx);
-                color_data[p_idx].b = cb_acc->Get_f(p_idx);
-                color_data[p_idx].a = ca_acc->Get_f(p_idx);
+                color_data[p_idx].r = cr_acc->Get_u8(p_idx);
+                color_data[p_idx].g = cg_acc->Get_u8(p_idx);
+                color_data[p_idx].b = cb_acc->Get_u8(p_idx);
+                color_data[p_idx].a = ca_acc->Get_u8(p_idx);
             }
             // CUDA_CHECK_ERROR(cuMemFree(color_data_));
-            CUDA_CHECK_ERROR(cuMemAllocAsync(&color_data_[pl_idx], col_count * sizeof(glm::vec4), ctx.GetExecStream()));
-            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
-                color_data_[pl_idx], color_data.data(), col_count * sizeof(glm::vec4), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemAllocAsync(
+                &color_data_[pl_idx], col_count * sizeof(decltype(color_data)::value_type), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(color_data_[pl_idx], color_data.data(),
+                col_count * sizeof(decltype(color_data)::value_type), ctx.GetExecStream()));
         }
         // CUDA_CHECK_ERROR(cuMemFree(_particle_data));
         CUDA_CHECK_ERROR(
@@ -400,15 +401,14 @@ bool megamol::optix_hpg::SphereGeometry::createSBTRecords(geocalls::MultiParticl
         sbt_record.data.radius = particles.GetGlobalRadius();
         sbt_record.data.hasGlobalRadius = has_global_radius(particles);
         sbt_record.data.hasColorData = has_color(particles);
-        sbt_record.data.globalColor =
-            glm::vec4(particles.GetGlobalColour()[0] / 255.f, particles.GetGlobalColour()[1] / 255.f,
-                particles.GetGlobalColour()[2] / 255.f, particles.GetGlobalColour()[3] / 255.f);
+        sbt_record.data.globalColor = device::color_t(particles.GetGlobalColour()[0], particles.GetGlobalColour()[1],
+            particles.GetGlobalColour()[2], particles.GetGlobalColour()[3]);
 
         if (!has_global_radius(particles)) {
             sbt_record.data.radiusBufferPtr = (float*) radius_data_[pl_idx];
         }
         if (has_color(particles)) {
-            sbt_record.data.colorBufferPtr = (glm::vec4*) color_data_[pl_idx];
+            sbt_record.data.colorBufferPtr = (device::color_t*) color_data_[pl_idx];
         }
         sbt_records_.push_back(sbt_record);
 
@@ -461,9 +461,8 @@ bool megamol::optix_hpg::SphereGeometry::get_data_cb(core::Call& c) {
         }
         _frame_id = in_data->FrameID();
         _data_hash = in_data->DataHash();
-        
     }
-    
+
     if (built_in_intersector_slot_.Param<core::param::BoolParam>()->Value()) {
         program_groups_[0] = sphere_module_bi_;
         //program_groups_[1] = sphere_occlusion_module_bi_;

@@ -24,6 +24,8 @@ typedef union {
 } byte_cast;
 
 namespace device {
+using color_t = glm::u8vec4;
+
 struct Particle {
     //float x, y, z;
     glm::vec3 pos;

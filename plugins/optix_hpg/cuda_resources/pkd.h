@@ -10,75 +10,75 @@ namespace device {
 struct PKDGeoData {
     PKDParticle* particleBufferPtr;
     float* radiusBufferPtr;
-    glm::vec4* colorBufferPtr;
+    color_t* colorBufferPtr;
     bool hasGlobalRadius;
     float radius;
     bool hasColorData;
-    glm::vec4 globalColor;
+    color_t globalColor;
     unsigned int particleCount;
     box3f worldBounds;
 };
 struct TreeletsGeoData {
     PKDParticle* particleBufferPtr;
     float* radiusBufferPtr;
-    glm::vec4* colorBufferPtr;
+    color_t* colorBufferPtr;
     PKDlet* treeletBufferPtr;
     bool hasGlobalRadius;
     float radius;
     bool hasColorData;
-    glm::vec4 globalColor;
+    color_t globalColor;
     unsigned int particleCount;
     box3f worldBounds;
 };
 struct QTreeletsGeoData {
     QPKDParticle* particleBufferPtr;
-    glm::vec4* colorBufferPtr;
+    color_t* colorBufferPtr;
     PKDlet* treeletBufferPtr;
     float radius;
     bool hasColorData;
-    glm::vec4 globalColor;
+    color_t globalColor;
     unsigned int particleCount;
 };
 struct STreeletsGeoData {
     SPKDParticle* particleBufferPtr;
-    glm::vec4* colorBufferPtr;
+    color_t* colorBufferPtr;
     SPKDlet* treeletBufferPtr;
     float radius;
     bool hasColorData;
-    glm::vec4 globalColor;
+    color_t globalColor;
     unsigned int particleCount;
 };
 struct QPKDTreeletsGeoData {
     void* particleBufferPtr;
-    glm::vec4* colorBufferPtr;
+    color_t* colorBufferPtr;
     QPKDlet* treeletBufferPtr;
     char* expXBuffer;
     char* expYBuffer;
     char* expZBuffer;
     float radius;
     bool hasColorData;
-    glm::vec4 globalColor;
+    color_t globalColor;
     unsigned int particleCount;
     int selectedType;
     char use_localtables;
 };
 struct BTreeletsGeoData {
     BTParticle* particleBufferPtr;
-    glm::vec4* colorBufferPtr;
+    color_t* colorBufferPtr;
     PKDlet* treeletBufferPtr;
     float radius;
     bool hasColorData;
-    glm::vec4 globalColor;
+    color_t globalColor;
     unsigned int particleCount;
 };
 struct CTreeletsGeoData {
     box3f bounds;
     C2PKDParticle* particleBufferPtr;
-    glm::vec4* colorBufferPtr;
+    color_t* colorBufferPtr;
     C2PKDlet* treeletBufferPtr;
     float radius;
     bool hasColorData;
-    glm::vec4 globalColor;
+    color_t globalColor;
     unsigned int particleCount;
 };
 } // namespace device

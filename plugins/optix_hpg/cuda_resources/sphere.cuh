@@ -125,9 +125,9 @@ inline __device__ void kernel_sphere_closest_hit() {
     prd.particleID = primID;
     const Particle& particle = self.particleBufferPtr[primID];
     prd.pos = particle.pos;
-    glm::vec3 geo_col = glm::vec3(self.globalColor);
+    glm::vec3 geo_col = glm::vec3(self.globalColor) / 255.f;
     if (self.hasColorData) {
-        geo_col = glm::vec3(self.colorBufferPtr[primID]);
+        geo_col = glm::vec3(self.colorBufferPtr[primID]) / 255.f;
     }
     prd.albedo = geo_col;
     prd.t = optixGetRayTmax();

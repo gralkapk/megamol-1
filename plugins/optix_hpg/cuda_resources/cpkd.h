@@ -175,9 +175,9 @@ MM_OPTIX_CLOSESTHIT_KERNEL(cpkd_treelets_closesthit)
     prd.pos.x = __uint_as_float(optixGetAttribute_1());
     prd.pos.y = __uint_as_float(optixGetAttribute_2());
     prd.pos.z = __uint_as_float(optixGetAttribute_3());
-    glm::vec3 geo_col = glm::vec3(self.globalColor);
+    glm::vec3 geo_col = glm::vec3(self.globalColor) / 255.f;
     if (self.hasColorData) {
-        geo_col = glm::vec3(self.colorBufferPtr[primID]);
+        geo_col = glm::vec3(self.colorBufferPtr[primID]) / 255.f;
     }
     prd.albedo = geo_col;
     prd.t = optixGetRayTmax();

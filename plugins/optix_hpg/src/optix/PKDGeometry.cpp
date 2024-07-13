@@ -180,39 +180,39 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
 
     if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
         program_groups_[0] = treelets_module_;
-        program_groups_[1] = treelets_occlusion_module_;
+        //program_groups_[1] = treelets_occlusion_module_;
     } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {
         program_groups_[0] = s_comp_treelets_module_;
-        program_groups_[1] = s_comp_treelets_occlusion_module_;
+        //program_groups_[1] = s_comp_treelets_occlusion_module_;
     } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::QTREELETS)) {
         switch (static_cast<QTreeletType>(qtreelet_type_slot_.Param<core::param::EnumParam>()->Value())) {
         case QTreeletType::E4M16D: {
             program_groups_[0] = qpkd_treelets_module_e4m16d_;
-            program_groups_[1] = qpkd_treelets_occlusion_module_e4m16d_;
+            //program_groups_[1] = qpkd_treelets_occlusion_module_e4m16d_;
         } break;
         case QTreeletType::E5M15D: {
             program_groups_[0] = qpkd_treelets_module_e5m15d_;
-            program_groups_[1] = qpkd_treelets_occlusion_module_e5m15d_;
+            //program_groups_[1] = qpkd_treelets_occlusion_module_e5m15d_;
         } break;
         case QTreeletType::E5M15: {
             program_groups_[0] = qpkd_treelets_module_e5m15_;
-            program_groups_[1] = qpkd_treelets_occlusion_module_e5m15_;
+            //program_groups_[1] = qpkd_treelets_occlusion_module_e5m15_;
         } break;
         case QTreeletType::E4M16:
         default: {
             program_groups_[0] = qpkd_treelets_module_e4m16_;
-            program_groups_[1] = qpkd_treelets_occlusion_module_e4m16_;
+            //program_groups_[1] = qpkd_treelets_occlusion_module_e4m16_;
         }
         }
     } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::BTREELETS)) {
         program_groups_[0] = b_treelets_module_;
-        program_groups_[1] = b_treelets_occlusion_module_;
+        //program_groups_[1] = b_treelets_occlusion_module_;
     } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::CTREELETS)) {
         program_groups_[0] = c_treelets_module_;
-        program_groups_[1] = c_treelets_occlusion_module_;
+        //program_groups_[1] = c_treelets_occlusion_module_;
     } else {
         program_groups_[0] = pkd_module_;
-        program_groups_[1] = pkd_occlusion_module_;
+        //program_groups_[1] = pkd_occlusion_module_;
     }
 
     out_geo->set_handle(&geo_handle_, geo_version);
@@ -265,11 +265,11 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "pkd_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "pkd_bounds"}});
 
-    pkd_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
+    /*pkd_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "pkd_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "pkd_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "pkd_bounds"}});
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "pkd_bounds"}});*/
 
     treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
@@ -277,12 +277,12 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+    /*treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelets_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
 
     comp_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
@@ -290,12 +290,12 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "comp_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    comp_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+    /*comp_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "comp_treelets_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "comp_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
 
     s_comp_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
@@ -304,12 +304,12 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "s_comp_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    s_comp_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+    /*s_comp_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "s_comp_treelets_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "s_comp_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
 
 
     qpkd_treelets_module_e5m15_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
@@ -319,12 +319,12 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    qpkd_treelets_occlusion_module_e5m15_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+    /*qpkd_treelets_occlusion_module_e5m15_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
 
 
     qpkd_treelets_module_e4m16_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
@@ -334,12 +334,12 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    qpkd_treelets_occlusion_module_e4m16_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+    /*qpkd_treelets_occlusion_module_e4m16_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
 
     qpkd_treelets_module_e5m15d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
@@ -348,12 +348,12 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    qpkd_treelets_occlusion_module_e5m15d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+    /*qpkd_treelets_occlusion_module_e5m15d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15d"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
 
     qpkd_treelets_module_e4m16d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
@@ -362,12 +362,12 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    qpkd_treelets_occlusion_module_e4m16d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+    /*qpkd_treelets_occlusion_module_e4m16d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16d"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
 
 
     b_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
@@ -376,12 +376,12 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "bpkd_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    b_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+    /*b_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_bpkd"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "bpkd_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
 
 
     c_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
@@ -390,12 +390,12 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "cpkd_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    c_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
+    /*c_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "cpkd_treelet_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "cpkd_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
 
     ++program_version;
 
@@ -1430,11 +1430,11 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         sbt_records_.push_back(sbt_record);
 
         // occlusion stuff
-        SBTRecord<device::PKDGeoData> sbt_record_occlusion;
+        /*SBTRecord<device::PKDGeoData> sbt_record_occlusion;
         OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(pkd_occlusion_module_, &sbt_record_occlusion));
 
         sbt_record_occlusion.data = sbt_record.data;
-        sbt_records_.push_back(sbt_record_occlusion);
+        sbt_records_.push_back(sbt_record_occlusion);*/
 
 
         SBTRecord<device::TreeletsGeoData> treelets_sbt_record;
@@ -1461,11 +1461,11 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         treelets_sbt_records_.push_back(treelets_sbt_record);
 
         // occlusion stuff
-        SBTRecord<device::TreeletsGeoData> treelets_sbt_record_occlusion;
+        /*SBTRecord<device::TreeletsGeoData> treelets_sbt_record_occlusion;
         OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(treelets_occlusion_module_, &treelets_sbt_record_occlusion));
 
         treelets_sbt_record_occlusion.data = treelets_sbt_record.data;
-        treelets_sbt_records_.push_back(treelets_sbt_record_occlusion);
+        treelets_sbt_records_.push_back(treelets_sbt_record_occlusion);*/
 
 
         SBTRecord<device::QTreeletsGeoData> comp_treelets_sbt_record;
@@ -1492,12 +1492,12 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         comp_treelets_sbt_records_.push_back(comp_treelets_sbt_record);
 
         // occlusion stuff
-        SBTRecord<device::QTreeletsGeoData> comp_treelets_sbt_record_occlusion;
+        /*SBTRecord<device::QTreeletsGeoData> comp_treelets_sbt_record_occlusion;
         OPTIX_CHECK_ERROR(
             optixSbtRecordPackHeader(comp_treelets_occlusion_module_, &comp_treelets_sbt_record_occlusion));
 
         comp_treelets_sbt_record_occlusion.data = comp_treelets_sbt_record.data;
-        comp_treelets_sbt_records_.push_back(comp_treelets_sbt_record_occlusion);
+        comp_treelets_sbt_records_.push_back(comp_treelets_sbt_record_occlusion);*/
 
 
         SBTRecord<device::STreeletsGeoData> s_comp_treelets_sbt_record;
@@ -1524,12 +1524,12 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         s_comp_treelets_sbt_records_.push_back(s_comp_treelets_sbt_record);
 
         // occlusion stuff
-        SBTRecord<device::STreeletsGeoData> s_comp_treelets_sbt_record_occlusion;
+        /*SBTRecord<device::STreeletsGeoData> s_comp_treelets_sbt_record_occlusion;
         OPTIX_CHECK_ERROR(
             optixSbtRecordPackHeader(s_comp_treelets_occlusion_module_, &s_comp_treelets_sbt_record_occlusion));
 
         s_comp_treelets_sbt_record_occlusion.data = s_comp_treelets_sbt_record.data;
-        s_comp_treelets_sbt_records_.push_back(s_comp_treelets_sbt_record_occlusion);
+        s_comp_treelets_sbt_records_.push_back(s_comp_treelets_sbt_record_occlusion);*/
 
 
         SBTRecord<device::QPKDTreeletsGeoData> qpkd_treelets_sbt_record;
@@ -1537,24 +1537,24 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         switch (static_cast<QTreeletType>(qtreelet_type_slot_.Param<core::param::EnumParam>()->Value())) {
         case QTreeletType::E4M16D: {
             OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(qpkd_treelets_module_e4m16d_, &qpkd_treelets_sbt_record));
-            OPTIX_CHECK_ERROR(
-                optixSbtRecordPackHeader(qpkd_treelets_occlusion_module_e4m16d_, &qpkd_treelets_sbt_record_occlusion));
+            /*OPTIX_CHECK_ERROR(
+                optixSbtRecordPackHeader(qpkd_treelets_occlusion_module_e4m16d_, &qpkd_treelets_sbt_record_occlusion));*/
         } break;
         case QTreeletType::E5M15D: {
             OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(qpkd_treelets_module_e5m15d_, &qpkd_treelets_sbt_record));
-            OPTIX_CHECK_ERROR(
-                optixSbtRecordPackHeader(qpkd_treelets_occlusion_module_e5m15d_, &qpkd_treelets_sbt_record_occlusion));
+            /*OPTIX_CHECK_ERROR(
+                optixSbtRecordPackHeader(qpkd_treelets_occlusion_module_e5m15d_, &qpkd_treelets_sbt_record_occlusion));*/
         } break;
         case QTreeletType::E5M15: {
             OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(qpkd_treelets_module_e5m15_, &qpkd_treelets_sbt_record));
-            OPTIX_CHECK_ERROR(
-                optixSbtRecordPackHeader(qpkd_treelets_occlusion_module_e5m15_, &qpkd_treelets_sbt_record_occlusion));
+            /*OPTIX_CHECK_ERROR(
+                optixSbtRecordPackHeader(qpkd_treelets_occlusion_module_e5m15_, &qpkd_treelets_sbt_record_occlusion));*/
         } break;
         case QTreeletType::E4M16:
         default: {
             OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(qpkd_treelets_module_e4m16_, &qpkd_treelets_sbt_record));
-            OPTIX_CHECK_ERROR(
-                optixSbtRecordPackHeader(qpkd_treelets_occlusion_module_e4m16_, &qpkd_treelets_sbt_record_occlusion));
+            /*OPTIX_CHECK_ERROR(
+                optixSbtRecordPackHeader(qpkd_treelets_occlusion_module_e4m16_, &qpkd_treelets_sbt_record_occlusion));*/
         }
         }
 
@@ -1579,8 +1579,8 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         // occlusion stuff
 
 
-        qpkd_treelets_sbt_record_occlusion.data = qpkd_treelets_sbt_record.data;
-        qpkd_treelets_sbt_records_.push_back(qpkd_treelets_sbt_record_occlusion);
+        /*qpkd_treelets_sbt_record_occlusion.data = qpkd_treelets_sbt_record.data;
+        qpkd_treelets_sbt_records_.push_back(qpkd_treelets_sbt_record_occlusion);*/
 
 
         SBTRecord<device::BTreeletsGeoData> b_treelets_sbt_record;
@@ -1607,11 +1607,11 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         b_treelets_sbt_records_.push_back(b_treelets_sbt_record);
 
         // occlusion stuff
-        SBTRecord<device::BTreeletsGeoData> b_treelets_sbt_record_occlusion;
+        /*SBTRecord<device::BTreeletsGeoData> b_treelets_sbt_record_occlusion;
         OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(b_treelets_occlusion_module_, &b_treelets_sbt_record_occlusion));
 
         b_treelets_sbt_record_occlusion.data = b_treelets_sbt_record.data;
-        b_treelets_sbt_records_.push_back(b_treelets_sbt_record_occlusion);
+        b_treelets_sbt_records_.push_back(b_treelets_sbt_record_occlusion);*/
 
 
         SBTRecord<device::CTreeletsGeoData> c_treelets_sbt_record;
@@ -1645,11 +1645,11 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         c_treelets_sbt_records_.push_back(c_treelets_sbt_record);
 
         // occlusion stuff
-        SBTRecord<device::CTreeletsGeoData> c_treelets_sbt_record_occlusion;
+        /*SBTRecord<device::CTreeletsGeoData> c_treelets_sbt_record_occlusion;
         OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(c_treelets_occlusion_module_, &c_treelets_sbt_record_occlusion));
 
         c_treelets_sbt_record_occlusion.data = c_treelets_sbt_record.data;
-        c_treelets_sbt_records_.push_back(c_treelets_sbt_record_occlusion);
+        c_treelets_sbt_records_.push_back(c_treelets_sbt_record_occlusion);*/
     }
 
     ++sbt_version;

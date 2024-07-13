@@ -201,7 +201,7 @@ private:
 
     std::vector<SBTRecord<device::CTreeletsGeoData>> c_treelets_sbt_records_;
 
-    std::array<OptixProgramGroup, 2> program_groups_;
+    std::array<OptixProgramGroup, 1> program_groups_;
 
     std::vector<CUdeviceptr> particle_data_;
 
@@ -224,35 +224,35 @@ private:
 
     MMOptixModule pkd_module_;
 
-    MMOptixModule pkd_occlusion_module_;
+    //MMOptixModule pkd_occlusion_module_;
 
     MMOptixModule treelets_module_;
 
-    MMOptixModule treelets_occlusion_module_;
+    //MMOptixModule treelets_occlusion_module_;
 
     MMOptixModule comp_treelets_module_;
 
-    MMOptixModule comp_treelets_occlusion_module_;
+    //MMOptixModule comp_treelets_occlusion_module_;
 
     MMOptixModule s_comp_treelets_module_;
 
-    MMOptixModule s_comp_treelets_occlusion_module_;
+    //MMOptixModule s_comp_treelets_occlusion_module_;
 
     MMOptixModule qpkd_treelets_module_e4m16_;
-    MMOptixModule qpkd_treelets_occlusion_module_e4m16_;
+    //MMOptixModule qpkd_treelets_occlusion_module_e4m16_;
     MMOptixModule qpkd_treelets_module_e4m16d_;
-    MMOptixModule qpkd_treelets_occlusion_module_e4m16d_;
+    //MMOptixModule qpkd_treelets_occlusion_module_e4m16d_;
 
     MMOptixModule qpkd_treelets_module_e5m15_;
-    MMOptixModule qpkd_treelets_occlusion_module_e5m15_;
+    //MMOptixModule qpkd_treelets_occlusion_module_e5m15_;
     MMOptixModule qpkd_treelets_module_e5m15d_;
-    MMOptixModule qpkd_treelets_occlusion_module_e5m15d_;
+    //MMOptixModule qpkd_treelets_occlusion_module_e5m15d_;
 
     MMOptixModule b_treelets_module_;
-    MMOptixModule b_treelets_occlusion_module_;
+    //MMOptixModule b_treelets_occlusion_module_;
 
     MMOptixModule c_treelets_module_;
-    MMOptixModule c_treelets_occlusion_module_;
+    //MMOptixModule c_treelets_occlusion_module_;
 
     uint64_t sbt_version = 0;
 

@@ -455,6 +455,22 @@ void dump_analysis_data(std::filesystem::path const& output_path, std::shared_pt
     }
 }
 
+std::vector<device::CompactPKDParticle> convert(std::vector<device::PKDParticle> const& data) {
+    std::vector<device::CompactPKDParticle> res(data.size());
+    /*std::transform(data.begin(), data.end(), res.begin(), [](auto const& d) {
+        device::CompactPKDParticle p;
+        p.pos = d.pos;
+        p.set_dim(d.dim);
+        return p;
+    });*/
+#pragma omp parallel for
+    for (int64_t i = 0; i < data.size(); ++i) {
+        res[i].pos = data[i].pos;
+        res[i].set_dim(data[i].dim);
+    }
+    return res;
+}
+
 bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Context const& ctx) {
 #ifdef MEGAMOL_USE_POWER
     auto power_callbacks = this->frontend_resources.get<frontend_resources::PowerCallbacks>();
@@ -1181,10 +1197,11 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
                 p_count * sizeof(device::C2PKDParticle), ctx.GetExecStream()));
         } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STANDARD) ||
                    mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
+            auto const tmp_data = convert(data);
             CUDA_CHECK_ERROR(
-                cuMemAllocAsync(&particle_data_[pl_idx], p_count * sizeof(device::PKDParticle), ctx.GetExecStream()));
+                cuMemAllocAsync(&particle_data_[pl_idx], p_count * sizeof(device::CompactPKDParticle), ctx.GetExecStream()));
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(
-                particle_data_[pl_idx], data.data(), p_count * sizeof(device::PKDParticle), ctx.GetExecStream()));
+                particle_data_[pl_idx], tmp_data.data(), p_count * sizeof(device::CompactPKDParticle), ctx.GetExecStream()));
         }
 
         /*CUDA_CHECK_ERROR(cuMemAllocAsync(&radius_data_[pl_idx], rad_data.size() * sizeof(float), ctx.GetExecStream()));
@@ -1410,7 +1427,7 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         SBTRecord<device::PKDGeoData> sbt_record;
         OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(pkd_module_, &sbt_record));
 
-        sbt_record.data.particleBufferPtr = (device::PKDParticle*) particle_data_[pl_idx];
+        sbt_record.data.particleBufferPtr = (device::CompactPKDParticle*) particle_data_[pl_idx];
         sbt_record.data.radiusBufferPtr = nullptr;
         sbt_record.data.colorBufferPtr = nullptr;
         sbt_record.data.radius = particles.GetGlobalRadius();
@@ -1440,7 +1457,7 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         SBTRecord<device::TreeletsGeoData> treelets_sbt_record;
         OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(treelets_module_, &treelets_sbt_record));
 
-        treelets_sbt_record.data.particleBufferPtr = (device::PKDParticle*) particle_data_[pl_idx];
+        treelets_sbt_record.data.particleBufferPtr = (device::CompactPKDParticle*) particle_data_[pl_idx];
         treelets_sbt_record.data.radiusBufferPtr = nullptr;
         treelets_sbt_record.data.colorBufferPtr = nullptr;
         treelets_sbt_record.data.treeletBufferPtr = (device::PKDlet*) treelets_data_[pl_idx];

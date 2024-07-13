@@ -10,6 +10,12 @@
 #include "btreeletparticle.h"
 #include "ctreeletparticle.h"
 
+#ifndef __CUDACC__
+#define CU_CALLABLE
+#else
+#define CU_CALLABLE __host__ __device__
+#endif
+
 namespace megamol {
 namespace optix_hpg {
 
@@ -34,6 +40,24 @@ struct Particle {
 struct PKDParticle {
     glm::vec3 pos;
     float dim;
+};
+
+struct CompactPKDParticle {
+    glm::vec3 pos;
+    void set_dim(int const dim) {
+        auto x_val = reinterpret_cast<uint32_t*>(&pos.x);
+        *x_val = (*x_val & ~1u) | (dim & 1u);
+        auto y_val = reinterpret_cast<uint32_t*>(&pos.y);
+        *y_val = (*y_val & ~1u) | ((dim >> 1) & 1u);
+    }
+    CU_CALLABLE int get_dim() const {
+        int dim = 0;
+        auto x_val = reinterpret_cast<uint32_t const*>(&pos.x);
+        dim = (dim & ~1u) | (*x_val & 1u);
+        auto y_val = reinterpret_cast<uint32_t const*>(&pos.y);
+        dim = (dim & ~2u) | ((*y_val & 1u) << 1);
+        return dim;
+    }
 };
 
 struct PKDlet {

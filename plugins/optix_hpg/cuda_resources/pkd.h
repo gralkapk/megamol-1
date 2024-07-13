@@ -8,7 +8,7 @@ namespace megamol {
 namespace optix_hpg {
 namespace device {
 struct PKDGeoData {
-    PKDParticle* particleBufferPtr;
+    CompactPKDParticle* particleBufferPtr;
     float* radiusBufferPtr;
     color_t* colorBufferPtr;
     bool hasGlobalRadius;
@@ -19,7 +19,7 @@ struct PKDGeoData {
     box3f worldBounds;
 };
 struct TreeletsGeoData {
-    PKDParticle* particleBufferPtr;
+    CompactPKDParticle* particleBufferPtr;
     float* radiusBufferPtr;
     color_t* colorBufferPtr;
     PKDlet* treeletBufferPtr;

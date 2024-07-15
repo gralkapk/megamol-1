@@ -137,16 +137,16 @@ public:
                 this->ca_acc_ = std::make_shared<Accessor_0>();
             } break;
             case SimpleSphericalParticles::COLDATA_FLOAT_RGB: {
-                this->cr_acc_ = std::make_shared<Accessor_Impl<float>>(p, s);
-                this->cg_acc_ = std::make_shared<Accessor_Impl<float>>(p + sizeof(float), s);
-                this->cb_acc_ = std::make_shared<Accessor_Impl<float>>(p + 2 * sizeof(float), s);
+                this->cr_acc_ = std::make_shared<Accessor_Impl<float, true>>(p, s);
+                this->cg_acc_ = std::make_shared<Accessor_Impl<float, true>>(p + sizeof(float), s);
+                this->cb_acc_ = std::make_shared<Accessor_Impl<float, true>>(p + 2 * sizeof(float), s);
                 this->ca_acc_ = std::make_shared<Accessor_Val<float, false>>(1.0f);
             } break;
             case SimpleSphericalParticles::COLDATA_FLOAT_RGBA: {
-                this->cr_acc_ = std::make_shared<Accessor_Impl<float>>(p, s);
-                this->cg_acc_ = std::make_shared<Accessor_Impl<float>>(p + sizeof(float), s);
-                this->cb_acc_ = std::make_shared<Accessor_Impl<float>>(p + 2 * sizeof(float), s);
-                this->ca_acc_ = std::make_shared<Accessor_Impl<float>>(p + 3 * sizeof(float), s);
+                this->cr_acc_ = std::make_shared<Accessor_Impl<float, true>>(p, s);
+                this->cg_acc_ = std::make_shared<Accessor_Impl<float, true>>(p + sizeof(float), s);
+                this->cb_acc_ = std::make_shared<Accessor_Impl<float, true>>(p + 2 * sizeof(float), s);
+                this->ca_acc_ = std::make_shared<Accessor_Impl<float, true>>(p + 3 * sizeof(float), s);
             } break;
             case SimpleSphericalParticles::COLDATA_UINT8_RGB: {
                 this->cr_acc_ = std::make_shared<Accessor_Impl<unsigned char>>(p, s);

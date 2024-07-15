@@ -21,9 +21,14 @@ using enable_if_t = typename enable_if<B, T>::type;
 namespace megamol::geocalls {
 
 
-template<class T>
-T const* access(char const* ptr, size_t idx, size_t stride) {
-    return reinterpret_cast<T const*>(ptr + idx * stride);
+template<class T, T factor = static_cast<T>(0)>
+T access(char const* ptr, size_t idx, size_t stride) {
+    if constexpr (factor == static_cast<T>(0)) {
+        return *reinterpret_cast<T const*>(ptr + idx * stride);
+    } else {
+        double val = reinterpret_cast<double const*>(ptr + idx * stride);
+        return val * factor;
+    }
 }
 
 
@@ -50,7 +55,7 @@ public:
 /**
  * Implementation of an accessor into a strided array.
  */
-template<class T>
+template<class T, bool DENORM = false>
 class Accessor_Impl : public Accessor {
 public:
     Accessor_Impl(char const* ptr, size_t stride) : ptr_{ptr}, stride_{stride} {}
@@ -75,14 +80,22 @@ public:
         return *this;
     }
 
-    template<class R>
+    template<class R, R factor = static_cast<R>(0)>
     std::enable_if_t<std::is_same_v<T, R>, R> Get(size_t const idx) const {
-        return *access<T>(ptr_, idx, stride_);
+        if constexpr (factor == static_cast<R>(0)) {
+            return access<T>(ptr_, idx, stride_);
+        } else {
+            return access<T, factor>(ptr_, idx, stride_);
+        }
     }
 
-    template<class R>
+    template<class R, R factor = static_cast<R>(0)>
     std::enable_if_t<!std::is_same_v<T, R>, R> Get(size_t const idx) const {
-        return static_cast<R>(Get<T>(idx));
+        if constexpr (factor == static_cast<R>(0)) {
+            return static_cast<R>(Get<T>(idx));
+        } else {
+            return static_cast<R>(Get<T>(idx)*static_cast<T>(factor));
+        }
     }
 
     float Get_f(size_t idx) const override {
@@ -94,19 +107,35 @@ public:
     }
 
     uint64_t Get_u64(size_t idx) const override {
-        return Get<uint64_t>(idx);
+        if constexpr (DENORM) {
+            return Get<unsigned char, std::numeric_limits<uint64_t>::max()>(idx);
+        } else {
+            return Get<uint64_t>(idx);
+        }
     }
 
     unsigned int Get_u32(size_t idx) const override {
-        return Get<unsigned int>(idx);
+        if constexpr (DENORM) {
+            return Get<unsigned char, std::numeric_limits<unsigned int>::max()>(idx);
+        } else {
+            return Get<unsigned int>(idx);
+        }
     }
 
     unsigned short Get_u16(size_t idx) const override {
-        return Get<unsigned short>(idx);
+        if constexpr (DENORM) {
+            return Get<unsigned char, std::numeric_limits<unsigned short>::max()>(idx);
+        } else {
+            return Get<unsigned short>(idx);
+        }
     }
 
     unsigned char Get_u8(size_t idx) const override {
-        return Get<unsigned char>(idx);
+        if constexpr (DENORM) {
+            return Get<unsigned char, std::numeric_limits<unsigned char>::max()>(idx);
+        } else {
+            return Get<unsigned char>(idx);
+        }
     }
 
     ~Accessor_Impl() override = default;

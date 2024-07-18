@@ -18,18 +18,30 @@
 #include "mmstd/renderer/CallClipPlane.h"
 #include "ospray/ospray_cpp.h"
 
+#include "rkcommon/math/vec.h"
+#include "rkcommon/math/box.h"
+
+#include "datatools/PKD.h"
+
 namespace megamol::ospray {
 
 
 OSPRayPKDGeometry::OSPRayPKDGeometry()
         : getDataSlot("getdata", "Connects to the data source")
         , deployStructureSlot("deployStructureSlot", "Connects to an OSPRayAPIStructure")
-        , colorTypeSlot("colorType", "Set the type of encoded color") {
+        , mode_slot_("mode", "")
+        /*, colorTypeSlot("colorType", "Set the type of encoded color")*/ {
 
     this->getDataSlot.SetCompatibleCall<geocalls::MultiParticleDataCallDescription>();
     this->MakeSlotAvailable(&this->getDataSlot);
 
-    auto ep = new megamol::core::param::EnumParam(0);
+    auto ep = new core::param::EnumParam(static_cast<int>(mode::PKD));
+    ep->SetTypePair(static_cast<int>(mode::PKD), "PKD");
+    ep->SetTypePair(static_cast<int>(mode::TREELETS), "TREELETS");
+    mode_slot_ << ep;
+    MakeSlotAvailable(&mode_slot_);
+
+    /*auto ep = new megamol::core::param::EnumParam(0);
     ep->SetTypePair(0, "none");
     ep->SetTypePair(1, "RGBu8");
     ep->SetTypePair(2, "RGBAu8");
@@ -37,7 +49,7 @@ OSPRayPKDGeometry::OSPRayPKDGeometry()
     ep->SetTypePair(4, "RGBAf");
     ep->SetTypePair(5, "I");
     this->colorTypeSlot << ep;
-    this->MakeSlotAvailable(&this->colorTypeSlot);
+    this->MakeSlotAvailable(&this->colorTypeSlot);*/
 
     this->deployStructureSlot.SetCallback(
         CallOSPRayAPIObject::ClassName(), CallOSPRayAPIObject::FunctionName(0), &OSPRayPKDGeometry::getDataCallback);
@@ -46,6 +58,13 @@ OSPRayPKDGeometry::OSPRayPKDGeometry()
     this->deployStructureSlot.SetCallback(
         CallOSPRayAPIObject::ClassName(), CallOSPRayAPIObject::FunctionName(2), &OSPRayPKDGeometry::getDirtyCallback);
     this->MakeSlotAvailable(&this->deployStructureSlot);
+}
+
+
+bool has_global_color(geocalls::SimpleSphericalParticles::ColourDataType const& ctype) {
+    return ctype == geocalls::SimpleSphericalParticles::ColourDataType::COLDATA_NONE ||
+           ctype == geocalls::SimpleSphericalParticles::ColourDataType::COLDATA_FLOAT_I ||
+           ctype == geocalls::SimpleSphericalParticles::ColourDataType::COLDATA_DOUBLE_I;
 }
 
 
@@ -84,30 +103,76 @@ bool OSPRayPKDGeometry::getDataCallback(megamol::core::Call& call) {
         return false;
 
     size_t listCount = cd->GetParticleListCount();
-    std::vector<::ospray::cpp::Geometry> geo;
-    for (size_t i = 0; i < listCount; i++) {
+
+    position.resize(listCount);
+    color.resize(listCount);
+
+    geo_.clear();
+    for (size_t i = 0; i < listCount; ++i) {
 
         geocalls::MultiParticleDataCall::Particles& parts = cd->AccessParticles(i);
 
-        auto colorType = this->colorTypeSlot.Param<megamol::core::param::EnumParam>()->Value();
+        //auto colorType = this->colorTypeSlot.Param<megamol::core::param::EnumParam>()->Value();
 
-        geo.emplace_back(ospNewGeometry("pkd_geometry"));
+        // TODO build PKD
+        datatools::box3f bounds;
+        std::tie(position[i], color[i], bounds) = datatools::makePKD(parts);
 
-        auto vertexData =
-            ::ospray::cpp::SharedData(parts.GetVertexData(), OSP_FLOAT, parts.GetCount(), 4 * sizeof(float));
-        vertexData.commit();
+        geo_.emplace_back(ospNewGeometry("PKDGeometry"));
 
+        auto positionData = ::ospray::cpp::SharedData(position[i].data(), OSP_VEC3F, position[i].size());
+        positionData.commit();
+
+        bounds.lower -= parts.GetGlobalRadius();
+        bounds.upper += parts.GetGlobalRadius();
         // set bbox
-        auto bboxData = ::ospray::cpp::CopiedData(parts.GetBBox().PeekBounds(), OSP_FLOAT, 6);
-        bboxData.commit();
+        float box[] = {bounds.lower.x, bounds.lower.y, bounds.lower.z, bounds.upper.x, bounds.upper.y, bounds.upper.z};
+        /*rkcommon::math::box3f box;
+        box.lower = {bounds.lower.x, bounds.lower.y, bounds.lower.z};
+        box.upper = {bounds.upper.x, bounds.upper.y, bounds.upper.z};*/
+        auto boundsData = ::ospray::cpp::CopiedData(box, OSP_FLOAT, 6);
+        boundsData.commit();
 
-        geo.back().setParam("radius", parts.GetGlobalRadius());
-        //ospSet1i(geo.back(), "colorType", colorType);
-        geo.back().setParam("colorType", 2);
-        geo.back().setParam("position", vertexData);
-        // ospSetData(geo.back(), "bbox", bboxData);
-        geo.back().setParam("bbox", NULL);
-        geo.back().commit();
+        // set global color
+        auto globalColorData = ::ospray::cpp::CopiedData(parts.GetGlobalColour(), OSP_UCHAR, 4);
+        globalColorData.commit();
+
+        /* Interface:
+        global_radius = getParam<float>("global_radius", 0.5f);
+
+        has_global_color = getParam<bool>("has_global_color", true);
+        global_color = getParam<vec4uc>("global_color", vec4uc(255, 0, 0, 255));
+
+        positionData = getParamDataT<vec3f>("position");
+        colorData = getParamDataT<vec4uc>("color");
+
+        num_particles = getParam<unsigned int>("num_particles");
+
+        bounds = getParam<box3f>("bounds");
+        */
+
+        geo_.back().setParam("global_radius", parts.GetGlobalRadius());
+        geo_.back().setParam("has_global_color", has_global_color(parts.GetColourDataType()));
+        geo_.back().setParam("global_color", globalColorData);
+        geo_.back().setParam("num_particles", static_cast<unsigned int>(parts.GetCount()));
+        geo_.back().setParam("bounds", boundsData);
+        
+        geo_.back().setParam("position", positionData);
+        if (!has_global_color(parts.GetColourDataType())) {
+            auto colorData = ::ospray::cpp::SharedData(color[i].data(), OSP_VEC4UC, color[i].size());
+            colorData.commit();
+            geo_.back().setParam("color", colorData);
+        }
+
+        geo_.back().commit();
+
+        //geo.back().setParam("radius", parts.GetGlobalRadius());
+        ////ospSet1i(geo.back(), "colorType", colorType);
+        //geo.back().setParam("colorType", 2);
+        //geo.back().setParam("position", vertexData);
+        //// ospSetData(geo.back(), "bbox", bboxData);
+        //geo.back().setParam("bbox", NULL);
+        //geo.back().commit();
 
         // TODO: implement distributed stuff
         // if (this->rd_type.Param<megamol::core::param::EnumParam>()->Value() == MPI_RAYCAST) {
@@ -124,9 +189,9 @@ bool OSPRayPKDGeometry::getDataCallback(megamol::core::Call& call) {
     }
 
 
-    std::vector<void*> geo_transfer(geo.size());
-    for (auto i = 0; i < geo.size(); i++) {
-        geo_transfer[i] = geo[i].handle();
+    std::vector<void*> geo_transfer(geo_.size());
+    for (auto i = 0; i < geo_.size(); i++) {
+        geo_transfer[i] = geo_[i].handle();
     }
     os->setStructureType(GEOMETRY);
     os->setAPIObjects(std::move(geo_transfer));
@@ -154,8 +219,8 @@ void OSPRayPKDGeometry::release() {}
 ospray::OSPRayPKDGeometry::InterfaceIsDirty()
 */
 bool OSPRayPKDGeometry::InterfaceIsDirty() {
-    if (this->colorTypeSlot.IsDirty()) {
-        this->colorTypeSlot.ResetDirty();
+    if (this->mode_slot_.IsDirty()) {
+        this->mode_slot_.ResetDirty();
         return true;
     } else {
         return false;
@@ -163,7 +228,7 @@ bool OSPRayPKDGeometry::InterfaceIsDirty() {
 }
 
 bool OSPRayPKDGeometry::InterfaceIsDirtyNoReset() const {
-    return this->colorTypeSlot.IsDirty();
+    return this->mode_slot_.IsDirty();
 }
 
 

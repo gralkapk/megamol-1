@@ -10,11 +10,20 @@
 #include "mmcore/Module.h"
 #include "mmcore/param/ParamSlot.h"
 
+#include <glm/glm.hpp>
+#include "ospray/ospray_cpp.h"
+
+
 namespace megamol::ospray {
 
 class OSPRayPKDGeometry : public megamol::core::Module {
 
 public:
+    enum class mode {
+        PKD,
+        TREELETS
+    };
+
     /**
      * Answer the name of this module.
      *
@@ -67,10 +76,17 @@ protected:
     SIZE_T datahash;
     int time;
 
+    std::vector<::ospray::cpp::Geometry> geo_;
+
 private:
-    megamol::core::param::ParamSlot colorTypeSlot;
+    //megamol::core::param::ParamSlot colorTypeSlot;
+
+    core::param::ParamSlot mode_slot_;
 
     long long int ispcLimit = 1ULL << 30;
+
+    std::vector<std::vector<glm::vec3>> position;
+    std::vector<std::vector<glm::u8vec4>> color;
 };
 
 } // namespace megamol::ospray

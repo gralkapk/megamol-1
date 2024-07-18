@@ -282,7 +282,7 @@ public:
     /** Dtor. */
     ~CallOSPRayAPIObject() override;
 
-    void setAPIObjects(std::vector<void*> api_obj);
+    void setAPIObjects(std::vector<void*>&& api_obj);
     std::vector<void*> getAPIObjects();
 
     void setStructureType(structureTypeEnum strtype);

@@ -13,8 +13,8 @@ vcpkg_from_github(
 vcpkg_from_github(
   OUT_SOURCE_PATH SOURCE_PATH_PKD
   REPO UniStuttgart-VISUS/ospray-module-pkd
-  REF 8694e0de85a3d1719f1dc062f7f41967d6d8e408
-  SHA512 1e14938aed9ba939cb0b0e9c4af0787713774b914448ced9e66d476d86b8fec0b052b3ad2c2f74fc61ec5f272ec4d8a0ee44da70b573e7dbccca2f7608e7baee
+  REF edd148f6f24ee3fea153815d3d9ff47a0b538333
+  SHA512 c7e77def975c978ba5d8439341fb421278441dd76b5a5f2b4acfa00f555a69eebe4da2a2b4501df4ce2dd2f386f69d9048570e69f45d8b7edf4b1947a87c3990
   HEAD_REF megamol_osp2
 )
 

@@ -252,6 +252,35 @@ MM_OPTIX_BOUNDS_KERNEL(pkd_bounds)
 (const void* geomData, const float* radData, float radius, box3f& primBounds, const unsigned int primID) {}
 
 
+
+MM_OPTIX_INTERSECTION_KERNEL(treelets_intersect_flat)() {
+    const int treeletID = optixGetPrimitiveIndex();
+
+    const auto& self = getProgramData<TreeletsGeoData>();
+
+    const auto treelet = self.treeletBufferPtr[treeletID];
+
+    auto const ray = Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), optixGetRayTmin(), optixGetRayTmax());
+    float t0, t1;
+    if (!clipToBounds(ray, treelet.bounds, t0, t1))
+        return;
+
+    float tmp_hit_t = ray.tmax;
+    int tmp_hit_primID = -1;
+
+    for (unsigned int i = treelet.begin; i < treelet.end; ++i) {
+        const CompactPKDParticle& particle = self.particleBufferPtr[i];
+        if (intersectSphere(particle.pos, self.radius, ray, tmp_hit_t)) {
+            tmp_hit_primID = i;
+        }
+    }
+
+    if (tmp_hit_primID >= 0 && tmp_hit_t < ray.tmax) {
+        optixReportIntersection(tmp_hit_t, 0, tmp_hit_primID);
+    }
+}
+
+
 MM_OPTIX_INTERSECTION_KERNEL(treelets_intersect)
 () {
     const int treeletID = optixGetPrimitiveIndex();

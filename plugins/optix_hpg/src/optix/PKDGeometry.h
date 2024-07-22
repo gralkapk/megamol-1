@@ -178,6 +178,7 @@ private:
     core::param::ParamSlot grid_slot_;*/
 
     core::param::ParamSlot threshold_slot_;
+    core::param::ParamSlot flat_slot_;
 
     core::param::ParamSlot dump_debug_info_slot_;
     core::param::ParamSlot dump_debug_rdf_slot_;
@@ -227,6 +228,7 @@ private:
     //MMOptixModule pkd_occlusion_module_;
 
     MMOptixModule treelets_module_;
+    MMOptixModule flat_treelets_module_;
 
     //MMOptixModule treelets_occlusion_module_;
 

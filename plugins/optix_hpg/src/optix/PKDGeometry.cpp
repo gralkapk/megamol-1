@@ -55,6 +55,7 @@ PKDGeometry::PKDGeometry()
         /*, compression_slot_("compression", "")
         , grid_slot_("grid", "")*/
         , threshold_slot_("threshold", "")
+        , flat_slot_("treelets::flat", "")
         , dump_debug_info_slot_("Debug::dumpDebugInfo", "")
         , dump_debug_rdf_slot_("Debug::dumpRDF", "")
 #ifndef MEGAMOL_USE_POWER
@@ -86,6 +87,9 @@ PKDGeometry::PKDGeometry()
 
     threshold_slot_ << new core::param::IntParam(256, 16);
     MakeSlotAvailable(&threshold_slot_);
+
+    flat_slot_ << new core::param::BoolParam(false);
+    MakeSlotAvailable(&flat_slot_);
 
     dump_debug_info_slot_ << new core::param::BoolParam(false);
     MakeSlotAvailable(&dump_debug_info_slot_);
@@ -274,6 +278,12 @@ bool PKDGeometry::init(Context const& ctx) {
     treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelets_intersect"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "treelets_closesthit"},
+            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
+
+    flat_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
+        &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
+        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelets_intersect_flat"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
@@ -1217,16 +1227,17 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             // TODO set of treelet boxes
             CUDA_CHECK_ERROR(
                 cuMemAllocAsync(&bounds_data[pl_idx], treelets.size() * sizeof(device::box3f), ctx.GetExecStream()));
-            std::vector<device::box3f> treelet_boxes;
+            std::vector<OptixAabb> treelet_boxes;
             treelet_boxes.reserve(treelets.size());
             for (auto const& el : treelets) {
                 /*box3f box;
                 box.lower = el.bounds_lower;
                 box.upper = el.bounds_upper;*/
-                treelet_boxes.push_back(el.bounds);
+                treelet_boxes.emplace_back(el.bounds.lower.x, el.bounds.lower.y, el.bounds.lower.z, el.bounds.upper.x,
+                    el.bounds.upper.y, el.bounds.upper.z);
             }
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(bounds_data[pl_idx], treelet_boxes.data(),
-                treelet_boxes.size() * sizeof(device::box3f), ctx.GetExecStream()));
+                treelet_boxes.size() * sizeof(OptixAabb), ctx.GetExecStream()));
         } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {
             CUDA_CHECK_ERROR(
                 cuMemAllocAsync(&bounds_data[pl_idx], s_treelets.size() * sizeof(device::box3f), ctx.GetExecStream()));
@@ -1283,8 +1294,7 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         //////////////////////////////////////
         // geometry
         //////////////////////////////////////
-
-
+        
         buildInput.type = OPTIX_BUILD_INPUT_TYPE_CUSTOM_PRIMITIVES;
         auto& cp_input = buildInput.customPrimitiveArray;
         cp_input.aabbBuffers = &bounds_data[pl_idx];
@@ -1455,7 +1465,11 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
 
 
         SBTRecord<device::TreeletsGeoData> treelets_sbt_record;
-        OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(treelets_module_, &treelets_sbt_record));
+        if (flat_slot_.Param<core::param::BoolParam>()->Value()) {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(flat_treelets_module_, &treelets_sbt_record));
+        } else {
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(treelets_module_, &treelets_sbt_record));
+        }
 
         treelets_sbt_record.data.particleBufferPtr = (device::CompactPKDParticle*) particle_data_[pl_idx];
         treelets_sbt_record.data.radiusBufferPtr = nullptr;

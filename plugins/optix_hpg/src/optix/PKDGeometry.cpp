@@ -168,11 +168,11 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
         return false;
 
     if (in_data->FrameID() != frame_id_ || in_data->DataHash() != data_hash_ || mode_slot_.IsDirty() ||
-        threshold_slot_is_dirty() || qtreelets_type_slot_is_dirty()) {
+        threshold_slot_is_dirty() || qtreelets_type_slot_is_dirty() || flat_treelet_slot_is_dirty()) {
         if (!assert_data(*in_data, *ctx))
             return false;
         createSBTRecords(*in_data, *ctx);
-        if (mode_slot_.IsDirty() || threshold_slot_is_dirty() || qtreelets_type_slot_is_dirty()) {
+        if (mode_slot_.IsDirty() || threshold_slot_is_dirty() || qtreelets_type_slot_is_dirty() || flat_treelet_slot_is_dirty()) {
             ++program_version;
         }
         frame_id_ = in_data->FrameID();
@@ -180,10 +180,15 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
         mode_slot_.ResetDirty();
         threshold_slot_reset_dirty();
         qtreelets_type_slot_reset_dirty();
+        flat_treelet_slot_reset_dirty();
     }
 
     if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
-        program_groups_[0] = treelets_module_;
+        if (flat_slot_.Param<core::param::BoolParam>()->Value()) {
+            program_groups_[0] = flat_treelets_module_;
+        } else {
+            program_groups_[0] = treelets_module_;
+        }
         //program_groups_[1] = treelets_occlusion_module_;
     } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {
         program_groups_[0] = s_comp_treelets_module_;

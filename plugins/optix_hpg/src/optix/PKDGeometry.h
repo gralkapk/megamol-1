@@ -168,6 +168,19 @@ private:
         }
     }
 
+    bool flat_treelet_slot_is_dirty() {
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
+            return flat_slot_.IsDirty();
+        }
+        return false;
+    }
+
+    void flat_treelet_slot_reset_dirty() {
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
+            flat_slot_.ResetDirty();
+        }
+    }
+
     core::CalleeSlot out_geo_slot_;
 
     core::CallerSlot in_data_slot_;

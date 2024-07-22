@@ -107,14 +107,14 @@ MM_OPTIX_INTERSECTION_KERNEL(pkd_intersect)() {
     const auto& self = getProgramData<PKDGeoData>();
 
     float t0, t1;
-    {
+    //{
         auto const ray =
             Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), optixGetRayTmin(), optixGetRayTmax());
         if (!clipToBounds(ray, self.worldBounds, t0, t1))
             return;
-    }
+    /*}
     auto const ray = Ray(optixGetWorldRayOrigin(), optixGetWorldRayDirection(), fmaxf(optixGetRayTmin(), t0),
-        fminf(optixGetRayTmax(), t1));
+        fminf(optixGetRayTmax(), t1));*/
 
     int nodeID = 0;
     float tmp_hit_t = t1;
@@ -131,8 +131,8 @@ MM_OPTIX_INTERSECTION_KERNEL(pkd_intersect)() {
         (fabsf(ray.direction.y) <= 1e-8f) ? 1e8f : 1.f / ray.direction.y,
         (fabsf(ray.direction.z) <= 1e-8f) ? 1e8f : 1.f / ray.direction.z,
     };
-    unsigned int const numParticles = self.particleCount;
-    float const particleRadius = self.radius;
+    /*unsigned int const numParticles = self.particleCount;
+    float const particleRadius = self.radius;*/
 
     while (1) {
         // while we have anything to traverse ...
@@ -142,8 +142,8 @@ MM_OPTIX_INTERSECTION_KERNEL(pkd_intersect)() {
             const CompactPKDParticle& particle = self.particleBufferPtr[nodeID];
             int const dim = particle.get_dim();
 
-            const float t_slab_lo = (particle.pos[dim] - particleRadius - org[dim]) * rdir[dim];
-            const float t_slab_hi = (particle.pos[dim] + particleRadius - org[dim]) * rdir[dim];
+            const float t_slab_lo = (particle.pos[dim] - self.radius - org[dim]) * rdir[dim];
+            const float t_slab_hi = (particle.pos[dim] + self.radius - org[dim]) * rdir[dim];
 
             const float t_slab_nr = fminf(t_slab_lo, t_slab_hi);
             const float t_slab_fr = fmaxf(t_slab_lo, t_slab_hi);
@@ -151,13 +151,13 @@ MM_OPTIX_INTERSECTION_KERNEL(pkd_intersect)() {
             // -------------------------------------------------------
             // compute potential sphere interval, and intersect if necessary
             // -------------------------------------------------------
-            const float sphere_t0 = fmaxf(t0, t_slab_nr);
-            const float sphere_t1 = fminf(fminf(t_slab_fr, t1), tmp_hit_t);
+            /*const float sphere_t0 = fmaxf(t0, t_slab_nr);
+            const float sphere_t1 = fminf(fminf(t_slab_fr, t1), tmp_hit_t);*/
 
-            if (sphere_t0 < sphere_t1) {
-                if (intersectSphere(particle.pos, particleRadius, ray, tmp_hit_t))
+            //if (sphere_t0 < sphere_t1) {
+            if (intersectSphere(particle.pos, self.radius, ray, tmp_hit_t))
                     tmp_hit_primID = nodeID;
-            }
+            //}
 
             // -------------------------------------------------------
             // compute near and far side intervals
@@ -175,8 +175,8 @@ MM_OPTIX_INTERSECTION_KERNEL(pkd_intersect)() {
             const int nearSide_nodeID = 2 * nodeID + 1 + dir_sign[dim];
             const int farSide_nodeID = 2 * nodeID + 2 - dir_sign[dim];
 
-            const bool nearSide_valid = nearSide_nodeID < numParticles;
-            const bool farSide_valid = farSide_nodeID < numParticles;
+            const bool nearSide_valid = nearSide_nodeID < self.particleCount;
+            const bool farSide_valid = farSide_nodeID < self.particleCount;
 
             const bool need_nearSide = nearSide_valid && nearSide_t0 < nearSide_t1;
             const bool need_farSide = farSide_valid && farSide_t0 < farSide_t1;
@@ -279,13 +279,13 @@ MM_OPTIX_INTERSECTION_KERNEL(treelets_intersect)
         StackEntry stackBase[STACK_DEPTH];
         StackEntry* stackPtr = stackBase;
 
-    /*    const int dir_sign[3] = {ray.direction.x < 0.f, ray.direction.y < 0.f, ray.direction.z < 0.f};
+        const int dir_sign[3] = {ray.direction.x < 0.f, ray.direction.y < 0.f, ray.direction.z < 0.f};
         const float org[3] = {ray.origin.x, ray.origin.y, ray.origin.z};
         const float rdir[3] = {
             (fabsf(ray.direction.x) <= 1e-8f) ? 1e8f : 1.f / ray.direction.x,
             (fabsf(ray.direction.y) <= 1e-8f) ? 1e8f : 1.f / ray.direction.y,
             (fabsf(ray.direction.z) <= 1e-8f) ? 1e8f : 1.f / ray.direction.z,
-        };*/
+        };
 
         while (1) {
             // while we have anything to traverse ...
@@ -297,8 +297,8 @@ MM_OPTIX_INTERSECTION_KERNEL(treelets_intersect)
                 const CompactPKDParticle& particle = self.particleBufferPtr[particleID];
                 int const dim = particle.get_dim();
 
-                const float t_slab_lo = (particle.pos[dim] - self.radius - ray.origin[dim]) / ray.direction[dim]; // rdir[dim];
-                const float t_slab_hi = (particle.pos[dim] + self.radius - ray.origin[dim]) / ray.direction[dim]; // rdir[dim];
+                const float t_slab_lo = (particle.pos[dim] - self.radius - org[dim]) * rdir[dim];
+                const float t_slab_hi = (particle.pos[dim] + self.radius - org[dim]) * rdir[dim];
 
                 const float t_slab_nr = fminf(t_slab_lo, t_slab_hi);
                 const float t_slab_fr = fmaxf(t_slab_lo, t_slab_hi);
@@ -327,8 +327,8 @@ MM_OPTIX_INTERSECTION_KERNEL(treelets_intersect)
                 // -------------------------------------------------------
                 // logic
                 // -------------------------------------------------------
-                const int nearSide_nodeID = 2 * nodeID + 1 + (ray.direction[dim] < 0.f); // dir_sign[dim];
-                const int farSide_nodeID = 2 * nodeID + 2 - (ray.direction[dim] < 0.f);  // dir_sign[dim];
+                const int nearSide_nodeID = 2 * nodeID + 1 + dir_sign[dim];
+                const int farSide_nodeID = 2 * nodeID + 2 - dir_sign[dim];
 
                 const bool nearSide_valid = nearSide_nodeID < size;
                 const bool farSide_valid = farSide_nodeID < size;

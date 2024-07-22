@@ -13,6 +13,8 @@
 #include <glm/glm.hpp>
 #include "ospray/ospray_cpp.h"
 
+#include "datatools/PKD.h"
+
 
 namespace megamol::ospray {
 
@@ -82,11 +84,13 @@ private:
     //megamol::core::param::ParamSlot colorTypeSlot;
 
     core::param::ParamSlot mode_slot_;
+    core::param::ParamSlot threshold_slot_;
 
     long long int ispcLimit = 1ULL << 30;
 
     std::vector<std::vector<glm::vec3>> position;
     std::vector<std::vector<glm::u8vec4>> color;
+    std::vector<std::vector<datatools::pkdlet>> treelets;
 };
 
 } // namespace megamol::ospray

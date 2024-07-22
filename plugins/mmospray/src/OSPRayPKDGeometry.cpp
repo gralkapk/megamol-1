@@ -4,6 +4,8 @@
  * Alle Rechte vorbehalten.
  */
 
+#include <type_traits>
+
 #include "OSPRayPKDGeometry.h"
 #include "geometry_calls/MultiParticleDataCall.h"
 #include "mmcore/Call.h"
@@ -18,10 +20,10 @@
 #include "mmstd/renderer/CallClipPlane.h"
 #include "ospray/ospray_cpp.h"
 
-#include "rkcommon/math/vec.h"
 #include "rkcommon/math/box.h"
+#include "rkcommon/math/vec.h"
 
-#include "datatools/PKD.h"
+#include <tbb/parallel_for.h>
 
 namespace megamol::ospray {
 
@@ -30,7 +32,8 @@ OSPRayPKDGeometry::OSPRayPKDGeometry()
         : getDataSlot("getdata", "Connects to the data source")
         , deployStructureSlot("deployStructureSlot", "Connects to an OSPRayAPIStructure")
         , mode_slot_("mode", "")
-        /*, colorTypeSlot("colorType", "Set the type of encoded color")*/ {
+        , threshold_slot_("treelets::threshold", "")
+/*, colorTypeSlot("colorType", "Set the type of encoded color")*/ {
 
     this->getDataSlot.SetCompatibleCall<geocalls::MultiParticleDataCallDescription>();
     this->MakeSlotAvailable(&this->getDataSlot);
@@ -40,6 +43,9 @@ OSPRayPKDGeometry::OSPRayPKDGeometry()
     ep->SetTypePair(static_cast<int>(mode::TREELETS), "TREELETS");
     mode_slot_ << ep;
     MakeSlotAvailable(&mode_slot_);
+
+    threshold_slot_ << new core::param::IntParam(256, 16, 2048);
+    MakeSlotAvailable(&threshold_slot_);
 
     /*auto ep = new megamol::core::param::EnumParam(0);
     ep->SetTypePair(0, "none");
@@ -67,6 +73,64 @@ bool has_global_color(geocalls::SimpleSphericalParticles::ColourDataType const& 
            ctype == geocalls::SimpleSphericalParticles::ColourDataType::COLDATA_DOUBLE_I;
 }
 
+::ospray::cpp::Geometry set_geometry(geocalls::MultiParticleDataCall::Particles const& parts,
+    std::vector<glm::vec3> const& position, std::vector<glm::u8vec4> const& color, datatools::box3f const& bounds, std::vector<datatools::pkdlet> const& treelets) {
+    ::ospray::cpp::Geometry geo = ospNewGeometry("PKDGeometry");
+
+    auto const size = position.size();
+
+    auto positionData = ::ospray::cpp::SharedData(position.data(), OSP_VEC3F, size);
+    positionData.commit();
+
+    // set bbox
+    float box[] = {bounds.lower.x, bounds.lower.y, bounds.lower.z, bounds.upper.x, bounds.upper.y, bounds.upper.z};
+    /*rkcommon::math::box3f box;
+    box.lower = {bounds.lower.x, bounds.lower.y, bounds.lower.z};
+    box.upper = {bounds.upper.x, bounds.upper.y, bounds.upper.z};*/
+    auto boundsData = ::ospray::cpp::CopiedData(box, OSP_FLOAT, 6);
+    boundsData.commit();
+
+    // set global color
+    auto globalColorData = ::ospray::cpp::CopiedData(parts.GetGlobalColour(), OSP_UCHAR, 4);
+    globalColorData.commit();
+
+    /* Interface:
+    global_radius = getParam<float>("global_radius", 0.5f);
+
+    has_global_color = getParam<bool>("has_global_color", true);
+    global_color = getParam<vec4uc>("global_color", vec4uc(255, 0, 0, 255));
+
+    positionData = getParamDataT<vec3f>("position");
+    colorData = getParamDataT<vec4uc>("color");
+
+    num_particles = getParam<unsigned int>("num_particles");
+
+    bounds = getParam<box3f>("bounds");
+    */
+
+    geo.setParam("global_radius", parts.GetGlobalRadius());
+    geo.setParam("has_global_color", has_global_color(parts.GetColourDataType()));
+    geo.setParam("global_color", globalColorData);
+    geo.setParam("num_particles", static_cast<unsigned int>(size));
+    geo.setParam("bounds", boundsData);
+
+    geo.setParam("position", positionData);
+    if (!has_global_color(parts.GetColourDataType())) {
+        auto colorData = ::ospray::cpp::SharedData(color.data(), OSP_VEC4UC, size);
+        colorData.commit();
+        geo.setParam("color", colorData);
+    }
+    if (!treelets.empty()) {
+        auto treeletsData =
+            ::ospray::cpp::SharedData(treelets.data(), OSP_CHAR, treelets.size() * sizeof(datatools::pkdlet));
+        treeletsData.commit();
+        geo.setParam("treelets", treeletsData);
+    }
+
+    geo.commit();
+
+    return geo;
+}
 
 bool OSPRayPKDGeometry::getDataCallback(megamol::core::Call& call) {
 
@@ -106,25 +170,46 @@ bool OSPRayPKDGeometry::getDataCallback(megamol::core::Call& call) {
 
     position.resize(listCount);
     color.resize(listCount);
+    treelets.resize(listCount);
 
     geo_.clear();
     for (size_t i = 0; i < listCount; ++i) {
 
-        geocalls::MultiParticleDataCall::Particles& parts = cd->AccessParticles(i);
+        geocalls::MultiParticleDataCall::Particles const& parts = cd->AccessParticles(i);
 
         //auto colorType = this->colorTypeSlot.Param<megamol::core::param::EnumParam>()->Value();
 
         // TODO build PKD
+        auto data = datatools::collectData(parts);
         datatools::box3f bounds;
-        std::tie(position[i], color[i], bounds) = datatools::makePKD(parts);
+        std::tie(position[i], color[i], bounds) = data;
 
+        if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(mode::PKD)) {
+            datatools::makePKD(position[i], color[i], bounds);
+            bounds.lower -= parts.GetGlobalRadius();
+            bounds.upper += parts.GetGlobalRadius();
+
+            geo_.emplace_back(set_geometry(parts, position[i], color[i], bounds, std::vector<datatools::pkdlet>()));
+        } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(mode::TREELETS)) {
+            treelets[i] = datatools::prePartition_inPlace(position[i],
+                threshold_slot_.Param<core::param::IntParam>()->Value(), parts.GetGlobalRadius(), color[i]);
+
+            tbb::parallel_for((size_t) 0, treelets[i].size(), [&](size_t treeletID) {
+                datatools::makePKD(position[i], color[i], treelets[i][treeletID].bounds, treelets[i][treeletID].begin,
+                    treelets[i][treeletID].end);
+            });
+
+            for (auto const& t : treelets) {
+                geo_.emplace_back(set_geometry(parts, position[i], color[i], bounds, treelets[i]));
+            }
+        }
+
+#if 0
         geo_.emplace_back(ospNewGeometry("PKDGeometry"));
 
         auto positionData = ::ospray::cpp::SharedData(position[i].data(), OSP_VEC3F, position[i].size());
         positionData.commit();
 
-        bounds.lower -= parts.GetGlobalRadius();
-        bounds.upper += parts.GetGlobalRadius();
         // set bbox
         float box[] = {bounds.lower.x, bounds.lower.y, bounds.lower.z, bounds.upper.x, bounds.upper.y, bounds.upper.z};
         /*rkcommon::math::box3f box;
@@ -156,7 +241,7 @@ bool OSPRayPKDGeometry::getDataCallback(megamol::core::Call& call) {
         geo_.back().setParam("global_color", globalColorData);
         geo_.back().setParam("num_particles", static_cast<unsigned int>(parts.GetCount()));
         geo_.back().setParam("bounds", boundsData);
-        
+
         geo_.back().setParam("position", positionData);
         if (!has_global_color(parts.GetColourDataType())) {
             auto colorData = ::ospray::cpp::SharedData(color[i].data(), OSP_VEC4UC, color[i].size());
@@ -165,6 +250,7 @@ bool OSPRayPKDGeometry::getDataCallback(megamol::core::Call& call) {
         }
 
         geo_.back().commit();
+#endif
 
         //geo.back().setParam("radius", parts.GetGlobalRadius());
         ////ospSet1i(geo.back(), "colorType", colorType);
@@ -219,8 +305,11 @@ void OSPRayPKDGeometry::release() {}
 ospray::OSPRayPKDGeometry::InterfaceIsDirty()
 */
 bool OSPRayPKDGeometry::InterfaceIsDirty() {
-    if (this->mode_slot_.IsDirty()) {
+    if (this->mode_slot_.IsDirty() ||
+        ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(mode::TREELETS)) &&
+            this->threshold_slot_.IsDirty())) {
         this->mode_slot_.ResetDirty();
+        threshold_slot_.ResetDirty();
         return true;
     } else {
         return false;
@@ -228,7 +317,9 @@ bool OSPRayPKDGeometry::InterfaceIsDirty() {
 }
 
 bool OSPRayPKDGeometry::InterfaceIsDirtyNoReset() const {
-    return this->mode_slot_.IsDirty();
+    return this->mode_slot_.IsDirty() ||
+           ((mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(mode::TREELETS)) &&
+               this->threshold_slot_.IsDirty());
 }
 
 

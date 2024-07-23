@@ -116,7 +116,7 @@ bool megamol::optix_hpg::AbstractRenderer::Render(CallRender3DCUDA& call) {
         OPTIX_CHECK_ERROR(optixLaunch(pipeline_, optix_ctx_->GetExecStream(), 0, 0, sbt_, viewport.x, viewport.y, 1));
         CUDA_CHECK_ERROR(cuEventRecord(rend_stop, optix_ctx_->GetExecStream()));
 #ifdef MEGAMOL_USE_PROFILING
-        region.end_region();
+        region.end_region(optix_ctx_->GetExecStream());
 #endif
 
         CUDA_CHECK_ERROR(cuStreamSynchronize(optix_ctx_->GetExecStream()));
@@ -124,7 +124,7 @@ bool megamol::optix_hpg::AbstractRenderer::Render(CallRender3DCUDA& call) {
         //CUDA_CHECK_ERROR(cuStreamWaitEvent(optix_ctx_->GetExecStream(), rend_stop, CU_EVENT_WAIT_DEFAULT));
         float time_in_ms = 0.f;
         CUDA_CHECK_ERROR(cuEventElapsedTime(&time_in_ms, rend_start, rend_stop));
-        //core::utility::log::Log::DefaultLog.WriteInfo("[OptiX] Render time: %f ms", time_in_ms);
+        core::utility::log::Log::DefaultLog.WriteInfo("[OptiX] Render time: %f ms", time_in_ms);
     } else {
         OPTIX_CHECK_ERROR(optixLaunch(pipeline_, optix_ctx_->GetExecStream(), 0, 0, sbt_, viewport.x, viewport.y, 1));
     }

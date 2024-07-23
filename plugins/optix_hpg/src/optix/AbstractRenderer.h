@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mmcore/param/ParamSlot.h"
 #include "mmstd/renderer/RendererModule.h"
 
 #include "CallRender3DCUDA.h"
@@ -13,12 +14,19 @@
 
 #include "optix/Context.h"
 
+#ifdef MEGAMOL_USE_PROFILING
+#include "PerformanceManager.h"
+#endif
+
 namespace megamol::optix_hpg {
 class AbstractRenderer : public core::view::RendererModule<CallRender3DCUDA, core::Module> {
 public:
     static void requested_lifetime_resources(frontend_resources::ResourceRequest& req) {
         core::view::RendererModule<CallRender3DCUDA, Module>::requested_lifetime_resources(req);
         req.require<frontend_resources::CUDA_Context>();
+#ifdef MEGAMOL_USE_PROFILING
+        req.require<frontend_resources::performance::PerformanceManager>();
+#endif
     }
 
     AbstractRenderer();
@@ -80,6 +88,8 @@ private:
 
     core::CallerSlot in_geo_slot_;
 
+    core::param::ParamSlot profiling_slot_;
+
     std::unique_ptr<Context> optix_ctx_;
 
     CUdeviceptr frame_state_buffer_;
@@ -101,5 +111,12 @@ private:
     core::view::Camera::PerspectiveParameters old_cam_intrinsics_;
 
     glm::vec4 old_bg_ = glm::vec4(-1);
+
+    CUevent rend_start, rend_stop;
+
+#ifdef MEGAMOL_USE_PROFILING
+    frontend_resources::performance::PerformanceManager* perf_man_ = nullptr;
+    frontend_resources::performance::handle_type launch_timer_ = -1;
+#endif
 };
 } // namespace megamol::optix_hpg

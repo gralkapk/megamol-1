@@ -1,5 +1,7 @@
 #include "AbstractRenderer.h"
 
+#include "mmcore/param/BoolParam.h"
+
 #include "optix/CallGeometry.h"
 
 #ifdef MEGAMOL_USE_TRACY
@@ -7,7 +9,7 @@
 #endif
 
 
-megamol::optix_hpg::AbstractRenderer::AbstractRenderer() : in_geo_slot_("inGeo", "") {
+megamol::optix_hpg::AbstractRenderer::AbstractRenderer() : in_geo_slot_("inGeo", ""), profiling_slot_("profiling::enable", "") {
     in_geo_slot_.SetCompatibleCall<CallGeometryDescription>();
     MakeSlotAvailable(&in_geo_slot_);
 
@@ -16,6 +18,9 @@ megamol::optix_hpg::AbstractRenderer::AbstractRenderer() : in_geo_slot_("inGeo",
 
     // Callback should already be set by RendererModule
     this->MakeSlotAvailable(&this->renderSlot);
+
+    profiling_slot_ << new core::param::BoolParam(false);
+    MakeSlotAvailable(&profiling_slot_);
 }
 
 
@@ -103,7 +108,26 @@ bool megamol::optix_hpg::AbstractRenderer::Render(CallRender3DCUDA& call) {
         on_change_sbt(in_geo->get_record());
     }
 
-    OPTIX_CHECK_ERROR(optixLaunch(pipeline_, optix_ctx_->GetExecStream(), 0, 0, sbt_, viewport.x, viewport.y, 1));
+    if (profiling_slot_.Param<core::param::BoolParam>()->Value()) {
+#ifdef MEGAMOL_USE_PROFILING
+        auto& region = perf_man_->start_timer(launch_timer_, optix_ctx_->GetExecStream());
+#endif
+        CUDA_CHECK_ERROR(cuEventRecord(rend_start, optix_ctx_->GetExecStream()));
+        OPTIX_CHECK_ERROR(optixLaunch(pipeline_, optix_ctx_->GetExecStream(), 0, 0, sbt_, viewport.x, viewport.y, 1));
+        CUDA_CHECK_ERROR(cuEventRecord(rend_stop, optix_ctx_->GetExecStream()));
+#ifdef MEGAMOL_USE_PROFILING
+        region.end_region();
+#endif
+
+        CUDA_CHECK_ERROR(cuStreamSynchronize(optix_ctx_->GetExecStream()));
+        //CUDA_CHECK_ERROR(cuStreamWaitEvent(optix_ctx_->GetExecStream(), rend_start, CU_EVENT_WAIT_DEFAULT));
+        //CUDA_CHECK_ERROR(cuStreamWaitEvent(optix_ctx_->GetExecStream(), rend_stop, CU_EVENT_WAIT_DEFAULT));
+        float time_in_ms = 0.f;
+        CUDA_CHECK_ERROR(cuEventElapsedTime(&time_in_ms, rend_start, rend_stop));
+        //core::utility::log::Log::DefaultLog.WriteInfo("[OptiX] Render time: %f ms", time_in_ms);
+    } else {
+        OPTIX_CHECK_ERROR(optixLaunch(pipeline_, optix_ctx_->GetExecStream(), 0, 0, sbt_, viewport.x, viewport.y, 1));
+    }
 
     ++frame_state_.frameIdx;
 
@@ -143,6 +167,15 @@ bool megamol::optix_hpg::AbstractRenderer::create() {
 
     setup();
 
+    CUDA_CHECK_ERROR(cuEventCreate(&rend_start, CU_EVENT_BLOCKING_SYNC));
+    CUDA_CHECK_ERROR(cuEventCreate(&rend_stop, CU_EVENT_BLOCKING_SYNC));
+
+#ifdef MEGAMOL_USE_PROFILING
+    perf_man_ = &const_cast<frontend_resources::performance::PerformanceManager&>(
+        frontend_resources.get<frontend_resources::performance::PerformanceManager>());
+    launch_timer_ = perf_man_->add_timer("optixLaunch", frontend_resources::performance::query_api::CUDA);
+#endif
+
     return true;
 }
 
@@ -150,4 +183,7 @@ bool megamol::optix_hpg::AbstractRenderer::create() {
 void megamol::optix_hpg::AbstractRenderer::release() {
     CUDA_CHECK_ERROR(cuMemFree(frame_state_buffer_));
     OPTIX_CHECK_ERROR(optixPipelineDestroy(pipeline_));
+
+    CUDA_CHECK_ERROR(cuEventDestroy(rend_start));
+    CUDA_CHECK_ERROR(cuEventDestroy(rend_stop));
 }

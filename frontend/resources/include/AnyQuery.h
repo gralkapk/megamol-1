@@ -17,7 +17,7 @@ public:
     /// <summary>
     /// Set timestamp query.
     /// </summary>
-    virtual void Counter() = 0;
+    virtual void Counter(void* userData = nullptr) = 0;
 
     virtual std::shared_ptr<AnyQuery> MakeAnother() = 0;
 

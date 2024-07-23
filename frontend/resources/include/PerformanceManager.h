@@ -87,7 +87,7 @@ public:
 
     void subscribe_to_updates(update_callback cb);
 
-    timer_region& start_timer(handle_type h);
+    timer_region& start_timer(handle_type h, void* userData = nullptr);
 
 private:
     friend class frontend::Profiling_Service;

@@ -15,7 +15,7 @@ public:
     /// <summary>
     /// Set timestamp query.
     /// </summary>
-    void Counter() override;
+    void Counter(void* userData = nullptr) override;
 
     std::shared_ptr<AnyQuery> MakeAnother() override {
         return std::make_shared<CPUQuery>();

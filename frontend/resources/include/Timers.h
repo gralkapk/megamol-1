@@ -40,9 +40,9 @@ struct timer_region {
     std::array<std::shared_ptr<AnyQuery>, 2> qids;
     bool finished = false;
 
-    void end_region() {
+    void end_region(void* userData = nullptr) {
         this->qids[1] = this->qids[0]->MakeAnother();
-        this->qids[1]->Counter();
+        this->qids[1]->Counter(userData);
     }
 };
 
@@ -115,7 +115,7 @@ public:
 
 protected:
     // returns whether this is a new frame from what has been seen
-    virtual timer_region& start(frame_type frame);
+    virtual timer_region& start(frame_type frame, void* userData = nullptr);
 
     virtual void collect(frame_type frame) = 0;
 
@@ -139,11 +139,11 @@ class any_timer : public Itimer {
 public:
     any_timer(const timer_config& cfg) : Itimer(cfg) {}
 
-    timer_region& start(frame_type frame) override {
+    timer_region& start(frame_type frame, void* userData = nullptr) override {
         auto& region = Itimer::start(frame);
 
         region.qids[0] = std::make_shared<Q>();
-        region.qids[0]->Counter();
+        region.qids[0]->Counter(userData);
 
         return region;
     }

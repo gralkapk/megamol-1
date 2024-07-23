@@ -5,7 +5,7 @@ CPUQuery::CPUQuery() {}
 
 CPUQuery::~CPUQuery() {}
 
-void CPUQuery::Counter() {
+void CPUQuery::Counter(void* userData) {
     this->value_ = time_point::clock::now();
 }
 

@@ -14,7 +14,7 @@ using user_index_type = uint32_t;
 using time_point = std::chrono::steady_clock::time_point;
 inline constexpr time_point zero_time = time_point::min();
 
-enum class query_api { CPU, OPENGL }; // TODO: CUDA, OpenCL, Vulkan, whatnot
+enum class query_api { CPU, OPENGL, CUDA }; // TODO: CUDA, OpenCL, Vulkan, whatnot
 
 static constexpr const char* query_api_string(query_api api) {
     switch (api) {
@@ -22,6 +22,8 @@ static constexpr const char* query_api_string(query_api api) {
         return "CPU";
     case query_api::OPENGL:
         return "OpenGL";
+    case query_api::CUDA:
+        return "CUDA";
     }
     return "unknown";
 }

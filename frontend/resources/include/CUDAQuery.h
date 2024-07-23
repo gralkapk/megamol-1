@@ -3,14 +3,14 @@
 #include <AnyQuery.h>
 
 namespace megamol::frontend_resources::performance {
-/// <summary>
-/// Wrapper for OpenGL timer query.
+///<summary>
+/// Wrapper for CUDA timer query.
 /// </summary>
-class GLQuery : public AnyQuery {
+class CUDAQuery : public AnyQuery {
 public:
-    GLQuery();
+    CUDAQuery();
 
-    ~GLQuery() override;
+    ~CUDAQuery() override;
 
     /// <summary>
     /// Set timestamp query.
@@ -18,7 +18,7 @@ public:
     void Counter(void* userData = nullptr) override;
 
     std::shared_ptr<AnyQuery> MakeAnother() override {
-        return std::make_shared<GLQuery>();
+        return std::make_shared<CUDAQuery>();
     }
 
     /// <summary>
@@ -28,8 +28,5 @@ public:
     /// </summary>
     /// <returns>Queried timestamp or zero if value is not ready</returns>
     time_point GetNW() override;
-
-private:
-    uint32_t handle_;
 };
 } // namespace megamol::frontend_resources::performance

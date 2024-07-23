@@ -141,8 +141,8 @@ void PerformanceManager::subscribe_to_updates(update_callback cb) {
     subscribers.push_back(cb);
 }
 
-timer_region& PerformanceManager::start_timer(handle_type h) {
-    return timers[h]->start(current_frame);
+timer_region& PerformanceManager::start_timer(handle_type h, void* userData) {
+    return timers[h]->start(current_frame, userData);
 }
 
 handle_type PerformanceManager::add_timer(std::unique_ptr<Itimer> t) {

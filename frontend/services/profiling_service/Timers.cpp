@@ -24,7 +24,7 @@ std::string Itimer::parent_name(const timer_config& conf) {
     }
 }
 
-timer_region& Itimer::start(frame_type frame) {
+timer_region& Itimer::start(frame_type frame, void* userData) {
     if (frame != start_frame) {
         frame_index = 0;
     }

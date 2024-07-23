@@ -17,7 +17,7 @@ GLQuery::~GLQuery() {
 #endif
 }
 
-void GLQuery::Counter() {
+void GLQuery::Counter(void* userData) {
 #ifdef MEGAMOL_USE_OPENGL
     glQueryCounter(handle_, GL_TIMESTAMP);
 #endif

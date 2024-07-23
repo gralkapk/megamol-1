@@ -282,8 +282,9 @@ bool OSPRayRenderer::Render(megamol::core::view::CallRender3D& cr) {
         auto t1 = std::chrono::high_resolution_clock::now();
 
         _framebuffer->clear(); //(OSP_FB_COLOR | OSP_FB_DEPTH | OSP_FB_ACCUM);
-        _framebuffer->renderFrame(*_renderer, *_camera, *_world);
-
+        auto rend_fut = _framebuffer->renderFrame(*_renderer, *_camera, *_world);
+        
+        rend_fut.wait();
         // get the texture from the framebuffer
         auto fb = reinterpret_cast<uint32_t*>(_framebuffer->map(OSP_FB_COLOR));
         _fb = std::vector<uint32_t>(fb, fb + _imgSize[0] * _imgSize[1]);

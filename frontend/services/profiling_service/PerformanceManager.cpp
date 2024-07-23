@@ -87,6 +87,8 @@ handle_type PerformanceManager::add_timer(std::string name, query_api api) {
         return add_timer(std::make_unique<cpu_timer>(conf));
     case query_api::OPENGL:
         return add_timer(std::make_unique<gl_timer>(conf));
+    case query_api::CUDA:
+        return add_timer(std::make_unique<cuda_timer>(conf));
     }
     return 0;
 }

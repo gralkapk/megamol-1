@@ -13,6 +13,7 @@
 #include <string>
 
 #include "CPUQuery.h"
+#include "CUDAQuery.h"
 #include "GLQuery.h"
 #include "TimeTypes.h"
 
@@ -43,6 +44,7 @@ struct timer_region {
     void end_region(void* userData = nullptr) {
         this->qids[1] = this->qids[0]->MakeAnother();
         this->qids[1]->Counter(userData);
+        this->qids[1]->Sync(this->qids[0], userData);
     }
 };
 
@@ -185,5 +187,6 @@ public:
 
 using cpu_timer = any_timer<CPUQuery>;
 using gl_timer = any_timer<GLQuery>;
+using cuda_timer = any_timer<CUDAQuery>;
 
 } // namespace megamol::frontend_resources::performance

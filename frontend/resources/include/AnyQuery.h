@@ -29,6 +29,18 @@ public:
     /// <returns>Queried timestamp or zero if value is not ready</returns>
     virtual time_point GetNW() = 0;
 
+    virtual void Sync(std::shared_ptr<AnyQuery> start, void* userData) {
+
+    }
+
+    virtual void* GetHandle() {
+        return nullptr;
+    }
+
+    void SetValue(time_point const& tp) {
+        value_ = tp;
+    }
+
 protected:
     time_point value_ = zero_time;
 };

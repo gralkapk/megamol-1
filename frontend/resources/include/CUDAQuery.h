@@ -28,5 +28,14 @@ public:
     /// </summary>
     /// <returns>Queried timestamp or zero if value is not ready</returns>
     time_point GetNW() override;
+
+    void Sync(std::shared_ptr<AnyQuery> start, void* userData) override;
+
+    void* GetHandle() override {
+        return handle_;
+    }
+
+private:
+    void* handle_;
 };
 } // namespace megamol::frontend_resources::performance

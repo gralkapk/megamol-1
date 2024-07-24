@@ -112,7 +112,7 @@ private:
 
     glm::vec4 old_bg_ = glm::vec4(-1);
 
-    CUevent rend_start, rend_stop;
+    //CUevent rend_start, rend_stop;
 
 #ifdef MEGAMOL_USE_PROFILING
     frontend_resources::performance::PerformanceManager* perf_man_ = nullptr;

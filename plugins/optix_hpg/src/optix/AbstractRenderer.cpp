@@ -108,6 +108,7 @@ bool megamol::optix_hpg::AbstractRenderer::Render(CallRender3DCUDA& call) {
         on_change_sbt(in_geo->get_record());
     }
 
+ #if 0
     if (profiling_slot_.Param<core::param::BoolParam>()->Value()) {
 #ifdef MEGAMOL_USE_PROFILING
         auto& region = perf_man_->start_timer(launch_timer_, optix_ctx_->GetExecStream());
@@ -128,6 +129,15 @@ bool megamol::optix_hpg::AbstractRenderer::Render(CallRender3DCUDA& call) {
     } else {
         OPTIX_CHECK_ERROR(optixLaunch(pipeline_, optix_ctx_->GetExecStream(), 0, 0, sbt_, viewport.x, viewport.y, 1));
     }
+#endif
+
+#ifdef MEGAMOL_USE_PROFILING
+    auto& region = perf_man_->start_timer(launch_timer_, optix_ctx_->GetExecStream());
+#endif
+    OPTIX_CHECK_ERROR(optixLaunch(pipeline_, optix_ctx_->GetExecStream(), 0, 0, sbt_, viewport.x, viewport.y, 1));
+#ifdef MEGAMOL_USE_PROFILING
+    region.end_region(optix_ctx_->GetExecStream());
+#endif
 
     ++frame_state_.frameIdx;
 
@@ -167,8 +177,8 @@ bool megamol::optix_hpg::AbstractRenderer::create() {
 
     setup();
 
-    CUDA_CHECK_ERROR(cuEventCreate(&rend_start, CU_EVENT_BLOCKING_SYNC));
-    CUDA_CHECK_ERROR(cuEventCreate(&rend_stop, CU_EVENT_BLOCKING_SYNC));
+    /*CUDA_CHECK_ERROR(cuEventCreate(&rend_start, CU_EVENT_BLOCKING_SYNC));
+    CUDA_CHECK_ERROR(cuEventCreate(&rend_stop, CU_EVENT_BLOCKING_SYNC));*/
 
 #ifdef MEGAMOL_USE_PROFILING
     perf_man_ = &const_cast<frontend_resources::performance::PerformanceManager&>(
@@ -184,6 +194,6 @@ void megamol::optix_hpg::AbstractRenderer::release() {
     CUDA_CHECK_ERROR(cuMemFree(frame_state_buffer_));
     OPTIX_CHECK_ERROR(optixPipelineDestroy(pipeline_));
 
-    CUDA_CHECK_ERROR(cuEventDestroy(rend_start));
-    CUDA_CHECK_ERROR(cuEventDestroy(rend_stop));
+    /*CUDA_CHECK_ERROR(cuEventDestroy(rend_start));
+    CUDA_CHECK_ERROR(cuEventDestroy(rend_stop));*/
 }

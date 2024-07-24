@@ -176,6 +176,8 @@ bool OSPRayPKDGeometry::getDataCallback(megamol::core::Call& call) {
     for (size_t i = 0; i < listCount; ++i) {
 
         geocalls::MultiParticleDataCall::Particles const& parts = cd->AccessParticles(i);
+        if (parts.GetCount() == 0)
+            continue;
 
         //auto colorType = this->colorTypeSlot.Param<megamol::core::param::EnumParam>()->Value();
 

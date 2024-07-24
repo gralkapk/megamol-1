@@ -88,7 +88,7 @@ private:
 
     core::CallerSlot in_geo_slot_;
 
-    core::param::ParamSlot profiling_slot_;
+    //core::param::ParamSlot profiling_slot_;
 
     std::unique_ptr<Context> optix_ctx_;
 

@@ -9,7 +9,7 @@
 #endif
 
 
-megamol::optix_hpg::AbstractRenderer::AbstractRenderer() : in_geo_slot_("inGeo", ""), profiling_slot_("profiling::enable", "") {
+megamol::optix_hpg::AbstractRenderer::AbstractRenderer() : in_geo_slot_("inGeo", "")/*, profiling_slot_("profiling::enable", "")*/ {
     in_geo_slot_.SetCompatibleCall<CallGeometryDescription>();
     MakeSlotAvailable(&in_geo_slot_);
 
@@ -19,8 +19,8 @@ megamol::optix_hpg::AbstractRenderer::AbstractRenderer() : in_geo_slot_("inGeo",
     // Callback should already be set by RendererModule
     this->MakeSlotAvailable(&this->renderSlot);
 
-    profiling_slot_ << new core::param::BoolParam(false);
-    MakeSlotAvailable(&profiling_slot_);
+    /*profiling_slot_ << new core::param::BoolParam(false);
+    MakeSlotAvailable(&profiling_slot_);*/
 }
 
 

@@ -25,7 +25,7 @@ function(embed_ptx)
   set_property(TARGET ${PTX_TARGET} PROPERTY CUDA_PTX_COMPILATION ON)
   set_property(TARGET ${PTX_TARGET} PROPERTY CUDA_ARCHITECTURES native)
   set_property(TARGET ${PTX_TARGET} PROPERTY CXX_STANDARD 17)
-  target_compile_options(${PTX_TARGET} PRIVATE $<$<CONFIG:Debug>:-lineinfo> -diag-suppress 20012) # warning suppressed due to GLM
+  target_compile_options(${PTX_TARGET} PRIVATE $<$<CONFIG:Debug>:-lineinfo> $<$<CONFIG:Release>:-use_fast_math> -diag-suppress 20012) # warning suppressed due to GLM
 
   set(EMBED_PTX_C_FILE ${CMAKE_CURRENT_BINARY_DIR}/${EMBED_PTX_OUTPUT_TARGET}.c)
   get_filename_component(OUTPUT_FILE_NAME ${EMBED_PTX_C_FILE} NAME)

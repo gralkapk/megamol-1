@@ -38,7 +38,7 @@ megamol::optix_hpg::Context::Context(frontend_resources::CUDA_Context const& ctx
 #if OPTIX_VERSION < 70400
     _module_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_LINEINFO;
 #else
-    _module_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_MINIMAL;
+    _module_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
 #endif
 #else
     _module_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_LEVEL_3;
@@ -54,6 +54,7 @@ megamol::optix_hpg::Context::Context(frontend_resources::CUDA_Context const& ctx
     _pipeline_options.usesMotionBlur = false;
     _pipeline_options.usesPrimitiveTypeFlags =
         OPTIX_PRIMITIVE_TYPE_FLAGS_CUSTOM | OPTIX_PRIMITIVE_TYPE_FLAGS_TRIANGLE | OPTIX_PRIMITIVE_TYPE_FLAGS_SPHERE;
+    _pipeline_options.allowOpacityMicromaps = false;
 
     _pipeline_link_options = {};
 #if OPTIX_VERSION < 80000

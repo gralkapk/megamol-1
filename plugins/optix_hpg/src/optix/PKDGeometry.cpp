@@ -1427,6 +1427,65 @@ bool PKDGeometry::assert_data_new(geocalls::MultiParticleDataCall const& call, C
             pkd_sbt_records_.push_back(sbt_record);
         } break;
         case PKDMode::TREELETS: {
+            auto [position, color, bounds, treelets] = createTreelets(particles);
+            CUDA_CHECK_ERROR(cuMemAllocAsync(&particle_data_[pl_idx],
+                position.size() * sizeof(decltype(position)::value_type), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(particle_data_[pl_idx], position.data(),
+                position.size() * sizeof(decltype(position)::value_type), ctx.GetExecStream()));
+            if (!color.empty()) {
+                CUDA_CHECK_ERROR(cuMemAllocAsync(
+                    &color_data_[pl_idx], color.size() * sizeof(decltype(color)::value_type), ctx.GetExecStream()));
+                CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(color_data_[pl_idx], color.data(),
+                    color.size() * sizeof(decltype(color)::value_type), ctx.GetExecStream()));
+            }
+            std::vector<datatools::box3f> temp_bounds(treelets.size());
+            std::transform(
+                treelets.begin(), treelets.end(), temp_bounds.begin(), [](auto const& t) { return t.bounds; });
+            CUDA_CHECK_ERROR(cuMemAllocAsync(&bounds_data_[pl_idx],
+                temp_bounds.size() * sizeof(decltype(temp_bounds)::value_type), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(bounds_data_[pl_idx], temp_bounds.data(),
+                temp_bounds.size() * sizeof(decltype(temp_bounds)::value_type), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemAllocAsync(&treelets_data_[pl_idx],
+                treelets.size() * sizeof(decltype(treelets)::value_type), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(treelets_data_[pl_idx], treelets.data(),
+                treelets.size() * sizeof(decltype(treelets)::value_type), ctx.GetExecStream()));
+
+            buildInputs.emplace_back();
+            auto& buildInput = buildInputs.back();
+            memset(&buildInput, 0, sizeof(OptixBuildInput));
+            buildInput.type = OPTIX_BUILD_INPUT_TYPE_CUSTOM_PRIMITIVES;
+            auto& cp_input = buildInput.customPrimitiveArray;
+            cp_input.aabbBuffers = &bounds_data_[pl_idx];
+            cp_input.numPrimitives = treelets.size();
+            cp_input.primitiveIndexOffset = 0;
+            cp_input.numSbtRecords = 1;
+            cp_input.flags = &geo_flag;
+            cp_input.sbtIndexOffsetBuffer = 0;
+            cp_input.sbtIndexOffsetSizeInBytes = 0;
+            cp_input.sbtIndexOffsetStrideInBytes = 0;
+            cp_input.strideInBytes = 0;
+
+
+            auto const global_color = device::color_t(particles.GetGlobalColour()[0], particles.GetGlobalColour()[1],
+                particles.GetGlobalColour()[2], particles.GetGlobalColour()[3]);
+
+            SBTRecord<device::TreeletsGeoData> sbt_record;
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(treelets_module_, &sbt_record));
+
+            sbt_record.data.particleBufferPtr = (glm::vec3*) particle_data_[pl_idx];
+            sbt_record.data.colorBufferPtr = nullptr;
+            sbt_record.data.treeletBufferPtr = (datatools::pkdlet*) treelets_data_[pl_idx];
+            sbt_record.data.radius = particles.GetGlobalRadius();
+            sbt_record.data.hasColorData = has_color(particles);
+            sbt_record.data.globalColor = global_color;
+            //sbt_record.data.particleCount = p_count;
+            sbt_record.data.worldBounds = bounds;
+
+            if (!color.empty()) {
+                sbt_record.data.colorBufferPtr = (device::color_t*) color_data_[pl_idx];
+            }
+
+            treelets_sbt_records_.push_back(sbt_record);
         } break;
         default:
             core::utility::log::Log::DefaultLog.WriteError("[PKDGeometry] Mode not supported");
@@ -1529,7 +1588,7 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         //treelets_sbt_record.data.hasGlobalRadius = has_global_radius(particles);
         treelets_sbt_record.data.hasColorData = has_color(particles);
         treelets_sbt_record.data.globalColor = global_color;
-        treelets_sbt_record.data.particleCount = p_count;
+        //treelets_sbt_record.data.particleCount = p_count;
         //treelets_sbt_record.data.worldBounds = local_boxes_[pl_idx];
 
         /*if (!has_global_radius(particles)) {

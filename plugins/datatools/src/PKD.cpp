@@ -153,6 +153,8 @@ std::tuple<std::vector<glm::vec3>, std::vector<glm::u8vec4>, box3f> collectData(
     for (int i = 0; i < t_total_num; ++i) {
         bounds.extend(boxes[i]);
     }
+    bounds.lower -= particles.GetGlobalRadius();
+    bounds.upper += particles.GetGlobalRadius();
 
     if (!has_global_color(particles.GetColourDataType())) {
         std::vector<glm::u8vec4> color(p_count);

@@ -243,7 +243,7 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
             sizeof(SBTRecord<device::CTreeletsGeoData>), sbt_version);
     } else {
         out_geo->set_record(
-            sbt_records_.data(), sbt_records_.size(), sizeof(SBTRecord<device::PKDGeoData>), sbt_version);
+            pkd_sbt_records_.data(), pkd_sbt_records_.size(), sizeof(SBTRecord<device::PKDGeoData>), sbt_version);
     }
 
     return true;

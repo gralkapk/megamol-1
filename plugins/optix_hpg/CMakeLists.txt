@@ -10,6 +10,7 @@ megamol_plugin(optix_hpg
   DEPENDS_PLUGINS
     mmstd
     moldyn
+    datatools
     mesh
     geometry_calls)
 
@@ -104,6 +105,8 @@ if (optix_hpg_PLUGIN_ENABLED)
     PTX_LINK_LIBRARIES
       glm::glm
       OptiX::OptiX
+      core
+      datatools
     PTX_INCLUDE_DIRECTORIES
       ${ptx_include_dirs}
     SOURCES

@@ -7,17 +7,19 @@
 #include "optix.h"
 #include "optix_stubs.h"
 
+#include "CUDA_ContextHelper.h"
+
 namespace megamol::optix_hpg {
-inline CUresult print_cuda_error(CUresult ec, char const* file, int line) {
-    if (ec != CUDA_SUCCESS) {
-        const char* en = nullptr;
-        cuGetErrorName(ec, &en);
-        const char* es = nullptr;
-        cuGetErrorString(ec, &es);
-        megamol::core::utility::log::Log::DefaultLog.WriteError("CUDA Error at %s:%d ... (%s) %s", file, line, en, es);
-    }
-    return ec;
-}
+//inline CUresult print_cuda_error(CUresult ec, char const* file, int line) {
+//    if (ec != CUDA_SUCCESS) {
+//        const char* en = nullptr;
+//        cuGetErrorName(ec, &en);
+//        const char* es = nullptr;
+//        cuGetErrorString(ec, &es);
+//        megamol::core::utility::log::Log::DefaultLog.WriteError("CUDA Error at %s:%d ... (%s) %s", file, line, en, es);
+//    }
+//    return ec;
+//}
 
 inline OptixResult print_optix_error(OptixResult ec, char const* file, int line) {
     if (ec != OPTIX_SUCCESS) {
@@ -33,9 +35,9 @@ inline void optix_log_callback(unsigned int level, char const* tag, char const* 
 } // namespace megamol::optix_hpg
 
 #ifdef DEBUG
-#define CUDA_CHECK_ERROR(x) print_cuda_error((x), __FILE__, __LINE__)
+//#define CUDA_CHECK_ERROR(x) print_cuda_error((x), __FILE__, __LINE__)
 #define OPTIX_CHECK_ERROR(x) print_optix_error((x), __FILE__, __LINE__)
 #else
-#define CUDA_CHECK_ERROR(x) (x)
+//#define CUDA_CHECK_ERROR(x) (x)
 #define OPTIX_CHECK_ERROR(x) (x)
 #endif

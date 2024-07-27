@@ -42,6 +42,8 @@
 
 #include "pkd.h"
 
+#include "datatools/PKD.h"
+
 #ifdef MEGAMOL_USE_POWER
 #include "PowerCallbacks.h"
 #endif
@@ -94,6 +96,7 @@ private:
     bool init(Context const& ctx);
 
     bool assert_data(geocalls::MultiParticleDataCall const& call, Context const& ctx);
+    bool assert_data_new(geocalls::MultiParticleDataCall const& call, Context const& ctx);
 
     bool createSBTRecords(geocalls::MultiParticleDataCall const& call, Context const& ctx);
 
@@ -181,6 +184,14 @@ private:
         }
     }
 
+    std::tuple<std::vector<glm::vec3>, std::vector<glm::u8vec4>, datatools::box3f> createPKD(
+        geocalls::SimpleSphericalParticles const& parts);
+    std::tuple<std::vector<glm::vec3>, std::vector<glm::u8vec4>, datatools::box3f, std::vector<datatools::pkdlet>>
+    createTreelets(geocalls::SimpleSphericalParticles const& parts);
+    void createBTreelets();
+    void createCTreelets();
+    void createQTreelets();
+
     core::CalleeSlot out_geo_slot_;
 
     core::CallerSlot in_data_slot_;
@@ -203,6 +214,8 @@ private:
 
     std::vector<SBTRecord<device::PKDGeoData>> sbt_records_;
 
+    std::vector<SBTRecord<device::PKDGeoData>> pkd_sbt_records_;
+
     std::vector<SBTRecord<device::TreeletsGeoData>> treelets_sbt_records_;
 
     std::vector<SBTRecord<device::QTreeletsGeoData>> comp_treelets_sbt_records_;
@@ -224,6 +237,8 @@ private:
     std::vector<CUdeviceptr> color_data_;
 
     std::vector<CUdeviceptr> treelets_data_;
+
+    std::vector<CUdeviceptr> bounds_data_;
 
     std::vector<CUdeviceptr> exp_x_data_;
     std::vector<CUdeviceptr> exp_y_data_;

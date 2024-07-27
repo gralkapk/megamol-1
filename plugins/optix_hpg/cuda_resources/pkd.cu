@@ -24,6 +24,8 @@
 #include "optix/utils_device.h"
 #include "pkd_utils.h"
 
+#include "datatools/PKDUtils.h"
+
 namespace megamol {
 namespace optix_hpg {
 namespace device {
@@ -38,6 +40,22 @@ inline __device__ bool clipToBounds(const Ray& ray, const box3f& bounds, float& 
     t0 = fmaxf(ray.tmin, glm::max(t_min3.x, glm::max(t_min3.y, t_min3.z)));
     t1 = fminf(ray.tmax, glm::min(t_max3.x, glm::min(t_max3.y, t_max3.z)));
     return t0 < t1;
+}
+
+inline __device__ bool clipToBounds(const Ray& ray, const datatools::box3f& bounds, float& t0, float& t1) {
+    glm::vec3 t_lower = (bounds.lower - ray.origin) / ray.direction;
+    glm::vec3 t_upper = (bounds.upper - ray.origin) / ray.direction;
+
+    glm::vec3 t_min3 = min(t_lower, t_upper);
+    glm::vec3 t_max3 = max(t_lower, t_upper);
+
+    t0 = fmaxf(ray.tmin, glm::max(t_min3.x, glm::max(t_min3.y, t_min3.z)));
+    t1 = fminf(ray.tmax, glm::min(t_max3.x, glm::min(t_max3.y, t_max3.z)));
+    return t0 < t1;
+}
+
+inline __device__ int getDim(glm::vec3 const& pos) {
+    return *((unsigned int*) &pos.x) & 3;
 }
 
 inline __device__ bool intersectSphere(
@@ -139,11 +157,11 @@ MM_OPTIX_INTERSECTION_KERNEL(pkd_intersect)() {
 
         while (1) {
             // while we can go down
-            const CompactPKDParticle& particle = self.particleBufferPtr[nodeID];
-            int const dim = particle.get_dim();
+            const glm::vec3& particle = self.particleBufferPtr[nodeID];
+            int const dim = getDim(particle);
 
-            const float t_slab_lo = (particle.pos[dim] - self.radius - org[dim]) * rdir[dim];
-            const float t_slab_hi = (particle.pos[dim] + self.radius - org[dim]) * rdir[dim];
+            const float t_slab_lo = (particle[dim] - self.radius - org[dim]) * rdir[dim];
+            const float t_slab_hi = (particle[dim] + self.radius - org[dim]) * rdir[dim];
 
             const float t_slab_nr = fminf(t_slab_lo, t_slab_hi);
             const float t_slab_fr = fmaxf(t_slab_lo, t_slab_hi);
@@ -155,7 +173,7 @@ MM_OPTIX_INTERSECTION_KERNEL(pkd_intersect)() {
             const float sphere_t1 = fminf(fminf(t_slab_fr, t1), tmp_hit_t);*/
 
             //if (sphere_t0 < sphere_t1) {
-            if (intersectSphere(particle.pos, self.radius, ray, tmp_hit_t))
+            if (intersectSphere(particle, self.radius, ray, tmp_hit_t))
                     tmp_hit_primID = nodeID;
             //}
 
@@ -231,8 +249,8 @@ MM_OPTIX_CLOSESTHIT_KERNEL(pkd_closesthit)() {
     const auto& self = getProgramData<PKDGeoData>();
 
     prd.particleID = primID;
-    const CompactPKDParticle& particle = self.particleBufferPtr[primID];
-    prd.pos = particle.pos;
+    const glm::vec3& particle = self.particleBufferPtr[primID];
+    prd.pos = particle;
     glm::vec3 geo_col = glm::vec3(self.globalColor) / 255.f;
     if (self.hasColorData) {
         geo_col = glm::vec3(self.colorBufferPtr[primID]) / 255.f;
@@ -269,8 +287,8 @@ MM_OPTIX_INTERSECTION_KERNEL(treelets_intersect_flat)() {
     int tmp_hit_primID = -1;
 
     for (unsigned int i = treelet.begin; i < treelet.end; ++i) {
-        const CompactPKDParticle& particle = self.particleBufferPtr[i];
-        if (intersectSphere(particle.pos, self.radius, ray, tmp_hit_t)) {
+        const glm::vec3& particle = self.particleBufferPtr[i];
+        if (intersectSphere(particle, self.radius, ray, tmp_hit_t)) {
             tmp_hit_primID = i;
         }
     }
@@ -323,11 +341,11 @@ MM_OPTIX_INTERSECTION_KERNEL(treelets_intersect)
                 // while we can go down
 
                 const int particleID = nodeID + begin;
-                const CompactPKDParticle& particle = self.particleBufferPtr[particleID];
-                int const dim = particle.get_dim();
+                const glm::vec3& particle = self.particleBufferPtr[particleID];
+                int const dim = getDim(particle);
 
-                const float t_slab_lo = (particle.pos[dim] - self.radius - org[dim]) * rdir[dim];
-                const float t_slab_hi = (particle.pos[dim] + self.radius - org[dim]) * rdir[dim];
+                const float t_slab_lo = (particle[dim] - self.radius - org[dim]) * rdir[dim];
+                const float t_slab_hi = (particle[dim] + self.radius - org[dim]) * rdir[dim];
 
                 const float t_slab_nr = fminf(t_slab_lo, t_slab_hi);
                 const float t_slab_fr = fmaxf(t_slab_lo, t_slab_hi);
@@ -339,7 +357,7 @@ MM_OPTIX_INTERSECTION_KERNEL(treelets_intersect)
                 const float sphere_t1 = fminf(fminf(t_slab_fr, t1), tmp_hit_t);
 
                 if (sphere_t0 < sphere_t1) {*/
-                    if (intersectSphere(particle.pos, self.radius, ray, tmp_hit_t)) {
+                    if (intersectSphere(particle, self.radius, ray, tmp_hit_t)) {
                         tmp_hit_primID = particleID;
                     }
                 //}
@@ -417,8 +435,8 @@ MM_OPTIX_CLOSESTHIT_KERNEL(treelets_closesthit)
     const auto& self = getProgramData<TreeletsGeoData>();
 
     prd.particleID = primID;
-    const CompactPKDParticle& particle = self.particleBufferPtr[primID];
-    prd.pos = particle.pos;
+    const glm::vec3& particle = self.particleBufferPtr[primID];
+    prd.pos = particle;
     glm::vec3 geo_col = glm::vec3(self.globalColor) / 255.f;
     if (self.hasColorData) {
         geo_col = glm::vec3(self.colorBufferPtr[primID]) / 255.f;

@@ -8,6 +8,8 @@
 
 #include <geometry_calls/SimpleSphericalParticles.h>
 
+#include "PKDUtils.h"
+
 namespace megamol::datatools {
 inline int arg_max(glm::vec3 const& v) {
     int biggestDim = 0;
@@ -16,36 +18,6 @@ inline int arg_max(glm::vec3 const& v) {
             biggestDim = i;
     return biggestDim;
 }
-
-typedef struct box3f {
-    box3f()
-            : lower{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
-                  std::numeric_limits<float>::max()}
-            , upper{std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(),
-                  std::numeric_limits<float>::lowest()} {}
-    ~box3f() = default;
-    void extend(glm::vec3 const& pos) {
-        lower = glm::vec3(fminf(pos.x, lower.x), fminf(pos.y, lower.y), fminf(pos.z, lower.z));
-        upper = glm::vec3(fmaxf(pos.x, upper.x), fmaxf(pos.y, upper.y), fmaxf(pos.z, upper.z));
-    }
-    void extend(box3f const& box) {
-        extend(box.lower);
-        extend(box.upper);
-    }
-    glm::vec3 center() const {
-        return (lower + upper) * 0.5f;
-    }
-    glm::vec3 span() const {
-        return upper - lower;
-    }
-    glm::vec3 lower;
-    glm::vec3 upper;
-} box3f;
-
-struct pkdlet {
-    unsigned int begin, end;
-    box3f bounds;
-};
 
 inline size_t lChild(size_t P) {
     return 2 * P + 1;

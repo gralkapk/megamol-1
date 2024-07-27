@@ -4,31 +4,29 @@
 #include "particle.h"
 #include "perraydata.h"
 
+#include "datatools/PKDUtils.h"
+
 namespace megamol {
 namespace optix_hpg {
 namespace device {
 struct PKDGeoData {
-    CompactPKDParticle* particleBufferPtr;
-    float* radiusBufferPtr;
+    glm::vec3* particleBufferPtr;
     color_t* colorBufferPtr;
-    bool hasGlobalRadius;
     float radius;
     bool hasColorData;
     color_t globalColor;
     unsigned int particleCount;
-    box3f worldBounds;
+    datatools::box3f worldBounds;
 };
 struct TreeletsGeoData {
-    CompactPKDParticle* particleBufferPtr;
-    float* radiusBufferPtr;
+    glm::vec3* particleBufferPtr;
     color_t* colorBufferPtr;
-    PKDlet* treeletBufferPtr;
-    bool hasGlobalRadius;
+    datatools::pkdlet* treeletBufferPtr;
     float radius;
     bool hasColorData;
     color_t globalColor;
     unsigned int particleCount;
-    box3f worldBounds;
+    datatools::box3f worldBounds;
 };
 struct QTreeletsGeoData {
     QPKDParticle* particleBufferPtr;

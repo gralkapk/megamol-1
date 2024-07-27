@@ -169,9 +169,9 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
 
     if (in_data->FrameID() != frame_id_ || in_data->DataHash() != data_hash_ || mode_slot_.IsDirty() ||
         threshold_slot_is_dirty() || qtreelets_type_slot_is_dirty() || flat_treelet_slot_is_dirty()) {
-        if (!assert_data(*in_data, *ctx))
+        if (!assert_data_new(*in_data, *ctx))
             return false;
-        createSBTRecords(*in_data, *ctx);
+        //createSBTRecords(*in_data, *ctx);
         if (mode_slot_.IsDirty() || threshold_slot_is_dirty() || qtreelets_type_slot_is_dirty() || flat_treelet_slot_is_dirty()) {
             ++program_version;
         }
@@ -274,12 +274,6 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "pkd_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "pkd_bounds"}});
 
-    /*pkd_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
-        &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "pkd_intersect"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "pkd_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "pkd_bounds"}});*/
-
     treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelets_intersect"},
@@ -292,25 +286,11 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    /*treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelets_intersect"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
-
     comp_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "comp_treelets_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "comp_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
-
-    /*comp_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "comp_treelets_intersect"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "comp_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
 
     s_comp_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
@@ -319,28 +299,12 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "s_comp_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    /*s_comp_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "s_comp_treelets_intersect"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "s_comp_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
-
-
     qpkd_treelets_module_e5m15_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
-
-    /*qpkd_treelets_occlusion_module_e5m15_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
-
 
     qpkd_treelets_module_e4m16_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
@@ -349,26 +313,12 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    /*qpkd_treelets_occlusion_module_e4m16_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
-
     qpkd_treelets_module_e5m15d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
         MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15d"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
-
-    /*qpkd_treelets_occlusion_module_e5m15d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e5m15d"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
 
     qpkd_treelets_module_e4m16d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
         &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
@@ -377,40 +327,17 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    /*qpkd_treelets_occlusion_module_e4m16d_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_e4m16d"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "qpkd_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
-
-
     b_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_bpkd"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "bpkd_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    /*b_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelet_intersect_bpkd"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "bpkd_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
-
-
     c_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "cpkd_treelet_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "cpkd_treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
-
-    /*c_treelets_occlusion_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(),
-        &ctx.GetModuleCompileOptions(), &ctx.GetPipelineCompileOptions(),
-        MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
-        {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "cpkd_treelet_intersect"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "cpkd_treelets_closesthit_occlusion"},
-            {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});*/
 
     ++program_version;
 
@@ -1232,17 +1159,16 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
             // TODO set of treelet boxes
             CUDA_CHECK_ERROR(
                 cuMemAllocAsync(&bounds_data[pl_idx], treelets.size() * sizeof(device::box3f), ctx.GetExecStream()));
-            std::vector<OptixAabb> treelet_boxes;
+            std::vector<device::box3f> treelet_boxes;
             treelet_boxes.reserve(treelets.size());
             for (auto const& el : treelets) {
                 /*box3f box;
                 box.lower = el.bounds_lower;
                 box.upper = el.bounds_upper;*/
-                treelet_boxes.emplace_back(el.bounds.lower.x, el.bounds.lower.y, el.bounds.lower.z, el.bounds.upper.x,
-                    el.bounds.upper.y, el.bounds.upper.z);
+                treelet_boxes.push_back(el.bounds);
             }
             CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(bounds_data[pl_idx], treelet_boxes.data(),
-                treelet_boxes.size() * sizeof(OptixAabb), ctx.GetExecStream()));
+                treelet_boxes.size() * sizeof(device::box3f), ctx.GetExecStream()));
         } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::STREELETS)) {
             CUDA_CHECK_ERROR(
                 cuMemAllocAsync(&bounds_data[pl_idx], s_treelets.size() * sizeof(device::box3f), ctx.GetExecStream()));
@@ -1418,6 +1344,125 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
     return true;
 }
 
+bool PKDGeometry::assert_data_new(geocalls::MultiParticleDataCall const& call, Context const& ctx) {
+    free_data(ctx);
+
+    auto const pl_count = call.GetParticleListCount();
+
+    particle_data_.resize(pl_count, 0);
+    color_data_.resize(pl_count, 0);
+    treelets_data_.resize(pl_count, 0);
+    bounds_data_.resize(pl_count, 0);
+
+    pkd_sbt_records_.clear();
+    pkd_sbt_records_.reserve(pl_count);
+
+    std::vector<OptixBuildInput> buildInputs;
+    buildInputs.reserve(pl_count);
+
+    unsigned int geo_flag = OPTIX_GEOMETRY_FLAG_DISABLE_ANYHIT;    
+
+    for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
+        auto const& particles = call.AccessParticles(pl_idx);
+
+        auto const p_count = particles.GetCount();
+        if (p_count == 0 || !has_global_radius(particles)) {
+            if (!has_global_radius(particles)) {
+                megamol::core::utility::log::Log::DefaultLog.WriteWarn(
+                    "[PKDGeometry]: Per-particle radius not supported");
+            }
+            continue;
+        }
+
+        switch (static_cast<PKDMode>(mode_slot_.Param<core::param::EnumParam>()->Value())) {
+        case PKDMode::STANDARD: {
+            auto [position, color, bounds] = createPKD(particles);
+            CUDA_CHECK_ERROR(cuMemAllocAsync(&particle_data_[pl_idx],
+                position.size() * sizeof(decltype(position)::value_type), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(particle_data_[pl_idx], position.data(),
+                position.size() * sizeof(decltype(position)::value_type), ctx.GetExecStream()));
+            if (!color.empty()) {
+                CUDA_CHECK_ERROR(cuMemAllocAsync(
+                    &color_data_[pl_idx], color.size() * sizeof(decltype(color)::value_type), ctx.GetExecStream()));
+                CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(color_data_[pl_idx], color.data(),
+                    color.size() * sizeof(decltype(color)::value_type), ctx.GetExecStream()));
+            }
+            CUDA_CHECK_ERROR(cuMemAllocAsync(&bounds_data_[pl_idx], sizeof(bounds), ctx.GetExecStream()));
+            CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(bounds_data_[pl_idx], &bounds, sizeof(bounds), ctx.GetExecStream()));
+
+            buildInputs.emplace_back();
+            auto& buildInput = buildInputs.back();
+            memset(&buildInput, 0, sizeof(OptixBuildInput));
+            buildInput.type = OPTIX_BUILD_INPUT_TYPE_CUSTOM_PRIMITIVES;
+            auto& cp_input = buildInput.customPrimitiveArray;
+            cp_input.aabbBuffers = &bounds_data_[pl_idx];
+            cp_input.numPrimitives = 1;
+            cp_input.primitiveIndexOffset = 0;
+            cp_input.numSbtRecords = 1;
+            cp_input.flags = &geo_flag;
+            cp_input.sbtIndexOffsetBuffer = 0;
+            cp_input.sbtIndexOffsetSizeInBytes = 0;
+            cp_input.sbtIndexOffsetStrideInBytes = 0;
+            cp_input.strideInBytes = 0;
+
+
+            auto const global_color = device::color_t(particles.GetGlobalColour()[0], particles.GetGlobalColour()[1],
+                particles.GetGlobalColour()[2], particles.GetGlobalColour()[3]);
+
+            SBTRecord<device::PKDGeoData> sbt_record;
+            OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(pkd_module_, &sbt_record));
+
+            sbt_record.data.particleBufferPtr = (glm::vec3*) particle_data_[pl_idx];
+            sbt_record.data.colorBufferPtr = nullptr;
+            sbt_record.data.radius = particles.GetGlobalRadius();
+            sbt_record.data.hasColorData = has_color(particles);
+            sbt_record.data.globalColor = global_color;
+            sbt_record.data.particleCount = p_count;
+            sbt_record.data.worldBounds = bounds;
+
+            if (!color.empty()) {
+                sbt_record.data.colorBufferPtr = (device::color_t*) color_data_[pl_idx];
+            }
+
+            pkd_sbt_records_.push_back(sbt_record);
+        } break;
+        case PKDMode::TREELETS: {
+        } break;
+        default:
+            core::utility::log::Log::DefaultLog.WriteError("[PKDGeometry] Mode not supported");
+        }
+    }
+
+    OptixAccelBuildOptions accelOptions = {};
+    accelOptions.buildFlags = OPTIX_BUILD_FLAG_PREFER_FAST_TRACE;
+    accelOptions.operation = OPTIX_BUILD_OPERATION_BUILD;
+    accelOptions.motionOptions.numKeys = 0;
+
+    OptixAccelBufferSizes bufferSizes = {};
+    OPTIX_CHECK_ERROR(optixAccelComputeMemoryUsage(
+        ctx.GetOptiXContext(), &accelOptions, buildInputs.data(), buildInputs.size(), &bufferSizes));
+
+    CUdeviceptr geo_temp;
+    CUDA_CHECK_ERROR(cuMemFreeAsync(geo_buffer_, ctx.GetExecStream()));
+    CUDA_CHECK_ERROR(cuMemAllocAsync(&geo_buffer_, bufferSizes.outputSizeInBytes, ctx.GetExecStream()));
+    CUDA_CHECK_ERROR(cuMemAllocAsync(&geo_temp, bufferSizes.tempSizeInBytes, ctx.GetExecStream()));
+
+    OPTIX_CHECK_ERROR(optixAccelBuild(ctx.GetOptiXContext(), ctx.GetExecStream(), &accelOptions, buildInputs.data(),
+        buildInputs.size(), geo_temp, bufferSizes.tempSizeInBytes, geo_buffer_, bufferSizes.outputSizeInBytes,
+        &geo_handle_, nullptr, 0));
+    CUDA_CHECK_ERROR(cuMemFreeAsync(geo_temp, ctx.GetExecStream()));
+
+    for (auto& b : bounds_data_) {
+        if (b) {
+            CUDA_CHECK_ERROR(cuMemFreeAsync(b, ctx.GetExecStream()));
+        }
+    }
+
+    ++geo_version;
+
+    return true;
+}
+
 bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, Context const& ctx) {
     auto const pl_count = call.GetParticleListCount();
 
@@ -1442,20 +1487,20 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
         SBTRecord<device::PKDGeoData> sbt_record;
         OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(pkd_module_, &sbt_record));
 
-        sbt_record.data.particleBufferPtr = (device::CompactPKDParticle*) particle_data_[pl_idx];
-        sbt_record.data.radiusBufferPtr = nullptr;
+        sbt_record.data.particleBufferPtr = (glm::vec3*) particle_data_[pl_idx];
+        //sbt_record.data.radiusBufferPtr = nullptr;
         sbt_record.data.colorBufferPtr = nullptr;
         sbt_record.data.radius = particles.GetGlobalRadius();
-        sbt_record.data.hasGlobalRadius = has_global_radius(particles);
+        //sbt_record.data.hasGlobalRadius = has_global_radius(particles);
         sbt_record.data.hasColorData = has_color(particles);
         sbt_record.data.globalColor = global_color;
         sbt_record.data.particleCount = p_count;
-        sbt_record.data.worldBounds = local_boxes_[pl_idx];
+        //sbt_record.data.worldBounds = local_boxes_[pl_idx];
 
         /*if (!has_global_radius(particles)) {
             sbt_record.data.radiusBufferPtr = (float*) radius_data_[pl_idx];
         }*/
-        sbt_record.data.radiusBufferPtr = nullptr;
+        //sbt_record.data.radiusBufferPtr = nullptr;
         if (has_color(particles)) {
             sbt_record.data.colorBufferPtr = (device::color_t*) color_data_[pl_idx];
         }
@@ -1476,21 +1521,21 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
             OPTIX_CHECK_ERROR(optixSbtRecordPackHeader(treelets_module_, &treelets_sbt_record));
         }
 
-        treelets_sbt_record.data.particleBufferPtr = (device::CompactPKDParticle*) particle_data_[pl_idx];
-        treelets_sbt_record.data.radiusBufferPtr = nullptr;
+        treelets_sbt_record.data.particleBufferPtr = (glm::vec3*) particle_data_[pl_idx];
+        //treelets_sbt_record.data.radiusBufferPtr = nullptr;
         treelets_sbt_record.data.colorBufferPtr = nullptr;
-        treelets_sbt_record.data.treeletBufferPtr = (device::PKDlet*) treelets_data_[pl_idx];
+        treelets_sbt_record.data.treeletBufferPtr = (datatools::pkdlet*) treelets_data_[pl_idx];
         treelets_sbt_record.data.radius = particles.GetGlobalRadius();
-        treelets_sbt_record.data.hasGlobalRadius = has_global_radius(particles);
+        //treelets_sbt_record.data.hasGlobalRadius = has_global_radius(particles);
         treelets_sbt_record.data.hasColorData = has_color(particles);
         treelets_sbt_record.data.globalColor = global_color;
         treelets_sbt_record.data.particleCount = p_count;
-        treelets_sbt_record.data.worldBounds = local_boxes_[pl_idx];
+        //treelets_sbt_record.data.worldBounds = local_boxes_[pl_idx];
 
         /*if (!has_global_radius(particles)) {
             treelets_sbt_record.data.radiusBufferPtr = (float*) radius_data_[pl_idx];
         }*/
-        treelets_sbt_record.data.radiusBufferPtr = nullptr;
+        //treelets_sbt_record.data.radiusBufferPtr = nullptr;
         if (has_color(particles)) {
             treelets_sbt_record.data.colorBufferPtr = (device::color_t*) color_data_[pl_idx];
         }
@@ -1691,6 +1736,31 @@ bool PKDGeometry::createSBTRecords(geocalls::MultiParticleDataCall const& call, 
     ++sbt_version;
 
     return true;
+}
+
+
+std::tuple<std::vector<glm::vec3>, std::vector<glm::u8vec4>, datatools::box3f> PKDGeometry::createPKD(
+    geocalls::SimpleSphericalParticles const& parts) {
+    auto [position, color, bounds] = datatools::collectData(parts);
+
+    datatools::makePKD(position, color, bounds);
+
+    return std::make_tuple(position, color, bounds);
+}
+
+
+std::tuple<std::vector<glm::vec3>, std::vector<glm::u8vec4>, datatools::box3f, std::vector<datatools::pkdlet>>
+PKDGeometry::createTreelets(geocalls::SimpleSphericalParticles const& parts) {
+    auto [position, color, bounds] = datatools::collectData(parts);
+
+    auto const treelets = datatools::prePartition_inPlace(
+        position, threshold_slot_.Param<core::param::IntParam>()->Value(), parts.GetGlobalRadius(), color);
+
+    for (int i = 0; i < treelets.size(); ++i) {
+        datatools::makePKD(position, color, treelets[i].bounds, treelets[i].begin, treelets[i].end);
+    }
+
+    return std::make_tuple(position, color, bounds, treelets);
 }
 
 } // namespace megamol::optix_hpg

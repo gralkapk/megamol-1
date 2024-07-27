@@ -188,9 +188,7 @@ bool OSPRayPKDGeometry::getDataCallback(megamol::core::Call& call) {
 
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(mode::PKD)) {
             datatools::makePKD(position[i], color[i], bounds);
-            bounds.lower -= parts.GetGlobalRadius();
-            bounds.upper += parts.GetGlobalRadius();
-
+            
             geo_.emplace_back(set_geometry(parts, position[i], color[i], bounds, std::vector<datatools::pkdlet>()));
         } else if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(mode::TREELETS)) {
             treelets[i] = datatools::prePartition_inPlace(position[i],

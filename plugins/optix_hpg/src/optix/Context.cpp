@@ -32,8 +32,9 @@ megamol::optix_hpg::Context::Context(frontend_resources::CUDA_Context const& ctx
 #endif
 
     _module_options = {};
-    _module_options.maxRegisterCount = OPTIX_COMPILE_DEFAULT_MAX_REGISTER_COUNT;
+    //_module_options.maxRegisterCount = OPTIX_COMPILE_DEFAULT_MAX_REGISTER_COUNT;
 #ifdef DEBUG
+    _module_options.maxRegisterCount = 100;
     _module_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_LEVEL_0;
 #if OPTIX_VERSION < 70400
     _module_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_LINEINFO;
@@ -41,6 +42,7 @@ megamol::optix_hpg::Context::Context(frontend_resources::CUDA_Context const& ctx
     _module_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
 #endif
 #else
+    _module_options.maxRegisterCount = 50;
     _module_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_LEVEL_3;
     _module_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
 #endif // DEBUG
@@ -50,7 +52,7 @@ megamol::optix_hpg::Context::Context(frontend_resources::CUDA_Context const& ctx
     _pipeline_options.numAttributeValues = 4;
     _pipeline_options.numPayloadValues = 2;
     _pipeline_options.pipelineLaunchParamsVariableName = "optixLaunchParams";
-    _pipeline_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_ANY;
+    _pipeline_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
     _pipeline_options.usesMotionBlur = false;
     _pipeline_options.usesPrimitiveTypeFlags =
         OPTIX_PRIMITIVE_TYPE_FLAGS_CUSTOM | OPTIX_PRIMITIVE_TYPE_FLAGS_TRIANGLE | OPTIX_PRIMITIVE_TYPE_FLAGS_SPHERE;

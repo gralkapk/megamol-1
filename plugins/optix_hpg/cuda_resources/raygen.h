@@ -17,6 +17,7 @@ struct RayGenData {
     FrameState* frameStateBuffer;
     CUsurfObject col_surf;
     CUsurfObject depth_surf;
+    glm::vec4* accumBuffer;
 };
 } // namespace device
 } // namespace optix_hpg

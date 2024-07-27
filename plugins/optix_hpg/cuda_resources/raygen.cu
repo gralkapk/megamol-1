@@ -2,6 +2,7 @@
 #include "raygen.h"
 
 #include "optix/random.h"
+#include "optix/random_owl.h"
 #include "optix/utils_device.h"
 
 namespace megamol {
@@ -65,9 +66,9 @@ namespace device {
 
 
 //#define RANDVEC3F glm::vec3(rnd(42), rnd(42), rnd(42))
-#define RANDVEC3F glm::vec3(rnd(seed), rnd(seed), rnd(seed))
+#define RANDVEC3F glm::vec3(rnd(), rnd(), rnd())
 
-inline __device__ glm::vec3 random_in_unit_sphere(unsigned int& seed) {
+inline __device__ glm::vec3 random_in_unit_sphere(owl::common::LCG<16>& rnd) {
     glm::vec3 p;
     do {
         p = 2.0f * RANDVEC3F - glm::vec3(1, 1, 1);
@@ -75,7 +76,7 @@ inline __device__ glm::vec3 random_in_unit_sphere(unsigned int& seed) {
     return p;
 }
 
-inline __device__ glm::vec4 traceRay(const RayGenData& self, Ray& ray, unsigned int& seed /*, Random& rnd*/,
+inline __device__ glm::vec4 traceRay(const RayGenData& self, Ray& ray, owl::common::LCG<16>& rnd /*, Random& rnd*/,
     PerRayData& prd, glm::vec4& bg, int maxBounces) {
 
     unsigned int p0 = 0;
@@ -84,40 +85,6 @@ inline __device__ glm::vec4 traceRay(const RayGenData& self, Ray& ray, unsigned 
 
     glm::vec3 col(1.f);
 
-
-#if 0
-            for (;;) {
-                prd.wo = -ray.direction;
-                optixTrace(self.world, (const float3&) ray.origin, (const float3&) ray.direction, ray.tmin, ray.tmax, 0,
-                    (OptixVisibilityMask) -1,
-                    /*rayFlags     */ OPTIX_RAY_FLAG_DISABLE_ANYHIT,
-                    /*SBToffset    */ 0,
-                    /*SBTstride    */ 2,
-                    /*missSBTIndex */ 0, p0, p1);
-
-
-                /*if (prd.depth > 0) {
-                    col += prd.attenuation * prd.result;
-                } else {
-                    col += prd.result;
-                }*/
-
-                // col += prd.emitted;
-                col += prd.radiance * prd.beta;
-
-                if (prd.done || prd.depth >= maxBounces)
-                    break;
-
-                ++prd.depth;
-
-                ray.origin = prd.origin;
-                ray.direction = prd.direction;
-            }
-            col += prd.emitted;
-            return glm::vec4(col.x, col.y, col.z, 1.0f);
-            //return glm::vec4(1, 1, 1, 1.0f);
-            // return glm::vec4(prd.radiance, 1.0f);
-#else
     for (int depth = 0; true; ++depth) {
         prd.particleID = -1;
 
@@ -125,7 +92,7 @@ inline __device__ glm::vec4 traceRay(const RayGenData& self, Ray& ray, unsigned 
             (OptixVisibilityMask) -1,
             /*rayFlags     */ OPTIX_RAY_FLAG_DISABLE_ANYHIT,
             /*SBToffset    */ 0,
-            /*SBTstride    */ 2,
+            /*SBTstride    */ 1,
             /*missSBTIndex */ 0, p0, p1);
         if (prd.particleID == -1) {
             return glm::vec4(col * glm::vec3(0.8f), 1.0f);
@@ -146,13 +113,12 @@ inline __device__ glm::vec4 traceRay(const RayGenData& self, Ray& ray, unsigned 
             return glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
 
         auto scattered_origin = ray.origin + prd.t * ray.direction;
-        auto scattered_direction = N + random_in_unit_sphere(seed);
+        auto scattered_direction = N + random_in_unit_sphere(rnd);
         ray = Ray(/* origin   : */ scattered_origin,
             /* direction: */ glm::normalize(scattered_direction),
             /* tmin     : */ 1e-3f,
             /* tmax     : */ 1e+8f);
     }
-#endif
 }
 
 MM_OPTIX_RAYGEN_KERNEL(raygen_program)() {
@@ -161,11 +127,11 @@ MM_OPTIX_RAYGEN_KERNEL(raygen_program)() {
     auto const index = optixGetLaunchIndex();
     glm::ivec2 pixelID = glm::ivec2(index.x, index.y);
 
-            if (pixelID.x >= self.fbSize.x)
-                return;
-            if (pixelID.y >= self.fbSize.y)
-                return;
-            //const int pixelIdx = pixelID.x + self.fbSize.x * pixelID.y;
+    if (pixelID.x >= self.fbSize.x)
+        return;
+    if (pixelID.y >= self.fbSize.y)
+        return;
+    const int pixelIdx = pixelID.x + self.fbSize.x * pixelID.y;
 
     const FrameState* fs = &self.frameStateBuffer[0];
 
@@ -175,10 +141,13 @@ MM_OPTIX_RAYGEN_KERNEL(raygen_program)() {
         self.colorBufferPtr[pixelIdx].w = 0.0f;
     }*/
     // auto const old_col = self.colorBufferPtr[pixelIdx];
-    float4 old_col;
-    surf2Dread(&old_col, self.col_surf, pixelID.x * sizeof(float4), pixelID.y, cudaBoundaryModeZero);
 
-    unsigned int seed = tea<16>(pixelID.y * self.fbSize.x + pixelID.x, fs->frameIdx);
+    /*float4 old_col;
+    surf2Dread(&old_col, self.col_surf, pixelID.x * sizeof(float4), pixelID.y, cudaBoundaryModeZero);*/
+
+    //unsigned int seed = tea<16>(pixelID.y * self.fbSize.x + pixelID.x, fs->frameIdx);
+
+    owl::common::LCG<16> rnd_owl(pixelIdx, fs->frameIdx);
 
 
     glm::vec4 col(0.f);
@@ -186,77 +155,34 @@ MM_OPTIX_RAYGEN_KERNEL(raygen_program)() {
 
     // printf("RAYGEN FS %f\n", fs->near);
 
-    auto i = fs->samplesPerPixel;
+    //auto i = fs->samplesPerPixel;
 
     float depth = FLT_MAX;
 
-#if 0
-            do {
-                PerRayData prd;
-
-                prd.depth = 0;
-
-                prd.radiance = glm::vec3(0.f);
-                prd.pdf = 1.0f;
-
-                prd.countDepth = true;
-                prd.ray_depth = FLT_MAX;
-
-                prd.beta = glm::vec3(1.f);
-
-                prd.seed = seed;
-                prd.done = false;
-
-                prd.world = self.world;
-
-                prd.countEmitted = true;
-                prd.emitted = glm::vec3(0.f);
-
-                prd.intensity = fs->intensity;
-
-                // Random rnd(pixelIdx, 0);
-
-                float u = -fs->rw + (fs->rw + fs->rw) * float(pixelID.x + rnd(seed)) / self.fbSize.x;
-                float v = -(fs->th + (-fs->th - fs->th) * float(pixelID.y + rnd(seed)) / self.fbSize.y);
-                /*float u = -fs->rw + (fs->rw + fs->rw) * float(pixelID.x) / self.fbSize.x;
-                float v = -(fs->th + (-fs->th - fs->th) * float(pixelID.y) / self.fbSize.y);*/
-                auto ray = generateRay(*fs, u, v);
-
-                prd.origin = ray.origin;
-                prd.direction = ray.direction;
-
-                prd.lpos = ray.origin;
-                prd.ldir = fs->camera_front;
-
-                col += traceRay(self, ray /*, rnd*/, prd, bg, fs->maxBounces);
-
-                depth = fminf(depth, prd.ray_depth);
-            } while (--i);
-#else
     PerRayData prd;
-    do {
+    for (int s = 0; s < fs->samplesPerPixel; ++s) {
         prd.countDepth = true;
         prd.ray_depth = FLT_MAX;
-        float u = -fs->rw + (fs->rw + fs->rw) * float(pixelID.x + rnd(seed)) / self.fbSize.x;
-        float v = -(fs->th + (-fs->th - fs->th) * float(pixelID.y + rnd(seed)) / self.fbSize.y);
+        float u = -fs->rw + (fs->rw + fs->rw) * (float(pixelID.x) + rnd_owl()) / self.fbSize.x;
+        float v = -(fs->th + (-fs->th - fs->th) * (float(pixelID.y) + rnd_owl()) / self.fbSize.y);
         /*float u = -fs->rw + (fs->rw + fs->rw) * float(pixelID.x) / self.fbSize.x;
         float v = -(fs->th + (-fs->th - fs->th) * float(pixelID.y) / self.fbSize.y);*/
         auto ray = generateRay(*fs, u, v);
-        col += traceRay(self, ray, seed /*, rnd*/, prd, bg, fs->maxBounces);
+        col += traceRay(self, ray, rnd_owl, prd, bg, fs->maxBounces);
         depth = fminf(depth, prd.ray_depth);
-    } while (--i);
-#endif
+    }
+
     col /= (float) fs->samplesPerPixel;
     // col.w = frame_idx + 1;
     //++col.w;
 
-    if (fs->frameIdx > 0) {
-        const float a = 1.0f / static_cast<float>(fs->frameIdx + 1);
-        col = lerp(glm::vec4(static_cast<float>(old_col.x), static_cast<float>(old_col.y),
-                       static_cast<float>(old_col.z), static_cast<float>(old_col.w)),
-            col, a);
-        // col.w = frame_idx + 1;
-    }
+    //if (fs->frameIdx > 0) {
+    //    const float a = 1.0f / static_cast<float>(fs->frameIdx + 1);
+    //    col = lerp(glm::vec4(static_cast<float>(old_col.x), static_cast<float>(old_col.y),
+    //                   static_cast<float>(old_col.z), static_cast<float>(old_col.w)),
+    //        col, a);
+    //    // col.w = frame_idx + 1;
+    //}
 
     if (depth < FLT_MAX) {
         depth = (fs->depth_params.z / depth) - (fs->depth_params.x);
@@ -267,6 +193,12 @@ MM_OPTIX_RAYGEN_KERNEL(raygen_program)() {
     }
     surf2Dwrite(depth, self.depth_surf, pixelID.x * sizeof(float), pixelID.y, cudaBoundaryModeZero);
 
+
+    if (fs->frameIdx > 0)
+        col += self.accumBuffer[pixelIdx];
+    self.accumBuffer[pixelIdx] = col;
+
+    col /= float(fs->frameIdx + 1);
     surf2Dwrite(make_float4(col.r, col.g, col.b, col.a), self.col_surf, pixelID.x * sizeof(float4), pixelID.y,
         cudaBoundaryModeZero);
     /*surf2Dwrite(make_float4(1, 1, 1, 1), self.col_surf, pixelID.x * sizeof(float4), pixelID.y,

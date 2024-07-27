@@ -25,7 +25,7 @@ struct TreeletsGeoData {
     float radius;
     bool hasColorData;
     color_t globalColor;
-    unsigned int particleCount;
+    //unsigned int particleCount;
     datatools::box3f worldBounds;
 };
 struct QTreeletsGeoData {

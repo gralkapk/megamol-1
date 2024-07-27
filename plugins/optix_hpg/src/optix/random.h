@@ -57,9 +57,9 @@ static __host__ __device__ __inline__ unsigned int lcg2(unsigned int& prev) {
 }
 
 // Generate random float in [0, 1)
-static __host__ __device__ __inline__ float rnd(unsigned int& prev) {
-    return ((float) lcg(prev) / (float) 0x01000000);
-}
+//static __host__ __device__ __inline__ float rnd(unsigned int& prev) {
+//    return ((float) lcg(prev) / (float) 0x01000000);
+//}
 
 static __host__ __device__ __inline__ unsigned int rot_seed(unsigned int seed, unsigned int frame) {
     return seed ^ frame;

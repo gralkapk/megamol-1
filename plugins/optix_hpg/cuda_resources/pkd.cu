@@ -169,13 +169,13 @@ MM_OPTIX_INTERSECTION_KERNEL(pkd_intersect)() {
             // -------------------------------------------------------
             // compute potential sphere interval, and intersect if necessary
             // -------------------------------------------------------
-            /*const float sphere_t0 = fmaxf(t0, t_slab_nr);
-            const float sphere_t1 = fminf(fminf(t_slab_fr, t1), tmp_hit_t);*/
+            const float sphere_t0 = fmaxf(t0, t_slab_nr);
+            const float sphere_t1 = fminf(fminf(t_slab_fr, t1), tmp_hit_t);
 
-            //if (sphere_t0 < sphere_t1) {
+            if (sphere_t0 < sphere_t1) {
             if (intersectSphere(particle, self.radius, ray, tmp_hit_t))
                     tmp_hit_primID = nodeID;
-            //}
+            }
 
             // -------------------------------------------------------
             // compute near and far side intervals
@@ -353,14 +353,14 @@ MM_OPTIX_INTERSECTION_KERNEL(treelets_intersect)
                 // -------------------------------------------------------
                 // compute potential sphere interval, and intersect if necessary
                 // -------------------------------------------------------
-                /*const float sphere_t0 = fmaxf(t0, t_slab_nr);
+                const float sphere_t0 = fmaxf(t0, t_slab_nr);
                 const float sphere_t1 = fminf(fminf(t_slab_fr, t1), tmp_hit_t);
 
-                if (sphere_t0 < sphere_t1) {*/
+                if (sphere_t0 < sphere_t1) {
                     if (intersectSphere(particle, self.radius, ray, tmp_hit_t)) {
                         tmp_hit_primID = particleID;
                     }
-                //}
+                }
 
                 // -------------------------------------------------------
                 // compute near and far side intervals

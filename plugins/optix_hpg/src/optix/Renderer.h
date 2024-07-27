@@ -44,6 +44,8 @@ public:
     virtual ~Renderer();
 
 protected:
+    void release() override;
+
 private:
     void setup() override;
 
@@ -93,5 +95,7 @@ private:
     MMOptixModule miss_module_;
 
     MMOptixModule miss_occlusion_module_;
+
+    CUdeviceptr accum_buffer_ptr_ = 0;
 };
 } // namespace megamol::optix_hpg

@@ -43,6 +43,12 @@ megamol::optix_hpg::Renderer::~Renderer() {
     this->Release();
 }
 
+void megamol::optix_hpg::Renderer::release() {
+    auto& optix_ctx = get_context();
+    CUDA_CHECK_ERROR(cuMemFreeAsync(accum_buffer_ptr_, optix_ctx->GetExecStream()));
+    AbstractRenderer::release();
+}
+
 
 void megamol::optix_hpg::Renderer::setup() {
     auto const& optix_ctx = get_context();
@@ -173,6 +179,11 @@ void megamol::optix_hpg::Renderer::on_change_viewport(
     sbt_raygen_record_.data.fbSize = viewport;
     sbt_raygen_record_.data.col_surf = fbo->colorBuffer;
     sbt_raygen_record_.data.depth_surf = fbo->depthBuffer;
+    auto const& optix_ctx = get_context();
+    CUDA_CHECK_ERROR(cuMemFreeAsync(accum_buffer_ptr_, optix_ctx->GetExecStream()));
+    CUDA_CHECK_ERROR(
+        cuMemAllocAsync(&accum_buffer_ptr_, sizeof(glm::vec4) * viewport.x * viewport.y, optix_ctx->GetExecStream()));
+    sbt_raygen_record_.data.accumBuffer = (glm::vec4*) accum_buffer_ptr_;
     frame_state.frameIdx = 0;
 }
 

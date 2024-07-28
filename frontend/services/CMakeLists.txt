@@ -133,7 +133,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC SOL_ALL_SAFETIES_ON=1)
 if (MEGAMOL_USE_CUDA)
   find_package(CUDAToolkit)
   target_compile_definitions(${PROJECT_NAME} PUBLIC MM_CUDA_ENABLED)
-  target_link_libraries(${PROJECT_NAME} PRIVATE CUDA::cuda_driver)
+  target_link_libraries(${PROJECT_NAME} PRIVATE CUDA::cuda_driver CUDA::cudart)
 endif ()
 
 if (MPI_C_FOUND)

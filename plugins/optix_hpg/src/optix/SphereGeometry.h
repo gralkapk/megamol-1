@@ -82,13 +82,14 @@ private:
 
     core::CallerSlot _in_data_slot;
 
+#if OPTIX_VERSION >= 80000
     core::param::ParamSlot built_in_intersector_slot_;
+    MMOptixModule sphere_module_bi_;
+#endif
 
     MMOptixModule sphere_module_;
 
     //MMOptixModule sphere_occlusion_module_;
-
-    MMOptixModule sphere_module_bi_;
 
     //MMOptixModule sphere_occlusion_module_bi_;
 

@@ -4,6 +4,8 @@
 
 #include "optix_stubs.h"
 
+#include <cuda_runtime.h>
+
 
 megamol::optix_hpg::Context::Context() {}
 
@@ -14,8 +16,10 @@ megamol::optix_hpg::Context::Context(frontend_resources::CUDA_Context const& ctx
     /////////////////////////////////////
     _ctx = reinterpret_cast<CUcontext>(ctx.ctx_);
     _device = ctx.device_;
-    CUDA_CHECK_ERROR(cuStreamCreate(&_data_stream, CU_STREAM_NON_BLOCKING));
-    CUDA_CHECK_ERROR(cuStreamCreate(&_exec_stream, CU_STREAM_NON_BLOCKING));
+    auto cuda_ret = cudaStreamCreate(&_data_stream);
+    cuda_ret = cudaStreamCreate(&_exec_stream);
+    /*CUDA_CHECK_ERROR(cuStreamCreate(&_data_stream, CU_STREAM_NON_BLOCKING));
+    CUDA_CHECK_ERROR(cuStreamCreate(&_exec_stream, CU_STREAM_NON_BLOCKING));*/
     /////////////////////////////////////
     // end cuda
     /////////////////////////////////////
@@ -55,12 +59,15 @@ megamol::optix_hpg::Context::Context(frontend_resources::CUDA_Context const& ctx
     _pipeline_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING |
                                               OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
     _pipeline_options.usesMotionBlur = false;
+#if OPTIX_VERSION >= 80000
     _pipeline_options.usesPrimitiveTypeFlags =
         OPTIX_PRIMITIVE_TYPE_FLAGS_CUSTOM | OPTIX_PRIMITIVE_TYPE_FLAGS_TRIANGLE | OPTIX_PRIMITIVE_TYPE_FLAGS_SPHERE;
     _pipeline_options.allowOpacityMicromaps = false;
+#endif
 
     _pipeline_link_options = {};
 #if OPTIX_VERSION < 80000
+    _pipeline_link_options.overrideUsesMotionBlur = false;
 #ifdef DEBUG
     _pipeline_link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
 #else

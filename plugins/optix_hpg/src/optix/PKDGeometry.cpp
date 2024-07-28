@@ -1227,9 +1227,13 @@ bool PKDGeometry::assert_data(geocalls::MultiParticleDataCall const& call, Conte
         //////////////////////////////////////
         // geometry
         //////////////////////////////////////
-        
+
         buildInput.type = OPTIX_BUILD_INPUT_TYPE_CUSTOM_PRIMITIVES;
+#if OPTIX_VERSION >= 80000
         auto& cp_input = buildInput.customPrimitiveArray;
+#else
+        auto& cp_input = buildInput.aabbArray;
+#endif
         cp_input.aabbBuffers = &bounds_data[pl_idx];
         if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
             cp_input.numPrimitives = treelets.size();
@@ -1401,7 +1405,11 @@ bool PKDGeometry::assert_data_new(geocalls::MultiParticleDataCall const& call, C
             auto& buildInput = buildInputs.back();
             memset(&buildInput, 0, sizeof(OptixBuildInput));
             buildInput.type = OPTIX_BUILD_INPUT_TYPE_CUSTOM_PRIMITIVES;
+#if OPTIX_VERSION >= 80000
             auto& cp_input = buildInput.customPrimitiveArray;
+#else
+            auto& cp_input = buildInput.aabbArray;
+#endif
             cp_input.aabbBuffers = &bounds_data_[pl_idx];
             cp_input.numPrimitives = 1;
             cp_input.primitiveIndexOffset = 0;
@@ -1461,7 +1469,11 @@ bool PKDGeometry::assert_data_new(geocalls::MultiParticleDataCall const& call, C
             auto& buildInput = buildInputs.back();
             memset(&buildInput, 0, sizeof(OptixBuildInput));
             buildInput.type = OPTIX_BUILD_INPUT_TYPE_CUSTOM_PRIMITIVES;
+#if OPTIX_VERSION >= 80000
             auto& cp_input = buildInput.customPrimitiveArray;
+#else
+            auto& cp_input = buildInput.aabbArray;
+#endif
             cp_input.aabbBuffers = &bounds_data_[pl_idx];
             cp_input.numPrimitives = treelets.size();
             cp_input.primitiveIndexOffset = 0;
@@ -1543,7 +1555,12 @@ bool PKDGeometry::assert_data_new(geocalls::MultiParticleDataCall const& call, C
     auto& instBuildInput = instanceInput.instanceArray;
     instBuildInput.instances = instance_data_;
     instBuildInput.numInstances = 1;
+#if OPTIX_VERSION >= 80000
     instBuildInput.instanceStride = 0;
+#else
+    instBuildInput.aabbs = 0;
+    instBuildInput.numAabbs = 0;
+#endif
 
     OPTIX_CHECK_ERROR(optixAccelComputeMemoryUsage(ctx.GetOptiXContext(), &accelOptions, &instanceInput, 1, &bufferSizes));
 

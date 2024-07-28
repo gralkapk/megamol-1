@@ -11,6 +11,7 @@
 #include <stdexcept>
 
 #include <cuda.h>
+#include <cuda_runtime.h>
 
 #include "mmcore/utility/log/Log.h"
 
@@ -28,6 +29,28 @@ static void log_error(std::string const& text) {
 
 
 bool megamol::frontend::CUDA_Service::init(void* configPtr) {
+    int dcount = 0;
+    auto cuda_ret = cudaGetDeviceCount(&dcount);
+    if (cuda_ret != CUDA_SUCCESS) {
+        log_error("Unable to Cuda devices");
+        return false;
+    }
+
+    ctx_.device_ = 0;
+    cuda_ret = cudaSetDevice(ctx_.device_);
+    if (cuda_ret != CUDA_SUCCESS) {
+        log_error("Unable to set Cuda device");
+        return false;
+    }
+
+    auto ctx_ptr = reinterpret_cast<CUcontext*>(&ctx_.ctx_);
+    auto cu_ret = cuCtxGetCurrent(ctx_ptr);
+    if (cu_ret != CUDA_SUCCESS) {
+        log_error("Unable to create a Cuda context");
+        return false;
+    }
+
+    #if 0
     auto const cu_ret = cuInit(0);
     if (cu_ret != CUDA_SUCCESS) {
         log_error("Unable to initialize Cuda");
@@ -47,6 +70,7 @@ bool megamol::frontend::CUDA_Service::init(void* configPtr) {
         log_error("Unable to create a Cuda context");
         return false;
     }
+    #endif
 
     resourceReferences_ = {{frontend_resources::CUDA_Context_Req_Name, ctx_}};
 

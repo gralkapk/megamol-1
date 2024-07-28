@@ -8,10 +8,10 @@
 #include "mmcore/factories/PluginRegister.h"
 
 #include "CUDAToGL.h"
-#include "optix/MeshGeometry.h"
+//#include "optix/MeshGeometry.h"
 #include "optix/Renderer.h"
 #include "optix/SphereGeometry.h"
-#include "optix/TransitionCalculator.h"
+//#include "optix/TransitionCalculator.h"
 #include "optix/PKDGeometry.h"
 
 #include "CallRender3DCUDA.h"
@@ -33,8 +33,8 @@ public:
         // register modules
         this->module_descriptions.RegisterAutoDescription<megamol::optix_hpg::SphereGeometry>();
         this->module_descriptions.RegisterAutoDescription<megamol::optix_hpg::Renderer>();
-        this->module_descriptions.RegisterAutoDescription<megamol::optix_hpg::MeshGeometry>();
-        this->module_descriptions.RegisterAutoDescription<megamol::optix_hpg::TransitionCalculator>();
+        //this->module_descriptions.RegisterAutoDescription<megamol::optix_hpg::MeshGeometry>();
+        //this->module_descriptions.RegisterAutoDescription<megamol::optix_hpg::TransitionCalculator>();
 #ifdef MEGAMOL_USE_OPENGL
         this->module_descriptions.RegisterAutoDescription<megamol::optix_hpg::CUDAToGL>();
 #endif

@@ -251,6 +251,11 @@ private:
 
     OptixTraversableHandle geo_handle_;
 
+    CUdeviceptr instance_data_ = 0;
+    CUdeviceptr instance_buffer_ = 0;
+
+    OptixTraversableHandle instance_handle_;
+
     MMOptixModule pkd_module_;
 
     //MMOptixModule pkd_occlusion_module_;

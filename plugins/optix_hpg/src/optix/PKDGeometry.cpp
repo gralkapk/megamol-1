@@ -47,6 +47,7 @@
 
 namespace megamol::optix_hpg {
 extern "C" const char embedded_pkd_programs[];
+extern "C" const char embedded_treelets_programs[];
 
 PKDGeometry::PKDGeometry()
         : out_geo_slot_("outGeo", "")
@@ -224,7 +225,7 @@ bool PKDGeometry::get_data_cb(core::Call& c) {
         //program_groups_[1] = pkd_occlusion_module_;
     }
 
-    out_geo->set_handle(&geo_handle_, geo_version);
+    out_geo->set_handle(&instance_handle_, geo_version);
     out_geo->set_program_groups(program_groups_.data(), program_groups_.size(), program_version);
     if (mode_slot_.Param<core::param::EnumParam>()->Value() == static_cast<int>(PKDMode::TREELETS)) {
         out_geo->set_record(treelets_sbt_records_.data(), treelets_sbt_records_.size(),
@@ -274,13 +275,14 @@ bool PKDGeometry::init(Context const& ctx) {
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "pkd_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "pkd_bounds"}});
 
-    treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
+    treelets_module_ = MMOptixModule(embedded_treelets_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelets_intersect"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "treelets_closesthit"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_BOUNDS, "treelets_bounds"}});
 
-    flat_treelets_module_ = MMOptixModule(embedded_pkd_programs, ctx.GetOptiXContext(), &ctx.GetModuleCompileOptions(),
+    flat_treelets_module_ = MMOptixModule(embedded_treelets_programs, ctx.GetOptiXContext(),
+        &ctx.GetModuleCompileOptions(),
         &ctx.GetPipelineCompileOptions(), MMOptixModule::MMOptixProgramGroupKind::MMOPTIX_PROGRAM_GROUP_KIND_HITGROUP,
         {{MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_INTERSECTION, "treelets_intersect_flat"},
             {MMOptixModule::MMOptixNameKind::MMOPTIX_NAME_CLOSESTHIT, "treelets_closesthit"},
@@ -1356,11 +1358,16 @@ bool PKDGeometry::assert_data_new(geocalls::MultiParticleDataCall const& call, C
 
     pkd_sbt_records_.clear();
     pkd_sbt_records_.reserve(pl_count);
+    treelets_sbt_records_.clear();
+    treelets_sbt_records_.reserve(pl_count);
 
     std::vector<OptixBuildInput> buildInputs;
     buildInputs.reserve(pl_count);
 
-    unsigned int geo_flag = OPTIX_GEOMETRY_FLAG_DISABLE_ANYHIT;    
+    /*unsigned int geo_flag = OPTIX_GEOMETRY_FLAG_DISABLE_ANYHIT;
+    unsigned int instance_flag = OPTIX_INSTANCE_FLAG_DISABLE_ANYHIT;*/
+    unsigned int geo_flag = 0;
+    unsigned int instance_flag = 0;
 
     for (unsigned int pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
         auto const& particles = call.AccessParticles(pl_idx);
@@ -1495,7 +1502,7 @@ bool PKDGeometry::assert_data_new(geocalls::MultiParticleDataCall const& call, C
     OptixAccelBuildOptions accelOptions = {};
     accelOptions.buildFlags = OPTIX_BUILD_FLAG_PREFER_FAST_TRACE;
     accelOptions.operation = OPTIX_BUILD_OPERATION_BUILD;
-    accelOptions.motionOptions.numKeys = 0;
+    accelOptions.motionOptions.numKeys = 1;
 
     OptixAccelBufferSizes bufferSizes = {};
     OPTIX_CHECK_ERROR(optixAccelComputeMemoryUsage(
@@ -1516,6 +1523,40 @@ bool PKDGeometry::assert_data_new(geocalls::MultiParticleDataCall const& call, C
             CUDA_CHECK_ERROR(cuMemFreeAsync(b, ctx.GetExecStream()));
         }
     }
+
+
+    OptixInstance instance = {};
+    float transform[12] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
+    memcpy(instance.transform, transform, sizeof(float) * 12);
+    instance.instanceId = 0;
+    instance.visibilityMask = 255;
+    instance.sbtOffset = 0;
+    instance.flags = instance_flag;
+    instance.traversableHandle = geo_handle_;
+
+    CUDA_CHECK_ERROR(cuMemFreeAsync(instance_data_, ctx.GetExecStream()));
+    CUDA_CHECK_ERROR(cuMemAllocAsync(&instance_data_, sizeof(OptixInstance), ctx.GetExecStream()));
+    CUDA_CHECK_ERROR(cuMemcpyHtoDAsync(instance_data_, &instance, sizeof(OptixInstance), ctx.GetExecStream()));
+
+    OptixBuildInput instanceInput;
+    instanceInput.type = OPTIX_BUILD_INPUT_TYPE_INSTANCES;
+    auto& instBuildInput = instanceInput.instanceArray;
+    instBuildInput.instances = instance_data_;
+    instBuildInput.numInstances = 1;
+    instBuildInput.instanceStride = 0;
+
+    OPTIX_CHECK_ERROR(optixAccelComputeMemoryUsage(ctx.GetOptiXContext(), &accelOptions, &instanceInput, 1, &bufferSizes));
+
+    CUdeviceptr instance_temp;
+    CUDA_CHECK_ERROR(cuMemFreeAsync(instance_buffer_, ctx.GetExecStream()));
+    CUDA_CHECK_ERROR(cuMemAllocAsync(&instance_buffer_, bufferSizes.outputSizeInBytes, ctx.GetExecStream()));
+    CUDA_CHECK_ERROR(cuMemAllocAsync(&instance_temp, bufferSizes.tempSizeInBytes, ctx.GetExecStream()));
+
+    OPTIX_CHECK_ERROR(
+        optixAccelBuild(ctx.GetOptiXContext(), ctx.GetExecStream(), &accelOptions, &instanceInput, 1, instance_temp,
+            bufferSizes.tempSizeInBytes, instance_buffer_, bufferSizes.outputSizeInBytes, &instance_handle_, nullptr, 0));
+    CUDA_CHECK_ERROR(cuMemFreeAsync(instance_temp, ctx.GetExecStream()));
+    CUDA_CHECK_ERROR(cuMemFreeAsync(instance_data_, ctx.GetExecStream()));
 
     ++geo_version;
 

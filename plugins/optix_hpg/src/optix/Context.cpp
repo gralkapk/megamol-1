@@ -52,7 +52,8 @@ megamol::optix_hpg::Context::Context(frontend_resources::CUDA_Context const& ctx
     _pipeline_options.numAttributeValues = 4;
     _pipeline_options.numPayloadValues = 2;
     _pipeline_options.pipelineLaunchParamsVariableName = "optixLaunchParams";
-    _pipeline_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
+    _pipeline_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING |
+                                              OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
     _pipeline_options.usesMotionBlur = false;
     _pipeline_options.usesPrimitiveTypeFlags =
         OPTIX_PRIMITIVE_TYPE_FLAGS_CUSTOM | OPTIX_PRIMITIVE_TYPE_FLAGS_TRIANGLE | OPTIX_PRIMITIVE_TYPE_FLAGS_SPHERE;

@@ -111,6 +111,18 @@ if (optix_hpg_PLUGIN_ENABLED)
       ${ptx_include_dirs}
     SOURCES
       cuda_resources/pkd.cu)
+  embed_ptx(
+    OUTPUT_TARGET
+      embedded_treelets_programs
+    PTX_LINK_LIBRARIES
+      glm::glm
+      OptiX::OptiX
+      core
+      datatools
+    PTX_INCLUDE_DIRECTORIES
+      ${ptx_include_dirs}
+    SOURCES
+      cuda_resources/treelets.cu)
 
   target_link_libraries(optix_hpg PRIVATE
     $<TARGET_OBJECTS:embedded_raygen_programs>
@@ -120,7 +132,8 @@ if (optix_hpg_PLUGIN_ENABLED)
     #$<TARGET_OBJECTS:embedded_sphere_occlusion_programs>
     $<TARGET_OBJECTS:embedded_mesh_programs>
     $<TARGET_OBJECTS:embedded_transitioncalculator_programs>
-    $<TARGET_OBJECTS:embedded_pkd_programs>)
+    $<TARGET_OBJECTS:embedded_pkd_programs>
+    $<TARGET_OBJECTS:embedded_treelets_programs>)
 
   target_include_directories(optix_hpg PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/cuda_resources/")
   target_link_libraries(optix_hpg PRIVATE CUDA::cuda_driver OptiX::OptiX)

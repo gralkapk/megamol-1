@@ -125,6 +125,7 @@ MM_OPTIX_RAYGEN_KERNEL(raygen_program)() {
     // printf("RAYGEN1\n");
     const RayGenData& self = getProgramData<RayGenData>();
     auto const index = optixGetLaunchIndex();
+    auto const dim = optixGetLaunchDimensions();
     glm::ivec2 pixelID = glm::ivec2(index.x, index.y);
 
     if (pixelID.x >= self.fbSize.x)
@@ -132,6 +133,7 @@ MM_OPTIX_RAYGEN_KERNEL(raygen_program)() {
     if (pixelID.y >= self.fbSize.y)
         return;
     const int pixelIdx = pixelID.x + self.fbSize.x * pixelID.y;
+    const int pixel_index = pixelID.y * dim.x + pixelID.x;
 
     const FrameState* fs = &self.frameStateBuffer[0];
 
@@ -147,7 +149,7 @@ MM_OPTIX_RAYGEN_KERNEL(raygen_program)() {
 
     //unsigned int seed = tea<16>(pixelID.y * self.fbSize.x + pixelID.x, fs->frameIdx);
 
-    owl::common::LCG<16> rnd_owl(pixelIdx, fs->frameIdx);
+    owl::common::LCG<16> rnd_owl(pixel_index, fs->frameIdx);
 
 
     glm::vec4 col(0.f);
@@ -191,14 +193,15 @@ MM_OPTIX_RAYGEN_KERNEL(raygen_program)() {
         depth = 1.f;
         col = bg;
     }
-    surf2Dwrite(depth, self.depth_surf, pixelID.x * sizeof(float), pixelID.y, cudaBoundaryModeZero);
+    //surf2Dwrite(depth, self.depth_surf, pixelID.x * sizeof(float), pixelID.y, cudaBoundaryModeZero);
 
 
-    if (fs->frameIdx > 0)
+    if (fs->frameIdx > 0 && fs->accumulate)
         col += self.accumBuffer[pixelIdx];
     self.accumBuffer[pixelIdx] = col;
 
-    col /= float(fs->frameIdx + 1);
+    if (fs->accumulate)
+        col /= float(fs->frameIdx + 1);
     surf2Dwrite(make_float4(col.r, col.g, col.b, col.a), self.col_surf, pixelID.x * sizeof(float4), pixelID.y,
         cudaBoundaryModeZero);
     /*surf2Dwrite(make_float4(1, 1, 1, 1), self.col_surf, pixelID.x * sizeof(float4), pixelID.y,

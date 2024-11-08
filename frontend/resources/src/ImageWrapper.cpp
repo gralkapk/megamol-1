@@ -24,18 +24,6 @@ size_t ImageWrapper::channels_count() const {
     return megamol::frontend_resources::channels_count(channels);
 }
 
-template<>
-ImageWrapper megamol::frontend_resources::wrap_image<WrappedImageType::GLTexureHandle>(
-    ImageWrapper::ImageSize size, const void* data, ImageWrapper::DataChannels channels) {
-    return ImageWrapper(size, channels, WrappedImageType::GLTexureHandle, data);
-}
-
-template<>
-ImageWrapper megamol::frontend_resources::wrap_image<WrappedImageType::ByteArray>(
-    ImageWrapper::ImageSize size, const void* data, ImageWrapper::DataChannels channels) {
-    return ImageWrapper(size, channels, WrappedImageType::ByteArray, data);
-}
-
 ImageWrapper megamol::frontend_resources::wrap_image(
     ImageWrapper::ImageSize size, unsigned int gl_texture_handle, ImageWrapper::DataChannels channels) {
     return wrap_image<WrappedImageType::GLTexureHandle>(size, reinterpret_cast<void*>(gl_texture_handle), channels);

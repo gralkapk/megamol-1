@@ -61,16 +61,11 @@ struct ImageWrapper {
     std::string name = "";
 };
 
-template<WrappedImageType>
+template<WrappedImageType E>
 ImageWrapper wrap_image(ImageWrapper::ImageSize size, const void* data = nullptr,
-    ImageWrapper::DataChannels channels = ImageWrapper::DataChannels::RGBA8);
-
-template<>
-ImageWrapper wrap_image<WrappedImageType::GLTexureHandle>(
-    ImageWrapper::ImageSize size, const void* data, ImageWrapper::DataChannels channels);
-template<>
-ImageWrapper wrap_image<WrappedImageType::ByteArray>(
-    ImageWrapper::ImageSize size, const void* data, ImageWrapper::DataChannels channels);
+    ImageWrapper::DataChannels channels = ImageWrapper::DataChannels::RGBA8) {
+    return ImageWrapper(size, channels, E, data);
+}
 
 ImageWrapper wrap_image(
     ImageWrapper::ImageSize size, unsigned int gl_texture_handle, ImageWrapper::DataChannels channels);

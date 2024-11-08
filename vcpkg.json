@@ -207,7 +207,6 @@
     "vulkan": {
       "description": "Use Vulkan",
       "dependencies": [
-        "glad",
         {
           "name": "imgui",
           "features": [

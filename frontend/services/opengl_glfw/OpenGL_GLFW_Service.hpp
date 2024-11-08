@@ -74,7 +74,7 @@ public:
     void digestChangedRequestedResources() override;
     void resetProvidedResources() override;
 
-    void preGraphRender() override; // prepare rendering with API, e.g. set OpenGL context, frame-timers, etc
+    void preGraphRender() override;  // prepare rendering with API, e.g. set OpenGL context, frame-timers, etc
     void postGraphRender() override; // clean up after rendering, e.g. stop and show frame-timers in GLFW window
 
     // expose the resources and input events this service provides: Keyboard inputs, Mouse inputs, GLFW Window events, Framebuffer resize events
@@ -120,6 +120,9 @@ private:
     // abstract away GLFW library details behind pointer-to-implementation. only use GLFW header in .cpp
     struct PimplData;
     std::unique_ptr<PimplData, std::function<void(PimplData*)>> m_pimpl;
+    // API-specific user data
+    struct APIPimplData;
+    std::unique_ptr<APIPimplData, std::function<void(APIPimplData*)>> m_APIpimpl;
 
     // GLFW fills those events and we propagate them to the View3D/the MegaMol graph
     KeyboardEvents m_keyboardEvents;

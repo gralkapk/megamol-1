@@ -45,8 +45,10 @@
 #endif
 
 #ifdef MEGAMOL_USE_VULKAN
-#include <glad/vulkan.h>
+// clang-format off
+#include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
+// clang-format on
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
@@ -135,11 +137,15 @@ void megamol::frontend_resources::WindowManipulation::set_window_position(
 }
 
 void megamol::frontend_resources::WindowManipulation::set_swap_interval(const unsigned int wait_frames) const {
+#ifdef MEGAMOL_USE_OPENGL
     glfwSwapInterval(wait_frames);
+#endif
 }
 
 void megamol::frontend_resources::WindowManipulation::swap_buffers() const {
+#ifdef MEGAMOL_USE_OPENGL
     glfwSwapBuffers(reinterpret_cast<GLFWwindow*>(window_ptr));
+#endif
 #ifdef MEGAMOL_USE_TRACY
     TracyGpuCollect;
     FrameMark;
@@ -170,6 +176,21 @@ struct OpenGL_GLFW_Service::PimplData {
     std::array<GLFWcursor*, 9> mouse_cursors{};
 };
 
+struct OpenGL_GLFW_Service::APIPimplData {
+#ifdef MEGAMOL_USE_VULKAN
+    vkb::Instance vkb_inst;
+    VkSurfaceKHR vkb_surface;
+    vkb::Device vkb_device;
+    vkb::Swapchain vkb_swapchain;
+    ~APIPimplData() {
+        vkb::destroy_swapchain(vkb_swapchain);
+        vkb::destroy_device(vkb_device);
+        vkb::destroy_surface(vkb_inst, vkb_surface);
+        vkb::destroy_instance(vkb_inst);
+    }
+#endif
+};
+
 OpenGL_GLFW_Service::OpenGL_GLFW_Service() = default;
 
 OpenGL_GLFW_Service::~OpenGL_GLFW_Service() = default;
@@ -189,6 +210,13 @@ bool OpenGL_GLFW_Service::init(const Config& config) {
         return false;
     }
     m_pimpl->config = config;
+
+    m_APIpimpl = std::unique_ptr<APIPimplData, std::function<void(APIPimplData*)>>(
+        new APIPimplData, [](APIPimplData* ptr) { delete ptr; });
+    if (!m_APIpimpl) {
+        log_error("could not allocate API-specific private data");
+        return false;
+    }
 
     glfwSetErrorCallback(glfw_error_callback);
 
@@ -313,12 +341,13 @@ bool OpenGL_GLFW_Service::init(const Config& config) {
     }
     log("Create window with size w: " + std::to_string(initial_width) + " h: " + std::to_string(initial_height));
 
+    glfwSetWindowUserPointer(window_ptr, m_APIpimpl.get());
 
+#ifdef MEGAMOL_USE_OPENGL
     // we publish a fake GL context to have a resource others can ask for
     // however, we set the actual GL context active for the main thread and leave it active until further design requirements arise
     ::glfwMakeContextCurrent(window_ptr);
 
-#ifdef MEGAMOL_USE_OPENGL
     load_opengl_functions(m_opengl_context.major_, m_opengl_context.minor_);
     m_opengl_context.ext_ = get_extensions(m_opengl_context.major_);
 
@@ -331,7 +360,13 @@ bool OpenGL_GLFW_Service::init(const Config& config) {
     }
 #endif
 #ifdef MEGAMOL_USE_VULKAN
-    init_vulkan(window_ptr);
+    if (!init_vulkan(window_ptr, m_APIpimpl->vkb_inst, m_APIpimpl->vkb_surface, m_APIpimpl->vkb_device)) {
+        log_error("Failed to initialize Vulkan");
+        return false;
+    }
+    if (!create_swapchain(m_APIpimpl->vkb_device, m_APIpimpl->vkb_swapchain, initial_width, initial_height)) {
+        return false;
+    }
 #endif
 
     if (config.windowPlacement.noCursor) {

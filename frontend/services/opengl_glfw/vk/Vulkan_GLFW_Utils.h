@@ -6,28 +6,62 @@
 
 #include <GLFW/glfw3.h>
 
+#include "mmcore/utility/log/Log.h"
+
 namespace megamol::frontend {
 // https://github.com/charles-lunarg/vk-bootstrap
-inline bool init_vulkan(GLFWwindow* window) {
+inline bool init_vulkan(GLFWwindow* window, vkb::Instance& vkb_inst, VkSurfaceKHR& vkb_surface, vkb::Device& vkb_device) {
     vkb::InstanceBuilder builder;
-    auto inst_ret = builder.set_app_name("MegaMol").request_validation_layers().use_default_debug_messenger().build();
+    auto inst_ret =
+        builder
+            .set_app_name("MegaMol")
+#ifdef DEBUG
+            .request_validation_layers()
+#endif
+            .set_debug_callback(
+                [](VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
+                    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) -> VkBool32 {
+                    auto severity = vkb::to_string_message_severity(messageSeverity);
+                    auto type = vkb::to_string_message_type(messageType);
+                    switch (messageSeverity) {
+                    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+                        core::utility::log::Log::DefaultLog.WriteInfo("Vulkan: [%s] %s", type, pCallbackData->pMessage);
+                        break;
+                    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+                        core::utility::log::Log::DefaultLog.WriteWarn("Vulkan: [%s] %s", type, pCallbackData->pMessage);
+                        break;
+                    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+                        core::utility::log::Log::DefaultLog.WriteWarn(
+                            "Vulkan: [%s: VERBOSE] %s", type, pCallbackData->pMessage);
+                        break;
+                    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+                    default:
+                        core::utility::log::Log::DefaultLog.WriteError(
+                            "Vulkan: [%s] %s", type, pCallbackData->pMessage);
+                    };
+                    return VK_FALSE;
+                })
+            .build();
 
     if (!inst_ret) {
-        std::cerr << "Failed to create Vulkan instance. Error: " << inst_ret.error().message() << "\n";
+        core::utility::log::Log::DefaultLog.WriteError(
+            "Failed to create Vulkan instance. Error: %s", inst_ret.error().message());
         return false;
     }
-    vkb::Instance vkb_inst = inst_ret.value();
+    vkb_inst = inst_ret.value();
 
-    VkSurfaceKHR surface;
-    glfwCreateWindowSurface(vkb_inst, window, nullptr, &surface);
+    glfwCreateWindowSurface(vkb_inst, window, nullptr, &vkb_surface);
 
     vkb::PhysicalDeviceSelector selector{vkb_inst};
-    auto phys_ret = selector.set_surface(surface)
+    auto phys_ret = selector.set_surface(vkb_surface)
                         .set_minimum_version(1, 1) // require a vulkan 1.1 capable device
-                        .require_dedicated_transfer_queue()
+                        .add_required_extension("VK_KHR_swapchain")
                         .select();
     if (!phys_ret) {
-        std::cerr << "Failed to select Vulkan Physical Device. Error: " << phys_ret.error().message() << "\n";
+        core::utility::log::Log::DefaultLog.WriteError(
+            "Failed to select Vulkan Physical Device. Error: %s", phys_ret.error().message());
+        vkb::destroy_surface(vkb_inst, vkb_surface);
+        vkb::destroy_instance(vkb_inst);
         return false;
     }
 
@@ -35,22 +69,29 @@ inline bool init_vulkan(GLFWwindow* window) {
     // automatically propagate needed data from instance & physical device
     auto dev_ret = device_builder.build();
     if (!dev_ret) {
-        std::cerr << "Failed to create Vulkan device. Error: " << dev_ret.error().message() << "\n";
+        core::utility::log::Log::DefaultLog.WriteError(
+            "Failed to create Vulkan device. Error: %s", dev_ret.error().message());
+        vkb::destroy_surface(vkb_inst, vkb_surface);
+        vkb::destroy_instance(vkb_inst);
         return false;
     }
-    vkb::Device vkb_device = dev_ret.value();
+    vkb_device = dev_ret.value();
 
-    // Get the VkDevice handle used in the rest of a vulkan application
-    VkDevice device = vkb_device.device;
+    return true;
+}
 
-    // Get the graphics queue with a helper function
-    auto graphics_queue_ret = vkb_device.get_queue(vkb::QueueType::graphics);
-    if (!graphics_queue_ret) {
-        std::cerr << "Failed to get graphics queue. Error: " << graphics_queue_ret.error().message() << "\n";
+bool create_swapchain(vkb::Device const& device, vkb::Swapchain& swapchain, int const width, int const height) {
+    vkb::SwapchainBuilder swapchain_builder{device};
+    auto swap_ret =
+        swapchain_builder.set_desired_extent(width, height)
+            .set_desired_format(vk::SurfaceFormatKHR(vk::Format::eR8G8B8A8Srgb, vk::ColorSpaceKHR::eSrgbNonlinear))
+            .build();
+    if (!swap_ret) {
+        core::utility::log::Log::DefaultLog.WriteError(
+            "Failed to create swapchain. Error: %s", swap_ret.error().message());
         return false;
     }
-    VkQueue graphics_queue = graphics_queue_ret.value();
-
+    swapchain = swap_ret.value();
     return true;
 }
 } // namespace megamol::frontend

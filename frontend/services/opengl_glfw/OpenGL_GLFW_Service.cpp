@@ -44,6 +44,15 @@
 #include "gl/OpenGL_GLFW_Utils.h"
 #endif
 
+#ifdef MEGAMOL_USE_VULKAN
+#include <glad/vulkan.h>
+#include <GLFW/glfw3.h>
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+
+#include "vk/Vulkan_GLFW_Utils.h"
+#endif
+
 static const std::string service_name = "OpenGL_GLFW_Service: ";
 static void log(std::string const& text) {
     const std::string msg = service_name + text;
@@ -289,6 +298,9 @@ bool OpenGL_GLFW_Service::init(const Config& config) {
     request_opengl(m_pimpl->config.versionMajor, m_pimpl->config.versionMinor, m_pimpl->config.enableKHRDebug,
         m_pimpl->config.glContextCoreProfile);
 #endif
+#ifdef MEGAMOL_USE_VULKAN
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+#endif
 
     auto& window_ptr = m_pimpl->glfwContextWindowPtr;
     window_ptr =
@@ -317,6 +329,9 @@ bool OpenGL_GLFW_Service::init(const Config& config) {
     if (m_pimpl->config.enableKHRDebug) {
         setup_khr_debug();
     }
+#endif
+#ifdef MEGAMOL_USE_VULKAN
+    init_vulkan(window_ptr);
 #endif
 
     if (config.windowPlacement.noCursor) {

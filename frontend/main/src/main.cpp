@@ -208,9 +208,9 @@ int main(const int argc, const char** argv) {
     // clang-format on
     bool run_megamol = true;
     megamol::frontend::FrontendServiceCollection services;
-    if (with_gl) {
+    /*if (with_gl) {*/
         services.add(gl_service, &openglConfig);
-    }
+    //}
     services.add(gui_service, &guiConfig);
     services.add(lua_service_wrapper, &luaConfig);
     services.add(screenshot_service, &screenshotConfig);

@@ -145,6 +145,13 @@ if (MEGAMOL_USE_VR_INTEROP)
   target_link_libraries(${PROJECT_NAME} PUBLIC mwk-mint-interop::mwk-mint-interop)
 endif ()
 
+if (MEGAMOL_USE_VULKAN)
+  find_package(glfw3 CONFIG REQUIRED)
+  find_package(glad REQUIRED)
+  find_package(vk-bootstrap REQUIRED)
+  target_link_libraries(${PROJECT_NAME} PRIVATE glfw vk-bootstrap::vk-bootstrap PUBLIC glad::glad)
+endif()
+
 # Boost.Stacktrace
 if (MEGAMOL_USE_STACKTRACE)
   set(Boost_NO_WARN_NEW_VERSIONS 1)

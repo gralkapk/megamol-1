@@ -203,6 +203,20 @@
       "dependencies": [
         "vtk-m"
       ]
+    },
+    "vulkan": {
+      "description": "Use Vulkan",
+      "dependencies": [
+        "glad",
+        {
+          "name": "imgui",
+          "features": [
+            "vulkan-binding"
+          ]
+        },
+        "megamol-shader-factory",
+        "vk-bootstrap"
+      ]
     }
   }
 }

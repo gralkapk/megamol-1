@@ -1,6 +1,7 @@
 #include "BaseRenderer.h"
 
 #include "mmcore/param/BoolParam.h"
+#include "mmcore/param/ColorParam.h"
 #include "mmcore/param/FloatParam.h"
 #include "mmcore/param/IntParam.h"
 #include "mmcore/param/FilePathParam.h"
@@ -25,6 +26,8 @@ BaseRenderer::BaseRenderer()
         , radius_slot_("radius", "")
         , rec_depth_slot_("rec_depth", "")
         , spp_slot_("spp", "")
+        , intensity_slot_("intensity", "")
+        , background_slot_("background", "")
         , accumulate_slot_("accumulate", "")
         , dump_debug_info_slot_("debug::dump", "")
         , debug_rdf_slot_("debug::rdf", "")
@@ -40,6 +43,12 @@ BaseRenderer::BaseRenderer()
 
     spp_slot_ << new core::param::IntParam(1, 1);
     MakeSlotAvailable(&spp_slot_);
+
+    intensity_slot_ << new core::param::FloatParam(1.0f, std::numeric_limits<float>::min());
+    MakeSlotAvailable(&intensity_slot_);
+
+    background_slot_ << new core::param::ColorParam(0.8f, 0.8f, 0.8f, 1.0f);
+    MakeSlotAvailable(&background_slot_);
 
     accumulate_slot_ << new core::param::BoolParam(true);
     MakeSlotAvailable(&accumulate_slot_);
@@ -72,7 +81,10 @@ bool BaseRenderer::create() {
         {"frameStateBuffer", OWL_BUFPTR, OWL_OFFSETOF(device::RayGenData, frameStateBuffer)},
         {"fbSize", OWL_INT2, OWL_OFFSETOF(device::RayGenData, fbSize)},
         {"world", OWL_GROUP, OWL_OFFSETOF(device::RayGenData, world)},
-        {"rec_depth", OWL_INT, OWL_OFFSETOF(device::RayGenData, rec_depth)}, {/* sentinel to mark end of list */}};
+        {"rec_depth", OWL_INT, OWL_OFFSETOF(device::RayGenData, rec_depth)},
+        {"intensity", OWL_FLOAT, OWL_OFFSETOF(device::RayGenData, intensity)},
+        {"background", OWL_FLOAT3, OWL_OFFSETOF(device::RayGenData, background)},
+        {/* sentinel to mark end of list */}};
 
     raygen_ = owlRayGenCreate(ctx_, raygen_module_, "raygen", sizeof(device::RayGenData), rayGenVars, -1);
 
@@ -81,6 +93,9 @@ bool BaseRenderer::create() {
     miss_ = owlMissProgCreate(ctx_, raygen_module_, "miss", 0, missProgVars, -1);
 
     owlRayGenSet1i(raygen_, "rec_depth", rec_depth_slot_.Param<core::param::IntParam>()->Value());
+    owlRayGenSet1f(raygen_, "intensity", intensity_slot_.Param<core::param::FloatParam>()->Value());
+    auto const color = background_slot_.Param<core::param::ColorParam>()->Value();
+    owlRayGenSet3f(raygen_, "background", color[0], color[1], color[2]);
     owlRayGenSetBuffer(raygen_, "frameStateBuffer", frameStateBuffer_);
 
     resizeFramebuffer(owl::common::vec2i(1920, 1080));
@@ -191,6 +206,29 @@ bool BaseRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         owlBuildSBT(ctx_);
 
         rec_depth_slot_.ResetDirty();
+    }
+
+    if (intensity_slot_.IsDirty()) {
+        owlRayGenSet1f(raygen_, "intensity", intensity_slot_.Param<core::param::FloatParam>()->Value());
+        framestate_.accumID = 0;
+
+        owlBuildPrograms(ctx_);
+        owlBuildPipeline(ctx_);
+        owlBuildSBT(ctx_);
+
+        intensity_slot_.ResetDirty();
+    }
+
+    if (background_slot_.IsDirty()) {
+        auto const color = background_slot_.Param<core::param::ColorParam>()->Value();
+        owlRayGenSet3f(raygen_, "background", color[0], color[1], color[2]);
+        framestate_.accumID = 0;
+
+        owlBuildPrograms(ctx_);
+        owlBuildPipeline(ctx_);
+        owlBuildSBT(ctx_);
+
+        background_slot_.ResetDirty();
     }
 
     framestate_.samplesPerPixel = spp_slot_.Param<core::param::IntParam>()->Value();

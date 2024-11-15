@@ -49,6 +49,8 @@ protected:
     core::param::ParamSlot radius_slot_;
     core::param::ParamSlot rec_depth_slot_;
     core::param::ParamSlot spp_slot_;
+    core::param::ParamSlot intensity_slot_;
+    core::param::ParamSlot background_slot_;
     core::param::ParamSlot accumulate_slot_;
     core::param::ParamSlot dump_debug_info_slot_;
     core::param::ParamSlot debug_rdf_slot_;

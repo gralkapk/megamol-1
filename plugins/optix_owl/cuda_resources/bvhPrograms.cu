@@ -34,6 +34,7 @@ OPTIX_CLOSEST_HIT_PROGRAM(bvh_ch)() {
     prd.particleID = primID;
     prd.t = optixGetRayTmax();
     prd.pos = self.particleBuffer[primID].pos;
+    prd.color = self.colorBuffer[primID];
 }
 
 OPTIX_BOUNDS_PROGRAM(bvh_bounds)(const void* geomData, box3f& primBounds, const int primID) {

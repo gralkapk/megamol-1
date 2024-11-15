@@ -64,7 +64,7 @@ inline __device__ vec3f traceRay(const RayGenData& self, owl::Ray& ray, Random& 
     const bool lastFieldOfParticleIsScalarValue = false;
 
     vec3f attenuation = 1.f;
-    vec3f ambientLight(.8f);
+    vec3f ambientLight = self.background;
 
     /* iterative version of recursion, up to depth 50 */
     for (int depth = 0; true; depth++) {
@@ -87,22 +87,23 @@ inline __device__ vec3f traceRay(const RayGenData& self, owl::Ray& ray, Random& 
         N = normalize(N);
 
         // hardcoded albedo for now:
-#if COLOR_CODING
-        const vec3f albedo = randomColor(prd.treeletID);
-#else
-        //const vec3f albedo
-        //  = //prd.primID == 0 ? vec3f(.1,.6,.3) :
-        //  (lastFieldOfParticleIsScalarValue)
-        //  ? transferFunction(.1f*sqrtf(particle.fieldValue))
-        //  : randomColor(1+particle.matID);
-        const vec3f albedo = randomColor(0);
-#endif
+//#if COLOR_CODING
+//        const vec3f albedo = randomColor(prd.treeletID);
+//#else
+//        //const vec3f albedo
+//        //  = //prd.primID == 0 ? vec3f(.1,.6,.3) :
+//        //  (lastFieldOfParticleIsScalarValue)
+//        //  ? transferFunction(.1f*sqrtf(particle.fieldValue))
+//        //  : randomColor(1+particle.matID);
+//        const vec3f albedo = randomColor(0);
+//#endif
+        const vec3f albedo = prd.color;
         // hard-coded for the 'no path tracing' case:
         if (self.rec_depth == 0)
             return albedo * (.2f + .6f * fabsf(dot(N, (vec3f) ray.direction)));
 
 
-        attenuation *= albedo;
+        attenuation *= albedo * vec3f(self.intensity);
 
         if (depth >= self.rec_depth) {
             // ambient term:

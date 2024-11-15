@@ -9,6 +9,7 @@ struct PerRayData {
     int particleID;
     float t;
     owl::vec3f pos;
+    owl::vec3f color;
 };
 } // namespace device
 } // namespace optix_owl

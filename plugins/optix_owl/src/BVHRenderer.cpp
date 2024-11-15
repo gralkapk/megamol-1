@@ -35,6 +35,7 @@ bool BVHRenderer::create() {
     pkd_module_ = owlModuleCreate(ctx_, reinterpret_cast<const char*>(bvhPrograms_ptx));
 
     OWLVarDecl allPKDVars[] = {{"particleBuffer", OWL_BUFPTR, OWL_OFFSETOF(device::BVHGeomData, particleBuffer)},
+        {"colorBuffer", OWL_BUFPTR, OWL_OFFSETOF(device::BVHGeomData, colorBuffer)},
         {"particleRadius", OWL_FLOAT, OWL_OFFSETOF(device::BVHGeomData, particleRadius)},
         {/* sentinel to mark end of list */}};
 
@@ -58,6 +59,7 @@ bool BVHRenderer::assertData(geocalls::MultiParticleDataCall const& call) {
     auto const pl_count = call.GetParticleListCount();
 
     std::vector<device::Particle> particles_;
+    std::vector<vec3f> color_;
     owl::common::box3f total_bounds;
     auto const global_radius = radius_slot_.Param<core::param::FloatParam>()->Value();
 
@@ -73,10 +75,15 @@ bool BVHRenderer::assertData(geocalls::MultiParticleDataCall const& call) {
         particles_.reserve(particles_.size() + p_count);
 
         std::vector<device::Particle> data(p_count);
+        std::vector<vec3f> color(p_count);
 
         auto x_acc = particles.GetParticleStore().GetXAcc();
         auto y_acc = particles.GetParticleStore().GetYAcc();
         auto z_acc = particles.GetParticleStore().GetZAcc();
+
+        auto cr_acc = particles.GetParticleStore().GetCRAcc();
+        auto cb_acc = particles.GetParticleStore().GetCBAcc();
+        auto cg_acc = particles.GetParticleStore().GetCGAcc();
 
         owl::common::box3f bounds;
 
@@ -84,9 +91,11 @@ bool BVHRenderer::assertData(geocalls::MultiParticleDataCall const& call) {
             data[i].pos = owl::common::vec3f(x_acc->Get_f(i), y_acc->Get_f(i), z_acc->Get_f(i));
             bounds.extend(
                 owl::common::box3f().including(data[i].pos - global_radius).including(data[i].pos + global_radius));
+            color[i] = vec3f(cr_acc->Get_f(i), cg_acc->Get_f(i), cb_acc->Get_f(i));
         }
 
         particles_.insert(particles_.end(), data.begin(), data.end());
+        color_.insert(color_.end(), color.begin(), color.end());
         total_bounds.extend(bounds);
     }
 
@@ -95,11 +104,16 @@ bool BVHRenderer::assertData(geocalls::MultiParticleDataCall const& call) {
     particleBuffer_ =
         owlDeviceBufferCreate(ctx_, OWL_USER_TYPE(device::Particle), particles_.size(), particles_.data());
 
+    if (colorBuffer_)
+        owlBufferDestroy(colorBuffer_);
+    colorBuffer_ = owlDeviceBufferCreate(ctx_, OWL_USER_TYPE(vec3f), color_.size(), color_.data());
+
     core::utility::log::Log::DefaultLog.WriteInfo("[BVHRenderer] Rendering %d particles", particles_.size());
 
     owlGeomSetPrimCount(geom_, particles_.size());
 
     owlGeomSetBuffer(geom_, "particleBuffer", particleBuffer_);
+    owlGeomSetBuffer(geom_, "colorBuffer", colorBuffer_);
     owlGeomSet1f(geom_, "particleRadius", global_radius);
 
     owlBuildPrograms(ctx_);

@@ -16,6 +16,8 @@ struct RayGenData {
     uint32_t* colorBufferPtr;
     float4* accumBufferPtr;
     FrameState* frameStateBuffer;
+    float intensity;
+    vec3f background;
 };
 } // namespace device
 } // namespace optix_owl

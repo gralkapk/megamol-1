@@ -62,5 +62,7 @@ private:
 
     OWLModule pkd_module_;
     OWLGeom geom_;
+
+    OWLBuffer colorBuffer_ = 0;
 };
 } // namespace megamol::optix_owl
